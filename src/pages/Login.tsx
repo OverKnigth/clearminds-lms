@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../components/Footer';
+import krakedevLogo from '../assets/krakedev_logo.png';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -13,11 +14,18 @@ export default function Login() {
     setError('');
 
     // Credenciales de administrador
-    if (email === 'admin@clearminds.com' && password === 'admin123') {
-      // Simular login de admin
+    if (email === 'admin@krakedev.com' && password === 'admin123') {
       localStorage.setItem('userRole', 'admin');
       localStorage.setItem('userName', 'Admin');
       navigate('/admin');
+      return;
+    }
+
+    // Credenciales de tutor
+    if (email === 'tutor@krakedev.com' && password === 'tutor123') {
+      localStorage.setItem('userRole', 'tutor');
+      localStorage.setItem('userName', 'Carlos Mendoza');
+      navigate('/tutor');
       return;
     }
 
@@ -59,15 +67,15 @@ export default function Login() {
 
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-500/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-red-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
 
         <div className="relative z-10 w-full max-w-md">
           <div className="text-center mb-10">
             <img 
-              src="/clearminds_logo.png" 
-              alt="Clear Minds" 
+              src={krakedevLogo} 
+              alt="KrakeDev" 
               className="h-32 mx-auto mb-8"
             />
             <p className="text-slate-400 text-sm uppercase tracking-wider">Plataforma de Aprendizaje</p>
@@ -96,27 +104,36 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   placeholder="tu@email.com"
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Contraseña
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-slate-300">
+                    Contraseña
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/forgot-password')}
+                    className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-cyan-500/50"
+                className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-500/50"
               >
                 Iniciar Sesión
               </button>
@@ -162,7 +179,8 @@ export default function Login() {
                 <span className="font-semibold text-slate-300">Acceso de Prueba:</span>
               </p>
               <div className="space-y-1 text-xs text-slate-500">
-                <p>Admin: admin@clearminds.com / admin123</p>
+                <p>Admin: admin@krakedev.com / admin123</p>
+                <p>Tutor: tutor@krakedev.com / tutor123</p>
                 <p>Estudiante: cualquier email válido</p>
               </div>
             </div>

@@ -3,7 +3,10 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
-  role: 'student' | 'admin';
+  role: 'student' | 'admin' | 'tutor';
+  status: 'active' | 'inactive';
+  generation?: string;
+  enrollmentDate?: string;
 }
 
 export interface Course {
@@ -14,12 +17,18 @@ export interface Course {
   progress: number;
   category: string;
   modules: Module[];
+  blocks: AcademicBlock[];
+  tutors?: string[];
+  status: 'active' | 'inactive';
+  minimumPassingGrade: number;
 }
 
 export interface Module {
   id: string;
   title: string;
+  description: string;
   order: number;
+  blockId: string;
   videos: Video[];
 }
 
@@ -33,16 +42,29 @@ export interface Video {
   completed: boolean;
   locked: boolean;
   pdfUrl?: string;
-  type: 'video' | 'challenge'; // Nuevo: tipo de contenido
-  challengeData?: Challenge; // Nuevo: datos del reto si es tipo challenge
+  type: 'video' | 'challenge' | 'document';
+  challengeData?: Challenge;
+  documentData?: Document;
+  dueDate?: string;
+}
+
+export interface Document {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  type: 'pdf' | 'link' | 'text';
+  downloadable: boolean;
 }
 
 export interface Challenge {
   id: string;
   instructions: string;
+  criteria?: string;
   requiresEvidence: boolean;
   requiresGithubLink: boolean;
   requiresTutorReview: boolean;
+  dueDate?: string;
   submission?: ChallengeSubmission;
 }
 
@@ -52,25 +74,97 @@ export interface ChallengeSubmission {
   evidenceUrls: string[];
   githubLink?: string;
   notes?: string;
-  status: 'pending' | 'scheduled' | 'reviewed' | 'approved' | 'needs_correction';
+  status: 'pending' | 'submitted' | 'late' | 'reviewed' | 'approved' | 'needs_correction';
   tutorMeeting?: TutorMeeting;
   grade?: number;
   feedback?: string;
+  submittedOnTime: boolean;
 }
 
-export interface TutorMeeting {
+export interface AcademicBlock {
   id: string;
-  scheduledDate: string;
-  scheduledTime: string;
-  status: 'scheduled' | 'completed' | 'cancelled';
-  meetingLink?: string;
+  name: string;
+  order: number;
+  moduleIds: string[];
+  expectedProgress: number;
+  requiresTutoring: boolean;
+  minimumPassingGrade: number;
+  badge?: Badge;
+  status: 'locked' | 'in_progress' | 'ready_for_tutoring' | 'tutoring_requested' | 'tutoring_confirmed' | 'tutoring_completed' | 'failed' | 'approved';
+}
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  image: string;
+  blockId: string;
+  status: 'locked' | 'available' | 'earned';
+  earnedDate?: string;
 }
 
 export interface Tutoring {
   id: string;
+  studentId: string;
+  studentName: string;
+  tutorId?: string;
+  tutorName?: string;
+  courseId: string;
+  courseName: string;
+  blockId: string;
+  blockName: string;
+  requestDate: string;
+  scheduledDate?: string;
+  scheduledTime?: string;
+  completedDate?: string;
+  status: 'pending' | 'confirmed' | 'rescheduled' | 'completed' | 'cancelled';
+  meetingLink?: string;
+  recordingLink?: string;
+  grade?: number;
+  feedback?: string;
+  observations?: string;
+  approved?: boolean;
+  attemptNumber: number;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: 'tutoring' | 'grade' | 'deadline' | 'badge' | 'course' | 'system';
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  actionUrl?: string;
+}
+
+export interface StudentProgress {
+  studentId: string;
+  courseId: string;
+  overallProgress: number;
+  videosCompleted: number;
+  totalVideos: number;
+  challengesSubmitted: number;
+  totalChallenges: number;
+  currentBlock: string;
+  blocksCompleted: number;
+  totalBlocks: number;
+  finalGrade?: number;
+  badges: Badge[];
+}
+
+export interface DailyProgressReport {
+  id: string;
   date: string;
-  time: string;
-  notes: string;
-  tutorName: string;
-  status: 'pending' | 'confirmed' | 'completed';
+  studentId: string;
+  studentName: string;
+  courseId: string;
+  courseName: string;
+  generation: string;
+  lastVideoReached: string;
+  overallProgress: number;
+  challengesSubmitted: number;
+  tutoringStatus: string;
+  currentBlock: string;
+  observations?: string;
 }

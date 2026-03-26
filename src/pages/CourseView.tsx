@@ -40,7 +40,7 @@ export default function CourseView() {
           <div className="flex items-center gap-2 mb-6">
             <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-cyan-400 to-blue-500"
+                className="h-full bg-gradient-to-r from-red-600 to-red-700"
                 style={{ width: `${course.progress}%` }}
               />
             </div>
@@ -61,7 +61,7 @@ export default function CourseView() {
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-cyan-400">MODULE {module.order}</span>
+                  <span className="text-xs font-semibold text-red-400">MODULE {module.order}</span>
                   <span className="text-xs text-slate-500">{module.videos.length} videos</span>
                 </div>
                 <p className="font-medium">{module.title}</p>
@@ -85,7 +85,7 @@ export default function CourseView() {
                           ? 'bg-green-500'
                           : video.locked
                           ? 'bg-slate-600'
-                          : 'bg-slate-700 border-2 border-cyan-400'
+                          : 'bg-slate-700 border-2 border-red-400'
                       }`}>
                         {video.completed ? (
                           <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -116,7 +116,7 @@ export default function CourseView() {
           {currentModule ? (
             <div>
               <div className="mb-8">
-                <span className="inline-block px-3 py-1 text-xs font-semibold bg-cyan-500/20 text-cyan-400 rounded-full mb-4">
+                <span className="inline-block px-3 py-1 text-xs font-semibold bg-red-500/20 text-red-400 rounded-full mb-4">
                   {course.category}
                 </span>
                 <h1 className="text-3xl font-bold text-white mb-4">{currentModule.title}</h1>
@@ -132,12 +132,12 @@ export default function CourseView() {
                     onClick={() => handleVideoClick(video.id, video.locked)}
                     disabled={video.locked}
                     className={`text-left bg-slate-800 rounded-xl overflow-hidden border border-slate-700 transition-all hover:scale-105 hover:shadow-xl ${
-                      video.locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-cyan-500/50'
+                      video.locked ? 'opacity-50 cursor-not-allowed' : 'hover:border-red-500/50'
                     }`}
                   >
                     <div className="aspect-video bg-slate-700 flex items-center justify-center relative">
                       <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                        video.completed ? 'bg-green-500' : video.locked ? 'bg-slate-600' : 'bg-cyan-500'
+                        video.completed ? 'bg-green-500' : video.locked ? 'bg-slate-600' : 'bg-red-600'
                       }`}>
                         {video.completed ? (
                           <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

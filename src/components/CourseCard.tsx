@@ -10,7 +10,7 @@ export default function CourseCard({ course }: CourseCardProps) {
   
   return (
     <Link to={`/course/${course.id}`} className="group">
-      <div className="relative overflow-hidden rounded-xl bg-slate-800 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/20">
+      <div className="relative overflow-hidden rounded-xl bg-slate-800 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-red-500/20">
         <div className="aspect-video overflow-hidden">
           <img 
             src={course.image} 
@@ -21,7 +21,7 @@ export default function CourseCard({ course }: CourseCardProps) {
         </div>
         
         <div className="absolute top-3 left-3">
-          <span className="px-3 py-1 text-xs font-semibold bg-cyan-500/90 text-white rounded-full backdrop-blur-sm">
+          <span className="px-3 py-1 text-xs font-semibold bg-red-500/90 text-white rounded-full backdrop-blur-sm">
             {course.category}
           </span>
         </div>
@@ -51,7 +51,7 @@ export default function CourseCard({ course }: CourseCardProps) {
                 className={`h-full rounded-full transition-all duration-500 ${
                   isCompleted 
                     ? 'bg-gradient-to-r from-green-400 to-green-500' 
-                    : 'bg-gradient-to-r from-cyan-400 to-blue-500'
+                    : 'bg-gradient-to-r from-red-600 to-red-700'
                 }`}
                 style={{ width: `${course.progress}%` }}
               />

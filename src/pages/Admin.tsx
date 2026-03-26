@@ -270,8 +270,21 @@ export default function Admin() {
     <div className="min-h-screen bg-slate-900 pt-16">
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Panel de Administración</h1>
-          <p className="text-slate-400">Gestiona estudiantes, cursos y seguimiento de progreso</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">Panel de Administración</h1>
+              <p className="text-slate-400">Gestiona estudiantes, cursos y seguimiento de progreso</p>
+            </div>
+            <button
+              onClick={() => window.location.href = '/admin/reports'}
+              className="px-6 py-3 bg-purple-500 hover:bg-purple-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              Ver Reportes
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -287,7 +300,7 @@ export default function Admin() {
               onClick={() => setActiveTab(tab.id as Tab)}
               className={`px-6 py-3 font-medium transition-all flex items-center gap-2 ${
                 activeTab === tab.id
-                  ? 'text-cyan-400 border-b-2 border-cyan-400'
+                  ? 'text-red-400 border-b-2 border-red-400'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -309,7 +322,7 @@ export default function Admin() {
               </div>
               <button
                 onClick={() => openModal('addStudent')}
-                className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-lg font-medium transition-all flex items-center gap-2"
+                className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-lg font-medium transition-all flex items-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -336,7 +349,7 @@ export default function Admin() {
                     <tr key={student.id} className="hover:bg-slate-700/30 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-semibold">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white font-semibold">
                             {student.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                           </div>
                           <div>
@@ -356,7 +369,7 @@ export default function Admin() {
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden w-20">
                             <div 
-                              className="h-full bg-gradient-to-r from-cyan-400 to-blue-500"
+                              className="h-full bg-gradient-to-r from-red-600 to-red-700"
                               style={{ width: `${student.progress}%` }}
                             />
                           </div>
@@ -376,13 +389,13 @@ export default function Admin() {
                         <div className="flex gap-2">
                           <button 
                             onClick={() => openModal('editStudent', student)}
-                            className="text-cyan-400 hover:text-cyan-300 text-sm font-medium"
+                            className="text-red-400 hover:text-red-300 text-sm font-medium"
                           >
                             Editar
                           </button>
                           <button 
                             onClick={() => openModal('assignCourse', student)}
-                            className="text-blue-400 hover:text-blue-300 text-sm font-medium"
+                            className="text-red-400 hover:text-blue-300 text-sm font-medium"
                           >
                             Asignar
                           </button>
@@ -412,7 +425,7 @@ export default function Admin() {
               </div>
               <button
                 onClick={() => openModal('addCourse')}
-                className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-lg font-medium transition-all flex items-center gap-2"
+                className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-lg font-medium transition-all flex items-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -423,9 +436,9 @@ export default function Admin() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {courses.map((course) => (
-                <div key={course.id} className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:border-cyan-500/50 transition-all">
+                <div key={course.id} className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:border-red-500/50 transition-all">
                   <div className="flex items-start justify-between mb-4">
-                    <span className="px-3 py-1 text-xs font-semibold bg-cyan-500/20 text-cyan-400 rounded-full">
+                    <span className="px-3 py-1 text-xs font-semibold bg-red-500/20 text-red-400 rounded-full">
                       {course.category}
                     </span>
                   </div>
@@ -453,7 +466,7 @@ export default function Admin() {
                     </button>
                     <button 
                       onClick={() => openModal('editCourseContent', undefined, course)}
-                      className="flex-1 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg text-sm font-medium transition-colors"
+                      className="flex-1 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors"
                     >
                       Contenido
                     </button>
@@ -480,13 +493,13 @@ export default function Admin() {
                   placeholder="Buscar por nombre..."
                   value={progressFilter.name}
                   onChange={(e) => setProgressFilter({ ...progressFilter, name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
               <select 
                 value={progressFilter.generation}
                 onChange={(e) => setProgressFilter({ ...progressFilter, generation: e.target.value })}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option value="all">Todas las Generaciones</option>
                 <option value="Gen 2026-A">Gen 2026-A</option>
@@ -496,7 +509,7 @@ export default function Admin() {
               <select 
                 value={progressFilter.course}
                 onChange={(e) => setProgressFilter({ ...progressFilter, course: e.target.value })}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option value="all">Todos los Cursos</option>
                 <option value="1">Desarrollo Web Full Stack</option>
@@ -508,7 +521,7 @@ export default function Admin() {
             {/* Progress Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               {[
-                { label: 'Promedio General', value: '68%', color: 'cyan' },
+                { label: 'Promedio General', value: '68%', color: 'red' },
                 { label: 'Estudiantes Activos', value: '45', color: 'green' },
                 { label: 'Cursos Completados', value: '12', color: 'purple' },
                 { label: 'Retos Pendientes', value: '8', color: 'yellow' },
@@ -542,7 +555,7 @@ export default function Admin() {
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden w-32">
                             <div 
-                              className="h-full bg-gradient-to-r from-cyan-400 to-blue-500"
+                              className="h-full bg-gradient-to-r from-red-600 to-red-700"
                               style={{ width: `${student.progress}%` }}
                             />
                           </div>
@@ -574,13 +587,13 @@ export default function Admin() {
                   placeholder="Buscar estudiante por nombre..."
                   value={assignmentFilter.name}
                   onChange={(e) => setAssignmentFilter({ ...assignmentFilter, name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
               <select 
                 value={assignmentFilter.generation}
                 onChange={(e) => setAssignmentFilter({ ...assignmentFilter, generation: e.target.value })}
-                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option value="all">Todas las Generaciones</option>
                 <option value="Gen 2026-A">Gen 2026-A</option>
@@ -611,7 +624,7 @@ export default function Admin() {
                       <tr key={student.id} className="hover:bg-slate-700/30 transition-colors">
                         <td className="px-6 py-4 sticky left-0 bg-slate-800 z-10">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                               {student.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                             </div>
                             <div>
@@ -643,7 +656,7 @@ export default function Admin() {
                           </td>
                         ))}
                         <td className="px-6 py-4 text-center">
-                          <span className="px-3 py-1 text-sm font-semibold bg-cyan-500/20 text-cyan-400 rounded-full">
+                          <span className="px-3 py-1 text-sm font-semibold bg-red-500/20 text-red-400 rounded-full">
                             {student.assignedCourses.length}
                           </span>
                         </td>
@@ -656,7 +669,7 @@ export default function Admin() {
 
             <div className="mt-6 p-4 bg-slate-800 rounded-lg border border-slate-700">
               <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
@@ -685,7 +698,7 @@ export default function Admin() {
                   required
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                   placeholder="Juan Carlos"
                 />
               </div>
@@ -696,7 +709,7 @@ export default function Admin() {
                   required
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                   placeholder="Pérez López"
                 />
               </div>
@@ -708,7 +721,7 @@ export default function Admin() {
                 required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="estudiante@email.com"
               />
             </div>
@@ -719,7 +732,7 @@ export default function Admin() {
                 required
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="••••••••"
               />
             </div>
@@ -728,7 +741,7 @@ export default function Admin() {
               <select 
                 value={formData.generation}
                 onChange={(e) => setFormData({ ...formData, generation: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option>Gen 2026-A</option>
                 <option>Gen 2026-B</option>
@@ -738,7 +751,7 @@ export default function Admin() {
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all"
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
               >
                 Crear Estudiante
               </button>
@@ -764,7 +777,7 @@ export default function Admin() {
                   required
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
               <div>
@@ -774,7 +787,7 @@ export default function Admin() {
                   required
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
               </div>
             </div>
@@ -785,7 +798,7 @@ export default function Admin() {
                 required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
             <div>
@@ -793,7 +806,7 @@ export default function Admin() {
               <select 
                 value={formData.generation}
                 onChange={(e) => setFormData({ ...formData, generation: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option>Gen 2026-A</option>
                 <option>Gen 2026-B</option>
@@ -803,7 +816,7 @@ export default function Admin() {
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all"
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
               >
                 Guardar Cambios
               </button>
@@ -821,8 +834,8 @@ export default function Admin() {
         {/* Assign Courses Form */}
         {modalType === 'assignCourse' && selectedStudent && (
           <form onSubmit={handleAssignCourses} className="space-y-4">
-            <div className="p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-lg mb-4">
-              <p className="text-cyan-400 text-sm">
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg mb-4">
+              <p className="text-red-400 text-sm">
                 Asignando cursos a <span className="font-semibold">{selectedStudent.fullName}</span>
               </p>
             </div>
@@ -834,7 +847,7 @@ export default function Admin() {
                     type="checkbox"
                     checked={formData.selectedCourses.includes(course.id)}
                     onChange={() => toggleCourseSelection(course.id)}
-                    className="w-5 h-5 rounded border-slate-500 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                    className="w-5 h-5 rounded border-slate-500 text-red-500 focus:ring-2 focus:ring-red-500"
                   />
                   <div className="flex-1">
                     <p className="text-white font-medium">{course.title}</p>
@@ -846,7 +859,7 @@ export default function Admin() {
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all"
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
               >
                 Asignar Cursos ({formData.selectedCourses.length})
               </button>
@@ -874,7 +887,7 @@ export default function Admin() {
               <input
                 type="password"
                 required
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="••••••••"
               />
             </div>
@@ -883,7 +896,7 @@ export default function Admin() {
               <input
                 type="password"
                 required
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="••••••••"
               />
             </div>
@@ -914,14 +927,14 @@ export default function Admin() {
                 type="text"
                 required
                 defaultValue={selectedCourse.title}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Categoría</label>
               <select 
                 defaultValue={selectedCourse.category}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option>DESARROLLO</option>
                 <option>CLOUD</option>
@@ -934,14 +947,14 @@ export default function Admin() {
               <label className="block text-sm font-medium text-slate-300 mb-2">Descripción</label>
               <textarea
                 rows={3}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="Descripción del curso..."
               />
             </div>
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all"
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
               >
                 Guardar Cambios
               </button>
@@ -959,8 +972,8 @@ export default function Admin() {
         {/* Edit Course Content Form */}
         {modalType === 'editCourseContent' && selectedCourse && (
           <div className="space-y-4">
-            <div className="p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
-              <p className="text-cyan-400 text-sm">
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-red-400 text-sm">
                 Gestionando contenido de <span className="font-semibold">{selectedCourse.title}</span>
               </p>
             </div>
@@ -970,7 +983,7 @@ export default function Admin() {
               <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
                     <h3 className="text-white font-semibold">Módulo 1: Introducción al Desarrollo Web</h3>
@@ -978,7 +991,7 @@ export default function Admin() {
                   <div className="flex gap-2">
                     <button 
                       onClick={() => openContentModal('editModule', 'm1')}
-                      className="text-cyan-400 hover:text-cyan-300 text-sm font-medium"
+                      className="text-red-400 hover:text-red-300 text-sm font-medium"
                     >
                       Editar
                     </button>
@@ -986,10 +999,10 @@ export default function Admin() {
                   </div>
                 </div>
                 <div className="space-y-2 ml-7">
-                  <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-600 hover:border-cyan-500/50 transition-colors">
+                  <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-600 hover:border-red-500/50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-blue-500/20 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-8 h-8 rounded bg-red-500/20 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -1009,10 +1022,10 @@ export default function Admin() {
                       Editar
                     </button>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-600 hover:border-cyan-500/50 transition-colors">
+                  <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-600 hover:border-red-500/50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-blue-500/20 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-8 h-8 rounded bg-red-500/20 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -1056,7 +1069,7 @@ export default function Admin() {
                   </div>
                   <button 
                     onClick={() => openContentModal('addContent', 'm1')}
-                    className="w-full py-2.5 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center justify-center gap-2 text-sm"
+                    className="w-full py-2.5 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-red-500 hover:text-red-400 transition-all flex items-center justify-center gap-2 text-sm"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1070,7 +1083,7 @@ export default function Admin() {
               <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
                     <h3 className="text-white font-semibold">Módulo 2: JavaScript Avanzado</h3>
@@ -1078,7 +1091,7 @@ export default function Admin() {
                   <div className="flex gap-2">
                     <button 
                       onClick={() => openContentModal('editModule', 'm2')}
-                      className="text-cyan-400 hover:text-cyan-300 text-sm font-medium"
+                      className="text-red-400 hover:text-red-300 text-sm font-medium"
                     >
                       Editar
                     </button>
@@ -1086,10 +1099,10 @@ export default function Admin() {
                   </div>
                 </div>
                 <div className="space-y-2 ml-7">
-                  <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-600 hover:border-cyan-500/50 transition-colors">
+                  <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-600 hover:border-red-500/50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-blue-500/20 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-8 h-8 rounded bg-red-500/20 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -1111,7 +1124,7 @@ export default function Admin() {
                   </div>
                   <button 
                     onClick={() => openContentModal('addContent', 'm2')}
-                    className="w-full py-2.5 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center justify-center gap-2 text-sm"
+                    className="w-full py-2.5 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-red-500 hover:text-red-400 transition-all flex items-center justify-center gap-2 text-sm"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1123,7 +1136,7 @@ export default function Admin() {
 
               <button 
                 onClick={() => openContentModal('addModule')}
-                className="w-full py-3 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center justify-center gap-2 font-medium"
+                className="w-full py-3 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-red-500 hover:text-red-400 transition-all flex items-center justify-center gap-2 font-medium"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1136,7 +1149,7 @@ export default function Admin() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all"
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
               >
                 Guardar Cambios
               </button>
@@ -1159,13 +1172,13 @@ export default function Admin() {
               <input
                 type="text"
                 required
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="Ej: Desarrollo Web Full Stack"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Categoría</label>
-              <select className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+              <select className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option>DESARROLLO</option>
                 <option>CLOUD</option>
                 <option>DATA</option>
@@ -1178,7 +1191,7 @@ export default function Admin() {
               <textarea
                 rows={3}
                 required
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="Descripción del curso..."
               />
             </div>
@@ -1186,14 +1199,14 @@ export default function Admin() {
               <label className="block text-sm font-medium text-slate-300 mb-2">Imagen URL</label>
               <input
                 type="url"
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="https://..."
               />
             </div>
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all"
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
               >
                 Crear Curso
               </button>
@@ -1220,7 +1233,7 @@ export default function Admin() {
                 required
                 value={contentFormData.title}
                 onChange={(e) => setContentFormData({ ...contentFormData, title: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="Ej: Introducción al Desarrollo Web"
               />
             </div>
@@ -1230,7 +1243,7 @@ export default function Admin() {
                 rows={3}
                 value={contentFormData.description}
                 onChange={(e) => setContentFormData({ ...contentFormData, description: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="Descripción del módulo..."
               />
             </div>
@@ -1242,13 +1255,13 @@ export default function Admin() {
                 min="1"
                 value={contentFormData.order}
                 onChange={(e) => setContentFormData({ ...contentFormData, order: parseInt(e.target.value) })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all"
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
               >
                 {contentModalType === 'addModule' ? 'Crear Módulo' : 'Guardar Cambios'}
               </button>
@@ -1275,7 +1288,7 @@ export default function Admin() {
                     value="video"
                     checked={contentFormData.type === 'video'}
                     onChange={(e) => setContentFormData({ ...contentFormData, type: e.target.value as 'video' | 'challenge' })}
-                    className="w-4 h-4 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                    className="w-4 h-4 text-red-500 focus:ring-2 focus:ring-red-500"
                   />
                   <span className="text-white">Video</span>
                 </label>
@@ -1286,7 +1299,7 @@ export default function Admin() {
                     value="challenge"
                     checked={contentFormData.type === 'challenge'}
                     onChange={(e) => setContentFormData({ ...contentFormData, type: e.target.value as 'video' | 'challenge' })}
-                    className="w-4 h-4 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                    className="w-4 h-4 text-red-500 focus:ring-2 focus:ring-red-500"
                   />
                   <span className="text-white">Reto</span>
                 </label>
@@ -1300,7 +1313,7 @@ export default function Admin() {
                 required
                 value={contentFormData.title}
                 onChange={(e) => setContentFormData({ ...contentFormData, title: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder={contentFormData.type === 'video' ? 'Ej: Introducción a React' : 'Ej: Crea tu primera aplicación'}
               />
             </div>
@@ -1311,7 +1324,7 @@ export default function Admin() {
                 rows={3}
                 value={contentFormData.description}
                 onChange={(e) => setContentFormData({ ...contentFormData, description: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 placeholder="Descripción del contenido..."
               />
             </div>
@@ -1325,7 +1338,7 @@ export default function Admin() {
                     required
                     value={contentFormData.url}
                     onChange={(e) => setContentFormData({ ...contentFormData, url: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                     placeholder="https://www.youtube.com/embed/..."
                   />
                 </div>
@@ -1336,7 +1349,7 @@ export default function Admin() {
                     required
                     value={contentFormData.duration}
                     onChange={(e) => setContentFormData({ ...contentFormData, duration: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                     placeholder="12:30"
                   />
                 </div>
@@ -1351,7 +1364,7 @@ export default function Admin() {
                     type="checkbox"
                     checked={contentFormData.requiresEvidence}
                     onChange={(e) => setContentFormData({ ...contentFormData, requiresEvidence: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-500 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                    className="w-4 h-4 rounded border-slate-500 text-red-500 focus:ring-2 focus:ring-red-500"
                   />
                   <span className="text-sm text-white">Requiere evidencia (imágenes)</span>
                 </label>
@@ -1360,7 +1373,7 @@ export default function Admin() {
                     type="checkbox"
                     checked={contentFormData.requiresGithubLink}
                     onChange={(e) => setContentFormData({ ...contentFormData, requiresGithubLink: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-500 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                    className="w-4 h-4 rounded border-slate-500 text-red-500 focus:ring-2 focus:ring-red-500"
                   />
                   <span className="text-sm text-white">Requiere link de GitHub</span>
                 </label>
@@ -1369,7 +1382,7 @@ export default function Admin() {
                     type="checkbox"
                     checked={contentFormData.requiresTutorReview}
                     onChange={(e) => setContentFormData({ ...contentFormData, requiresTutorReview: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-500 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                    className="w-4 h-4 rounded border-slate-500 text-red-500 focus:ring-2 focus:ring-red-500"
                   />
                   <span className="text-sm text-white">Requiere revisión de tutor</span>
                 </label>
@@ -1384,14 +1397,14 @@ export default function Admin() {
                 min="1"
                 value={contentFormData.order}
                 onChange={(e) => setContentFormData({ ...contentFormData, order: parseInt(e.target.value) })}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
 
             <div className="flex gap-3 pt-4">
               <button
                 type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all"
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
               >
                 {contentModalType === 'addContent' ? 'Agregar Contenido' : 'Guardar Cambios'}
               </button>

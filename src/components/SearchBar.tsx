@@ -20,7 +20,7 @@ export default function SearchBar({ placeholder = 'Buscar cursos...', onSearch }
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-4 py-3 pl-12 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
+        className="w-full px-4 py-3 pl-12 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
       />
       <svg
         className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"

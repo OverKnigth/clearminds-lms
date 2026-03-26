@@ -16,7 +16,7 @@ export default function VideoList({ videos, currentVideoId, onVideoSelect }: Vid
           disabled={video.locked}
           className={`w-full text-left p-4 rounded-lg transition-all ${
             video.id === currentVideoId
-              ? 'bg-slate-700 border-2 border-cyan-400'
+              ? 'bg-slate-700 border-2 border-red-400'
               : video.locked
               ? 'opacity-50 cursor-not-allowed'
               : 'hover:bg-slate-700/50'
@@ -29,7 +29,7 @@ export default function VideoList({ videos, currentVideoId, onVideoSelect }: Vid
                 : video.locked
                 ? 'bg-slate-600'
                 : video.id === currentVideoId
-                ? 'bg-cyan-500'
+                ? 'bg-red-600'
                 : 'bg-slate-700 border-2 border-slate-600'
             }`}>
               {video.completed ? (

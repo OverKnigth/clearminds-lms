@@ -45,7 +45,7 @@ export default function Tutoring() {
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
               />
             </div>
 
@@ -61,7 +61,7 @@ export default function Tutoring() {
                     onClick={() => setSelectedTime(time)}
                     className={`py-3 rounded-lg font-medium transition-all ${
                       selectedTime === time
-                        ? 'bg-cyan-500 text-white'
+                        ? 'bg-red-600 text-white'
                         : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     }`}
                   >
@@ -80,13 +80,13 @@ export default function Tutoring() {
                 onChange={(e) => setNotes(e.target.value)}
                 rows={4}
                 placeholder="Agrega temas o preguntas que te gustaría discutir..."
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-cyan-500/50"
+              className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-500/50"
             >
               Confirmar Reserva
             </button>

@@ -20,7 +20,7 @@ export default function Button({
   type = 'button',
 }: ButtonProps) {
   const variants = {
-    primary: 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white hover:shadow-lg hover:shadow-cyan-500/50',
+    primary: 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white hover:shadow-lg hover:shadow-red-500/50',
     secondary: 'bg-slate-700 hover:bg-slate-600 text-white',
     ghost: 'bg-transparent hover:bg-slate-800 text-slate-300 hover:text-white',
   };
