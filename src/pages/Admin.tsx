@@ -33,12 +33,27 @@ interface FormData {
   selectedCourses: string[];
 }
 
+interface ContentFormData {
+  type: 'video' | 'challenge' | 'module';
+  title: string;
+  description: string;
+  duration: string;
+  url: string;
+  order: number;
+  requiresEvidence: boolean;
+  requiresGithubLink: boolean;
+  requiresTutorReview: boolean;
+}
+
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<Tab>('students');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isContentModalOpen, setIsContentModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'addStudent' | 'editStudent' | 'addCourse' | 'editCourse' | 'assignCourse' | 'resetPassword' | 'editCourseContent'>('addStudent');
+  const [contentModalType, setContentModalType] = useState<'addModule' | 'editModule' | 'addContent' | 'editContent'>('addContent');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -46,6 +61,17 @@ export default function Admin() {
     password: '',
     generation: 'Gen 2026-A',
     selectedCourses: [],
+  });
+  const [contentFormData, setContentFormData] = useState<ContentFormData>({
+    type: 'video',
+    title: '',
+    description: '',
+    duration: '',
+    url: '',
+    order: 1,
+    requiresEvidence: false,
+    requiresGithubLink: false,
+    requiresTutorReview: false,
   });
   
   // Filters
@@ -188,6 +214,44 @@ export default function Admin() {
     const matchesGeneration = progressFilter.generation === 'all' || student.generation === progressFilter.generation;
     return matchesName && matchesGeneration;
   });
+
+  const openContentModal = (type: typeof contentModalType, moduleId?: string) => {
+    setContentModalType(type);
+    setSelectedModuleId(moduleId || null);
+    
+    if (type === 'addContent' || type === 'addModule') {
+      setContentFormData({
+        type: 'video',
+        title: '',
+        description: '',
+        duration: '',
+        url: '',
+        order: 1,
+        requiresEvidence: false,
+        requiresGithubLink: false,
+        requiresTutorReview: false,
+      });
+    }
+    
+    setIsContentModalOpen(true);
+  };
+
+  const handleSubmitContent = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Aquí se guardaría el contenido en el backend
+    console.log('Guardando contenido:', contentFormData);
+    setIsContentModalOpen(false);
+  };
+
+  const getContentModalTitle = () => {
+    switch (contentModalType) {
+      case 'addModule': return 'Agregar Nuevo Módulo';
+      case 'editModule': return 'Editar Módulo';
+      case 'addContent': return 'Agregar Video o Reto';
+      case 'editContent': return contentFormData.type === 'video' ? 'Editar Video' : 'Editar Reto';
+      default: return '';
+    }
+  };
 
   const getModalTitle = () => {
     switch (modalType) {
@@ -912,7 +976,12 @@ export default function Admin() {
                     <h3 className="text-white font-semibold">Módulo 1: Introducción al Desarrollo Web</h3>
                   </div>
                   <div className="flex gap-2">
-                    <button className="text-cyan-400 hover:text-cyan-300 text-sm font-medium">Editar</button>
+                    <button 
+                      onClick={() => openContentModal('editModule', 'm1')}
+                      className="text-cyan-400 hover:text-cyan-300 text-sm font-medium"
+                    >
+                      Editar
+                    </button>
                     <button className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar</button>
                   </div>
                 </div>
@@ -930,7 +999,15 @@ export default function Admin() {
                         <p className="text-xs text-slate-400">Duración: 12:30 • Orden: 1</p>
                       </div>
                     </div>
-                    <button className="text-yellow-400 hover:text-yellow-300 text-sm font-medium">Editar</button>
+                    <button 
+                      onClick={() => {
+                        setContentFormData({ ...contentFormData, type: 'video', title: '¿Qué es el Desarrollo Web?', duration: '12:30', order: 1 });
+                        openContentModal('editContent', 'm1');
+                      }}
+                      className="text-yellow-400 hover:text-yellow-300 text-sm font-medium"
+                    >
+                      Editar
+                    </button>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-600 hover:border-cyan-500/50 transition-colors">
                     <div className="flex items-center gap-3">
@@ -945,7 +1022,15 @@ export default function Admin() {
                         <p className="text-xs text-slate-400">Duración: 18:45 • Orden: 2</p>
                       </div>
                     </div>
-                    <button className="text-yellow-400 hover:text-yellow-300 text-sm font-medium">Editar</button>
+                    <button 
+                      onClick={() => {
+                        setContentFormData({ ...contentFormData, type: 'video', title: 'HTML y CSS Moderno', duration: '18:45', order: 2 });
+                        openContentModal('editContent', 'm1');
+                      }}
+                      className="text-yellow-400 hover:text-yellow-300 text-sm font-medium"
+                    >
+                      Editar
+                    </button>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-600 hover:border-purple-500/50 transition-colors">
                     <div className="flex items-center gap-3">
@@ -959,9 +1044,20 @@ export default function Admin() {
                         <p className="text-xs text-slate-400">Requiere revisión de tutor • Orden: 3</p>
                       </div>
                     </div>
-                    <button className="text-yellow-400 hover:text-yellow-300 text-sm font-medium">Editar</button>
+                    <button 
+                      onClick={() => {
+                        setContentFormData({ ...contentFormData, type: 'challenge', title: 'Crea tu Primera Página Web', order: 3, requiresTutorReview: true });
+                        openContentModal('editContent', 'm1');
+                      }}
+                      className="text-yellow-400 hover:text-yellow-300 text-sm font-medium"
+                    >
+                      Editar
+                    </button>
                   </div>
-                  <button className="w-full py-2.5 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center justify-center gap-2 text-sm">
+                  <button 
+                    onClick={() => openContentModal('addContent', 'm1')}
+                    className="w-full py-2.5 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center justify-center gap-2 text-sm"
+                  >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
@@ -980,7 +1076,12 @@ export default function Admin() {
                     <h3 className="text-white font-semibold">Módulo 2: JavaScript Avanzado</h3>
                   </div>
                   <div className="flex gap-2">
-                    <button className="text-cyan-400 hover:text-cyan-300 text-sm font-medium">Editar</button>
+                    <button 
+                      onClick={() => openContentModal('editModule', 'm2')}
+                      className="text-cyan-400 hover:text-cyan-300 text-sm font-medium"
+                    >
+                      Editar
+                    </button>
                     <button className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar</button>
                   </div>
                 </div>
@@ -998,9 +1099,20 @@ export default function Admin() {
                         <p className="text-xs text-slate-400">Duración: 22:15 • Orden: 1</p>
                       </div>
                     </div>
-                    <button className="text-yellow-400 hover:text-yellow-300 text-sm font-medium">Editar</button>
+                    <button 
+                      onClick={() => {
+                        setContentFormData({ ...contentFormData, type: 'video', title: 'Funciones y Closures', duration: '22:15', order: 1 });
+                        openContentModal('editContent', 'm2');
+                      }}
+                      className="text-yellow-400 hover:text-yellow-300 text-sm font-medium"
+                    >
+                      Editar
+                    </button>
                   </div>
-                  <button className="w-full py-2.5 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center justify-center gap-2 text-sm">
+                  <button 
+                    onClick={() => openContentModal('addContent', 'm2')}
+                    className="w-full py-2.5 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center justify-center gap-2 text-sm"
+                  >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
@@ -1009,7 +1121,10 @@ export default function Admin() {
                 </div>
               </div>
 
-              <button className="w-full py-3 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center justify-center gap-2 font-medium">
+              <button 
+                onClick={() => openContentModal('addModule')}
+                className="w-full py-3 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-cyan-500 hover:text-cyan-400 transition-all flex items-center justify-center gap-2 font-medium"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
@@ -1085,6 +1200,204 @@ export default function Admin() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
+                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Content Modal (Secondary Modal for adding/editing videos and challenges) */}
+      <Modal isOpen={isContentModalOpen} onClose={() => setIsContentModalOpen(false)} title={getContentModalTitle()}>
+        {(contentModalType === 'addModule' || contentModalType === 'editModule') && (
+          <form onSubmit={handleSubmitContent} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Nombre del Módulo</label>
+              <input
+                type="text"
+                required
+                value={contentFormData.title}
+                onChange={(e) => setContentFormData({ ...contentFormData, title: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                placeholder="Ej: Introducción al Desarrollo Web"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Descripción</label>
+              <textarea
+                rows={3}
+                value={contentFormData.description}
+                onChange={(e) => setContentFormData({ ...contentFormData, description: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                placeholder="Descripción del módulo..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Orden</label>
+              <input
+                type="number"
+                required
+                min="1"
+                value={contentFormData.order}
+                onChange={(e) => setContentFormData({ ...contentFormData, order: parseInt(e.target.value) })}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+            <div className="flex gap-3 pt-4">
+              <button
+                type="submit"
+                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all"
+              >
+                {contentModalType === 'addModule' ? 'Crear Módulo' : 'Guardar Cambios'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsContentModalOpen(false)}
+                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
+
+        {(contentModalType === 'addContent' || contentModalType === 'editContent') && (
+          <form onSubmit={handleSubmitContent} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Tipo de Contenido</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="contentType"
+                    value="video"
+                    checked={contentFormData.type === 'video'}
+                    onChange={(e) => setContentFormData({ ...contentFormData, type: e.target.value as 'video' | 'challenge' })}
+                    className="w-4 h-4 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <span className="text-white">Video</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="contentType"
+                    value="challenge"
+                    checked={contentFormData.type === 'challenge'}
+                    onChange={(e) => setContentFormData({ ...contentFormData, type: e.target.value as 'video' | 'challenge' })}
+                    className="w-4 h-4 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <span className="text-white">Reto</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Título</label>
+              <input
+                type="text"
+                required
+                value={contentFormData.title}
+                onChange={(e) => setContentFormData({ ...contentFormData, title: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                placeholder={contentFormData.type === 'video' ? 'Ej: Introducción a React' : 'Ej: Crea tu primera aplicación'}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Descripción</label>
+              <textarea
+                rows={3}
+                value={contentFormData.description}
+                onChange={(e) => setContentFormData({ ...contentFormData, description: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                placeholder="Descripción del contenido..."
+              />
+            </div>
+
+            {contentFormData.type === 'video' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">URL del Video</label>
+                  <input
+                    type="url"
+                    required
+                    value={contentFormData.url}
+                    onChange={(e) => setContentFormData({ ...contentFormData, url: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    placeholder="https://www.youtube.com/embed/..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Duración (mm:ss)</label>
+                  <input
+                    type="text"
+                    required
+                    value={contentFormData.duration}
+                    onChange={(e) => setContentFormData({ ...contentFormData, duration: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    placeholder="12:30"
+                  />
+                </div>
+              </>
+            )}
+
+            {contentFormData.type === 'challenge' && (
+              <div className="space-y-3 p-4 bg-slate-700 rounded-lg">
+                <p className="text-sm font-medium text-slate-300 mb-3">Configuración del Reto</p>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={contentFormData.requiresEvidence}
+                    onChange={(e) => setContentFormData({ ...contentFormData, requiresEvidence: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-500 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <span className="text-sm text-white">Requiere evidencia (imágenes)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={contentFormData.requiresGithubLink}
+                    onChange={(e) => setContentFormData({ ...contentFormData, requiresGithubLink: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-500 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <span className="text-sm text-white">Requiere link de GitHub</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={contentFormData.requiresTutorReview}
+                    onChange={(e) => setContentFormData({ ...contentFormData, requiresTutorReview: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-500 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <span className="text-sm text-white">Requiere revisión de tutor</span>
+                </label>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Orden</label>
+              <input
+                type="number"
+                required
+                min="1"
+                value={contentFormData.order}
+                onChange={(e) => setContentFormData({ ...contentFormData, order: parseInt(e.target.value) })}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                type="submit"
+                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all"
+              >
+                {contentModalType === 'addContent' ? 'Agregar Contenido' : 'Guardar Cambios'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsContentModalOpen(false)}
                 className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
               >
                 Cancelar
