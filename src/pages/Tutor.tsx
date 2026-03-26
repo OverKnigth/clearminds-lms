@@ -56,15 +56,15 @@ export default function Tutor() {
 
   return (
     <div className="min-h-screen bg-slate-900 pt-16">
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Panel del Tutor</h1>
-          <p className="text-slate-400">Gestiona tutorías y valida el aprendizaje de los estudiantes</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Panel del Tutor</h1>
+          <p className="text-sm sm:text-base text-slate-400">Gestiona tutorías y valida el aprendizaje de los estudiantes</p>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
             <div className="flex items-center justify-between mb-2">
               <span className="text-slate-400 text-sm">Pendientes</span>
@@ -115,7 +115,7 @@ export default function Tutor() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-8 border-b border-slate-700">
+        <div className="flex gap-2 mb-6 sm:mb-8 border-b border-slate-700 overflow-x-auto">
           {[
             { id: 'pending', label: 'Pendientes', count: pendingTutorings.length },
             { id: 'upcoming', label: 'Próximas', count: upcomingTutorings.length },
@@ -125,7 +125,7 @@ export default function Tutor() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as Tab)}
-              className={`px-6 py-3 font-medium transition-all flex items-center gap-2 ${
+              className={`px-4 sm:px-6 py-2.5 sm:py-3 font-medium transition-all flex items-center gap-2 whitespace-nowrap text-sm sm:text-base ${
                 activeTab === tab.id
                   ? 'text-red-400 border-b-2 border-red-400'
                   : 'text-slate-400 hover:text-white'
@@ -226,52 +226,52 @@ function TutoringCard({
   showDetails?: boolean;
 }) {
   return (
-    <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:border-slate-600 transition-all">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
+    <div className="bg-slate-800 rounded-xl p-4 sm:p-6 border border-slate-700 hover:border-slate-600 transition-all">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+        <div className="flex-1 w-full">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white font-semibold shadow-lg shadow-red-500/30">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white text-sm sm:text-base font-semibold shadow-lg shadow-red-500/30 flex-shrink-0">
               {tutoring.studentName.split(' ').map(n => n[0]).join('').slice(0, 2)}
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white">{tutoring.studentName}</h3>
-              <p className="text-sm text-slate-400">{tutoring.courseName}</p>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base sm:text-lg font-semibold text-white truncate">{tutoring.studentName}</h3>
+              <p className="text-xs sm:text-sm text-slate-400 truncate">{tutoring.courseName}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
             <div>
               <p className="text-xs text-slate-500 mb-1">Bloque</p>
-              <p className="text-sm text-white font-medium">{tutoring.blockName}</p>
+              <p className="text-xs sm:text-sm text-white font-medium line-clamp-2">{tutoring.blockName}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500 mb-1">Solicitada</p>
-              <p className="text-sm text-white">{new Date(tutoring.requestDate).toLocaleDateString()}</p>
+              <p className="text-xs sm:text-sm text-white">{new Date(tutoring.requestDate).toLocaleDateString()}</p>
             </div>
             {tutoring.scheduledDate && (
               <>
                 <div>
                   <p className="text-xs text-slate-500 mb-1">Fecha</p>
-                  <p className="text-sm text-white">{new Date(tutoring.scheduledDate).toLocaleDateString()}</p>
+                  <p className="text-xs sm:text-sm text-white">{new Date(tutoring.scheduledDate).toLocaleDateString()}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 mb-1">Hora</p>
-                  <p className="text-sm text-white">{tutoring.scheduledTime}</p>
+                  <p className="text-xs sm:text-sm text-white">{tutoring.scheduledTime}</p>
                 </div>
               </>
             )}
           </div>
 
           {showDetails && tutoring.grade !== undefined && (
-            <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
+            <div className="mt-4 p-3 sm:p-4 bg-slate-700/50 rounded-lg">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-slate-400">Calificación</span>
-                <span className={`text-lg font-bold ${tutoring.approved ? 'text-green-400' : 'text-red-400'}`}>
+                <span className="text-xs sm:text-sm text-slate-400">Calificación</span>
+                <span className={`text-base sm:text-lg font-bold ${tutoring.approved ? 'text-green-400' : 'text-red-400'}`}>
                   {tutoring.grade}/10
                 </span>
               </div>
               {tutoring.feedback && (
-                <p className="text-sm text-slate-300 mb-2">{tutoring.feedback}</p>
+                <p className="text-xs sm:text-sm text-slate-300 mb-2">{tutoring.feedback}</p>
               )}
               {tutoring.observations && (
                 <p className="text-xs text-slate-400">{tutoring.observations}</p>
@@ -283,7 +283,7 @@ function TutoringCard({
         {onAction && (
           <button
             onClick={onAction}
-            className={`px-6 py-2.5 bg-${actionColor}-500 hover:bg-${actionColor}-400 text-white rounded-lg font-medium transition-colors`}
+            className={`w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-2.5 bg-${actionColor}-500 hover:bg-${actionColor}-400 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap`}
           >
             {actionLabel}
           </button>
@@ -339,18 +339,18 @@ function TutoringModal({
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-700">
-        <div className="p-6 border-b border-slate-700 flex items-center justify-between sticky top-0 bg-slate-800 z-10">
-          <h2 className="text-xl font-bold text-white">
+        <div className="p-4 sm:p-6 border-b border-slate-700 flex items-center justify-between sticky top-0 bg-slate-800 z-10">
+          <h2 className="text-lg sm:text-xl font-bold text-white">
             {type === 'confirm' ? 'Confirmar Tutoría' : 'Completar Tutoría'}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
             <p className="text-red-400 text-sm">
               <span className="font-semibold">{tutoring.studentName}</span> - {tutoring.blockName}
@@ -452,17 +452,17 @@ function TutoringModal({
             </>
           )}
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <button
               type="submit"
-              className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
+              className="flex-1 py-2.5 sm:py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-sm sm:text-base font-semibold rounded-lg transition-all"
             >
               {type === 'confirm' ? 'Confirmar Tutoría' : 'Guardar Resultados'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              className="px-6 py-2.5 sm:py-3 bg-slate-700 hover:bg-slate-600 text-white text-sm sm:text-base rounded-lg transition-colors"
             >
               Cancelar
             </button>

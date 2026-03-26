@@ -9,9 +9,9 @@ export default function CourseCard({ course }: CourseCardProps) {
   const isCompleted = course.progress === 100;
   
   return (
-    <Link to={`/course/${course.id}`} className="group">
-      <div className="relative overflow-hidden rounded-xl bg-slate-800 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-red-500/20">
-        <div className="aspect-video overflow-hidden">
+    <Link to={`/course/${course.id}`} className="group block">
+      <div className="relative overflow-hidden rounded-xl bg-slate-800 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-red-500/20 h-full">
+        <div className="aspect-video overflow-hidden relative">
           <img 
             src={course.image} 
             alt={course.title}
@@ -20,29 +20,29 @@ export default function CourseCard({ course }: CourseCardProps) {
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
         </div>
         
-        <div className="absolute top-3 left-3">
-          <span className="px-3 py-1 text-xs font-semibold bg-red-500/90 text-white rounded-full backdrop-blur-sm">
+        <div className="absolute top-2 sm:top-3 left-2 sm:left-3">
+          <span className="px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold bg-red-500/90 text-white rounded-full backdrop-blur-sm">
             {course.category}
           </span>
         </div>
 
         {isCompleted && (
-          <div className="absolute top-3 right-3">
-            <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="absolute top-2 sm:top-3 right-2 sm:right-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
           </div>
         )}
 
-        <div className="absolute bottom-0 left-0 right-0 p-5">
-          <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2">
+        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-5">
+          <h3 className="text-base sm:text-lg font-semibold text-white mb-2 line-clamp-2">
             {course.title}
           </h3>
           
-          <div className="mb-3">
-            <div className="flex items-center justify-between text-xs text-slate-300 mb-1">
+          <div className="mb-2 sm:mb-3">
+            <div className="flex items-center justify-between text-[10px] sm:text-xs text-slate-300 mb-1">
               <span>Progreso</span>
               <span className="font-medium">{course.progress}%</span>
             </div>
@@ -58,7 +58,7 @@ export default function CourseCard({ course }: CourseCardProps) {
             </div>
           </div>
 
-          <button className={`w-full py-2.5 rounded-lg font-medium transition-colors backdrop-blur-sm ${
+          <button className={`w-full py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors backdrop-blur-sm ${
             isCompleted
               ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400'
               : 'bg-white/10 hover:bg-white/20 text-white'

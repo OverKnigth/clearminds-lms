@@ -104,149 +104,140 @@ export default function VideoPlayer() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 pt-16 flex">
-      {/* Sidebar - Left */}
-      <div className="w-80 bg-slate-800 border-r border-slate-700 overflow-y-auto flex-shrink-0">
-        <div className="p-6">
-          <button
-            onClick={() => navigate(`/course/${courseId}`)}
-            className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Volver al Curso
-          </button>
+    <div className="min-h-screen bg-slate-900 pt-16 flex flex-col">
+      <div className="flex flex-col lg:flex-row flex-1">
+        {/* Sidebar - Left */}
+        <div className="w-full lg:w-80 bg-slate-800 border-b lg:border-b-0 lg:border-r border-slate-700 overflow-y-auto flex-shrink-0">
+          <div className="p-4 lg:p-6">
+            <button
+              onClick={() => navigate(`/course/${courseId}`)}
+              className="flex items-center gap-2 text-slate-400 hover:text-white mb-4 lg:mb-6 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Volver al Curso
+            </button>
 
-          <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">
-            {module.title}
-          </h3>
-          
-          <div className="space-y-2">
-            {module.videos.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => handleVideoSelect(v.id)}
-                className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all text-left ${
-                  v.id === video.id
-                    ? 'bg-red-500/20 border-2 border-red-500'
-                    : 'bg-slate-700/30 hover:bg-slate-700/50 border-2 border-transparent'
-                }`}
-              >
-                {getVideoIcon(v)}
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${
-                    v.id === video.id ? 'text-white' : 'text-slate-300'
-                  }`}>
-                    {v.title}
-                  </p>
-                  {v.type === 'video' && (
-                    <p className="text-xs text-slate-500">{v.duration}</p>
-                  )}
-                  {v.type === 'challenge' && (
-                    <p className="text-xs text-red-400">Reto Práctico</p>
-                  )}
+            <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider">
+              {module.title}
+            </h3>
+            
+            <div className="space-y-2">
+              {module.videos.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => handleVideoSelect(v.id)}
+                  className={`w-full p-3 lg:p-4 rounded-lg flex items-center gap-3 transition-all text-left ${
+                    v.id === video.id
+                      ? 'bg-red-500/20 border-2 border-red-500'
+                      : 'bg-slate-700/30 hover:bg-slate-700/50 border-2 border-transparent'
+                  }`}
+                >
+                  {getVideoIcon(v)}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${
+                      v.id === video.id ? 'text-white' : 'text-slate-300'
+                    }`}>
+                      {v.title}
+                    </p>
+                    {v.type === 'video' && (
+                      <p className="text-xs text-slate-500">{v.duration}</p>
+                    )}
+                    {v.type === 'challenge' && (
+                      <p className="text-xs text-red-400">Reto Práctico</p>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4 lg:p-8">
+            {isChallenge ? (
+              // Challenge View
+              <div>
+                <div className="mb-6">
+                  <div className="inline-block px-3 py-1 text-xs font-semibold bg-red-500/20 text-red-400 rounded-full mb-3">
+                    RETO PRÁCTICO
+                  </div>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">{video.title}</h1>
+                  <p className="text-slate-400 text-sm lg:text-base">{video.description}</p>
                 </div>
-              </button>
-            ))}
+
+                {video.challengeData && (
+                  <ChallengeSubmission
+                    challenge={video.challengeData}
+                    onSubmit={handleChallengeSubmit}
+                  />
+                )}
+              </div>
+            ) : (
+              // Video View
+              <div className="h-full flex flex-col">
+                <div className="mb-6">
+                  <div className="inline-block px-3 py-1 text-xs font-semibold bg-red-500/20 text-red-400 rounded-full mb-3">
+                    VIDEO
+                  </div>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">{video.title}</h1>
+                  <p className="text-slate-400 text-sm lg:text-base">{video.description}</p>
+                </div>
+
+                {/* Video Player - Full Width */}
+                <div className="flex-1 bg-black rounded-xl overflow-hidden mb-6 shadow-2xl" style={{ minHeight: '300px', maxHeight: '70vh' }}>
+                  <iframe
+                    src={video.url}
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    onLoad={() => {
+                      // Auto-mark as completed after video loads (simulating watch)
+                      // In production, track actual video completion
+                      if (!video.completed) {
+                        setTimeout(() => {
+                          console.log('Video watched, marking as completed');
+                          // Here you would update the video status in your backend
+                        }, 3000);
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Video Actions */}
+                <div className="bg-slate-800 rounded-xl p-4 lg:p-6 border border-slate-700">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex flex-wrap gap-3">
+                      {video.pdfUrl && (
+                        <button className="px-4 lg:px-6 py-2 lg:py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm lg:text-base">
+                          <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="hidden sm:inline">Descargar Material</span>
+                          <span className="sm:hidden">Material</span>
+                        </button>
+                      )}
+                    </div>
+                    
+                    {video.completed && (
+                      <div className="flex items-center gap-2 px-4 lg:px-6 py-2 lg:py-3 bg-green-500/20 border border-green-500/30 rounded-lg">
+                        <svg className="w-4 h-4 lg:w-5 lg:h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-green-400 font-semibold text-sm lg:text-base">Video Completado</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-8">
-          {isChallenge ? (
-            // Challenge View
-            <div>
-              <div className="mb-6">
-                <div className="inline-block px-3 py-1 text-xs font-semibold bg-red-500/20 text-red-400 rounded-full mb-3">
-                  RETO PRÁCTICO
-                </div>
-                <h1 className="text-3xl font-bold text-white mb-2">{video.title}</h1>
-                <p className="text-slate-400">{video.description}</p>
-              </div>
-
-              {video.challengeData && (
-                <ChallengeSubmission
-                  challenge={video.challengeData}
-                  onSubmit={handleChallengeSubmit}
-                />
-              )}
-            </div>
-          ) : (
-            // Video View
-            <div>
-              <div className="mb-6">
-                <div className="inline-block px-3 py-1 text-xs font-semibold bg-red-500/20 text-red-400 rounded-full mb-3">
-                  VIDEO
-                </div>
-                <h1 className="text-3xl font-bold text-white mb-2">{video.title}</h1>
-                <p className="text-slate-400">{video.description}</p>
-              </div>
-
-              {/* Video Player */}
-              <div className="aspect-video bg-black rounded-xl overflow-hidden mb-6 shadow-2xl">
-                <iframe
-                  src={video.url}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  onLoad={() => {
-                    // Auto-mark as completed after video loads (simulating watch)
-                    // In production, track actual video completion
-                    if (!video.completed) {
-                      setTimeout(() => {
-                        console.log('Video watched, marking as completed');
-                        // Here you would update the video status in your backend
-                      }, 3000);
-                    }
-                  }}
-                />
-              </div>
-
-              {/* Video Actions */}
-              <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-                <div className="flex gap-4">
-                  {video.pdfUrl && (
-                    <button className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Descargar Material
-                    </button>
-                  )}
-                  
-                  {!video.completed && (
-                    <button 
-                      onClick={() => {
-                        alert('¡Video marcado como completado!');
-                        // Here you would update the video status in your backend
-                        window.location.reload();
-                      }}
-                      className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-lg font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-red-500/50 flex items-center gap-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Marcar como Completado
-                    </button>
-                  )}
-                  
-                  {video.completed && (
-                    <div className="flex items-center gap-2 px-6 py-3 bg-green-500/20 border border-green-500/30 rounded-lg">
-                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-green-400 font-semibold">Completado</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      
+      {/* Footer at the bottom */}
       <Footer />
     </div>
   );

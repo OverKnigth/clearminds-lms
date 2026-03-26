@@ -11,54 +11,54 @@ export default function Landing() {
       <LandingNavbar />
 
       {/* Hero Section */}
-      <div id="inicio" className="pt-32 pb-20 px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <div id="inicio" className="pt-24 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           <div>
-            <div className="inline-block px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-full mb-6">
-              <span className="text-red-400 text-sm font-semibold">● ESCUELA DE PROGRAMACIÓN</span>
+            <div className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 bg-red-500/10 border border-red-500/30 rounded-full mb-4 sm:mb-6">
+              <span className="text-red-400 text-xs sm:text-sm font-semibold">● ESCUELA DE PROGRAMACIÓN</span>
             </div>
-            <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-white mb-4 sm:mb-6 leading-tight">
               ¿Listo para transformar tu{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-600">
                 futuro?
               </span>
             </h1>
-            <p className="text-xl text-slate-300 mb-8 leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl text-slate-300 mb-6 sm:mb-8 leading-relaxed">
               Estudia con nosotros y domina el desarrollo de software desde cero. Obtén certificaciones internacionales como AWS y trabaja con nosotros en proyectos reales.
             </p>
-            <div className="flex gap-4 mb-8">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
               <button
                 onClick={() => navigate('/login')}
-                className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-500/50"
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-500/50 text-sm sm:text-base"
               >
                 Comenzar Ahora
               </button>
               <button 
                 onClick={() => document.getElementById('cursos')?.scrollIntoView({ behavior: 'smooth' })}
-                className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl transition-colors border border-slate-700"
+                className="px-6 sm:px-8 py-3 sm:py-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl transition-colors border border-slate-700 text-sm sm:text-base"
               >
                 Ver Cursos
               </button>
             </div>
             
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-700">
+            <div className="grid grid-cols-3 gap-4 sm:gap-6 pt-6 sm:pt-8 border-t border-slate-700">
               <div>
-                <div className="text-3xl font-bold text-red-500 mb-1">150+</div>
-                <div className="text-sm text-slate-400">Estudiantes Activos</div>
+                <div className="text-2xl sm:text-3xl font-bold text-red-500 mb-1">150+</div>
+                <div className="text-xs sm:text-sm text-slate-400">Estudiantes Activos</div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-red-500 mb-1">95%</div>
-                <div className="text-sm text-slate-400">Tasa de Éxito</div>
+                <div className="text-2xl sm:text-3xl font-bold text-red-500 mb-1">95%</div>
+                <div className="text-xs sm:text-sm text-slate-400">Tasa de Éxito</div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-red-500 mb-1">100+</div>
-                <div className="text-sm text-slate-400">Graduados con Nosotros</div>
+                <div className="text-2xl sm:text-3xl font-bold text-red-500 mb-1">100+</div>
+                <div className="text-xs sm:text-sm text-slate-400">Graduados</div>
               </div>
             </div>
           </div>
           
-          <div className="relative">
+          <div className="relative hidden lg:block">
             <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 border border-slate-700/50 shadow-2xl">
               <div className="absolute -top-4 -right-4 w-24 h-24 bg-red-500/20 rounded-full blur-2xl"></div>
               <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-red-600/20 rounded-full blur-2xl"></div>
@@ -73,31 +73,31 @@ export default function Landing() {
       </div>
 
       {/* Benefits Section */}
-      <div className="py-20 px-6 bg-slate-900/50">
+      <div className="py-12 sm:py-20 px-4 sm:px-6 bg-slate-900/50">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">¿Por qué elegir Krakedev?</h2>
-            <p className="text-xl text-slate-400">La mejor inversión en tu futuro profesional</p>
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3 sm:mb-4">¿Por qué elegir Krakedev?</h2>
+            <p className="text-lg sm:text-xl text-slate-400">La mejor inversión en tu futuro profesional</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-8 border border-slate-700/50 hover:border-red-500/50 transition-all">
-              <div className="w-14 h-14 bg-red-500/20 rounded-xl flex items-center justify-center mb-6">
-                <svg className="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mb-12 sm:mb-16">
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 sm:p-8 border border-slate-700/50 hover:border-red-500/50 transition-all">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-red-500/20 rounded-xl flex items-center justify-center mb-4 sm:mb-6">
+                <svg className="w-6 h-6 sm:w-7 sm:h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-white mb-3">Certificaciones Internacionales</h3>
-              <p className="text-slate-400 leading-relaxed">Prepárate para certificaciones AWS, Azure y Google Cloud con nuestros programas especializados.</p>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-3">Certificaciones Internacionales</h3>
+              <p className="text-sm sm:text-base text-slate-400 leading-relaxed">Prepárate para certificaciones AWS, Azure y Google Cloud con nuestros programas especializados.</p>
             </div>
 
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-8 border border-slate-700/50 hover:border-red-500/50 transition-all">
-              <div className="w-14 h-14 bg-red-500/20 rounded-xl flex items-center justify-center mb-6">
-                <svg className="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 sm:p-8 border border-slate-700/50 hover:border-red-500/50 transition-all">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-red-500/20 rounded-xl flex items-center justify-center mb-4 sm:mb-6">
+                <svg className="w-6 h-6 sm:w-7 sm:h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-white mb-3">Oportunidades Laborales</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-3">Oportunidades Laborales</h3>
               <p className="text-slate-400 leading-relaxed">Trabaja con nosotros o con nuestras empresas aliadas. Conectamos talento con oportunidades reales.</p>
             </div>
 
