@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../components/Footer';
+import { api } from '../services/api';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -17,8 +19,19 @@ export default function ForgotPassword() {
       return;
     }
 
-    // Mock: simulate sending reset email
-    setSent(true);
+    setLoading(true);
+    try {
+      const response = await api.forgotPassword(email);
+      if (response.success) {
+        setSent(true);
+      } else {
+        setError(response.message || 'Error al enviar el correo');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error de conexión con el servidor');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

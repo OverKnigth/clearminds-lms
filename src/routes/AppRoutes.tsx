@@ -2,11 +2,12 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Landing from '../pages/Landing';
 import Login from '../pages/Login';
 import ForgotPassword from '../pages/ForgotPassword';
+import ResetPassword from '../pages/ResetPassword';
 import Dashboard from '../pages/Dashboard';
 import CourseView from '../pages/CourseView';
 import VideoPlayer from '../pages/VideoPlayer';
 import Tutoring from '../pages/Tutoring';
-import Admin from '../pages/Admin';
+import Admin from '../pages/Admin/index';
 import Tutor from '../pages/Tutor';
 import Meetings from '../pages/Meetings';
 import Reports from '../pages/Reports';
@@ -19,6 +20,7 @@ export default function AppRoutes() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/course/:courseId" element={<CourseView />} />

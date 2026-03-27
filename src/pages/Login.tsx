@@ -2,49 +2,52 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../components/Footer';
 import krakedevLogo from '../assets/krakedev_logo.png';
+import { api } from '../services/api';
 
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
-    // Credenciales de administrador
-    if (email === 'admin@krakedev.com' && password === 'admin123') {
-      localStorage.setItem('userRole', 'admin');
-      localStorage.setItem('userName', 'Admin');
-      navigate('/admin');
-      return;
+    try {
+      const response = await api.login(email, password);
+      
+      if (response.success) {
+        const user = response.data.user;
+        
+        // Redirect based on role
+        if (user.role === 'admin') {
+          navigate('/admin');
+        } else if (user.role === 'tutor') {
+          navigate('/tutor');
+        } else {
+          navigate('/dashboard');
+        }
+      } else {
+        setError(response.message || 'Credenciales inválidas');
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(
+        err.response?.data?.message || 
+        err.response?.data?.errors?.[0]?.msg || 
+        'Error al conectar con el servidor'
+      );
+    } finally {
+      setIsLoading(false);
     }
-
-    // Credenciales de tutor
-    if (email === 'tutor@krakedev.com' && password === 'tutor123') {
-      localStorage.setItem('userRole', 'tutor');
-      localStorage.setItem('userName', 'Carlos Mendoza');
-      navigate('/tutor');
-      return;
-    }
-
-    // Credenciales de estudiante (cualquier otro email válido)
-    if (email && password) {
-      localStorage.setItem('userRole', 'student');
-      localStorage.setItem('userName', email.split('@')[0]);
-      navigate('/dashboard');
-      return;
-    }
-
-    setError('Credenciales inválidas');
   };
 
   const handleGoogleLogin = () => {
-    // Simular login con Google como estudiante
-    localStorage.setItem('userRole', 'student');
-    localStorage.setItem('userName', 'Alex Rivera');
-    navigate('/dashboard');
+    // Para login con Google se necesitaría una implementación adicional en el backend
+    setError('El inicio de sesión con Google aún no está configurado en el backend');
   };
 
   const handleBack = () => {
@@ -104,7 +107,8 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   placeholder="tu@email.com"
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                  disabled={isLoading}
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all disabled:opacity-50"
                 />
               </div>
 
@@ -127,15 +131,27 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                  disabled={isLoading}
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all disabled:opacity-50"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-500/50"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold py-3.5 px-6 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Iniciar Sesión
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Iniciando sesión...
+                  </>
+                ) : (
+                  'Iniciar Sesión'
+                )}
               </button>
             </form>
 
@@ -172,18 +188,6 @@ export default function Login() {
               </svg>
               Continuar con Google
             </button>
-
-            {/* Admin credentials hint */}
-            <div className="mt-6 p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
-              <p className="text-xs text-slate-400 text-center mb-2">
-                <span className="font-semibold text-slate-300">Acceso de Prueba:</span>
-              </p>
-              <div className="space-y-1 text-xs text-slate-500">
-                <p>Admin: admin@krakedev.com / admin123</p>
-                <p>Tutor: tutor@krakedev.com / tutor123</p>
-                <p>Estudiante: cualquier email válido</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>

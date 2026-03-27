@@ -1,38 +1,31 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { type AxiosInstance, type AxiosError } from 'axios';
 
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
-// Create axios instance with default config
+// Create axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor - Add auth token to requests
+// Request interceptor - attach token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor - Handle errors globally
+// Response interceptor - handle 401
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -49,61 +42,83 @@ export const API_ENDPOINTS = {
   REFRESH_TOKEN: '/auth/refresh',
   FORGOT_PASSWORD: '/auth/forgot-password',
   RESET_PASSWORD: '/auth/reset-password',
-  
-  // Users
+
+  // User profile
   GET_PROFILE: '/users/profile',
   UPDATE_PROFILE: '/users/profile',
-  
-  // Courses
+
+  // Courses (student)
   GET_COURSES: '/courses',
   GET_COURSE: (id: string) => `/courses/${id}`,
   GET_COURSE_VIDEOS: (id: string) => `/courses/${id}/videos`,
-  
+
   // Videos
   GET_VIDEO: (id: string) => `/videos/${id}`,
   UPDATE_VIDEO_PROGRESS: (id: string) => `/videos/${id}/progress`,
-  
+
   // Challenges
   SUBMIT_CHALLENGE: '/challenges/submit',
   GET_CHALLENGE_SUBMISSIONS: (videoId: string) => `/challenges/submissions/${videoId}`,
-  
+
   // Tutoring
   GET_TUTORINGS: '/tutorings',
   CREATE_TUTORING: '/tutorings',
   UPDATE_TUTORING: (id: string) => `/tutorings/${id}`,
   CONFIRM_TUTORING: (id: string) => `/tutorings/${id}/confirm`,
   COMPLETE_TUTORING: (id: string) => `/tutorings/${id}/complete`,
-  
+
   // Badges
   GET_BADGES: '/badges',
   GET_USER_BADGES: '/badges/user',
-  
+
   // Notifications
   GET_NOTIFICATIONS: '/notifications',
   MARK_NOTIFICATION_READ: (id: string) => `/notifications/${id}/read`,
   MARK_ALL_READ: '/notifications/mark-all-read',
-  
+
   // Reports
   GET_DAILY_REPORT: '/reports/daily',
   GET_STUDENT_REPORTS: '/reports/students',
-  
-  // Admin
-  GET_ALL_USERS: '/admin/users',
-  GET_ALL_COURSES: '/admin/courses',
-  CREATE_COURSE: '/admin/courses',
-  UPDATE_COURSE: (id: string) => `/admin/courses/${id}`,
-  DELETE_COURSE: (id: string) => `/admin/courses/${id}`,
+  GET_ADMIN_STATS: '/reports/stats',
+  GET_GROUP_REPORT: (groupId: string) => `/reports/group/${groupId}`,
+
+  // Admin - Users
+  GET_ALL_USERS: '/users',
+  CREATE_USER: '/users',
+  UPLOAD_USERS_BULK: '/users/bulk',
+
+  // Admin - Groups
+  GET_GROUPS: '/users/groups',
+  CREATE_GROUP: '/users/groups',
+  ENROLL_STUDENTS: (groupId: string) => `/users/groups/${groupId}/enroll`,
+
+  // Admin - Courses
+  GET_ADMIN_COURSES: '/courses',
+  CREATE_COURSE: '/courses',
+  UPDATE_COURSE: (id: string) => `/courses/${id}`,
+  DELETE_COURSE: (id: string) => `/courses/${id}`,
+  GET_COURSE_TOPICS: (courseId: string) => `/courses/${courseId}/topics`,
+  CREATE_TOPIC: '/courses/topics',
+  UPDATE_TOPIC: (id: string) => `/courses/topics/${id}`,
+  CREATE_CONTENT: '/courses/contents',
+  UPDATE_CONTENT: (id: string) => `/courses/contents/${id}`,
 };
 
 // API Service
 export const api = {
-  // Auth
-  login: async (token: string) => {
+  // ─── Auth ───────────────────────────────────────────────────────────────────
+  login: async (email: string, password: string) => {
     try {
-      const response = await apiClient.post(API_ENDPOINTS.LOGIN, { token });
-      if (response.data.token) {
-        localStorage.setItem('authToken', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      const response = await apiClient.post(API_ENDPOINTS.LOGIN, { email, password });
+      const { success, data } = response.data;
+      if (success && data?.accessToken) {
+        localStorage.setItem('authToken', data.accessToken);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('userRole', data.user.role || 'student');
+        const userName = data.user.names && data.user.lastNames
+          ? `${data.user.names} ${data.user.lastNames}`
+          : (data.user.names || data.user.email.split('@')[0]);
+        localStorage.setItem('userName', userName);
       }
       return response.data;
     } catch (error) {
@@ -114,297 +129,223 @@ export const api = {
 
   logout: async () => {
     try {
-      await apiClient.post(API_ENDPOINTS.LOGOUT);
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
+      if (localStorage.getItem('authToken')) await apiClient.post(API_ENDPOINTS.LOGOUT);
     } catch (error) {
       console.error('Logout error:', error);
-      throw error;
+    } finally {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userName');
     }
   },
 
   forgotPassword: async (email: string) => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.FORGOT_PASSWORD, { email });
-      return response.data;
-    } catch (error) {
-      console.error('Forgot password error:', error);
-      throw error;
-    }
+    const response = await apiClient.post(API_ENDPOINTS.FORGOT_PASSWORD, { email });
+    return response.data;
   },
 
   resetPassword: async (token: string, newPassword: string) => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.RESET_PASSWORD, { token, newPassword });
-      return response.data;
-    } catch (error) {
-      console.error('Reset password error:', error);
-      throw error;
-    }
+    const response = await apiClient.post(API_ENDPOINTS.RESET_PASSWORD, { token, newPassword });
+    return response.data;
   },
 
-  // Users
+  // ─── User Profile ────────────────────────────────────────────────────────────
   getProfile: async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_PROFILE);
-      return response.data;
-    } catch (error) {
-      console.error('Get profile error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_PROFILE);
+    return response.data;
   },
 
   updateProfile: async (data: any) => {
-    try {
-      const response = await apiClient.put(API_ENDPOINTS.UPDATE_PROFILE, data);
-      return response.data;
-    } catch (error) {
-      console.error('Update profile error:', error);
-      throw error;
-    }
+    const response = await apiClient.put(API_ENDPOINTS.UPDATE_PROFILE, data);
+    return response.data;
   },
 
-  // Courses
+  // ─── Courses (student) ───────────────────────────────────────────────────────
   getCourses: async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_COURSES);
-      return response.data;
-    } catch (error) {
-      console.error('Get courses error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_COURSES);
+    return response.data;
   },
 
   getCourse: async (id: string) => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_COURSE(id));
-      return response.data;
-    } catch (error) {
-      console.error('Get course error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_COURSE(id));
+    return response.data;
   },
 
   getCourseVideos: async (courseId: string) => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_COURSE_VIDEOS(courseId));
-      return response.data;
-    } catch (error) {
-      console.error('Get course videos error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_COURSE_VIDEOS(courseId));
+    return response.data;
   },
 
-  // Videos
+  // ─── Videos ─────────────────────────────────────────────────────────────────
   getVideo: async (id: string) => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_VIDEO(id));
-      return response.data;
-    } catch (error) {
-      console.error('Get video error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_VIDEO(id));
+    return response.data;
   },
 
   updateVideoProgress: async (videoId: string, progress: number, completed: boolean) => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.UPDATE_VIDEO_PROGRESS(videoId), {
-        progress,
-        completed,
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Update video progress error:', error);
-      throw error;
-    }
+    const response = await apiClient.post(API_ENDPOINTS.UPDATE_VIDEO_PROGRESS(videoId), { progress, completed });
+    return response.data;
   },
 
-  // Challenges
+  // ─── Challenges ─────────────────────────────────────────────────────────────
   submitChallenge: async (data: { videoId: string; githubUrl: string; notes?: string }) => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.SUBMIT_CHALLENGE, data);
-      return response.data;
-    } catch (error) {
-      console.error('Submit challenge error:', error);
-      throw error;
-    }
+    const response = await apiClient.post(API_ENDPOINTS.SUBMIT_CHALLENGE, data);
+    return response.data;
   },
 
   getChallengeSubmissions: async (videoId: string) => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_CHALLENGE_SUBMISSIONS(videoId));
-      return response.data;
-    } catch (error) {
-      console.error('Get challenge submissions error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_CHALLENGE_SUBMISSIONS(videoId));
+    return response.data;
   },
 
-  // Tutoring
+  // ─── Tutoring ────────────────────────────────────────────────────────────────
   getTutorings: async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_TUTORINGS);
-      return response.data;
-    } catch (error) {
-      console.error('Get tutorings error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_TUTORINGS);
+    return response.data;
   },
 
   createTutoring: async (data: { date: string; time: string; notes: string; topic: string }) => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.CREATE_TUTORING, data);
-      return response.data;
-    } catch (error) {
-      console.error('Create tutoring error:', error);
-      throw error;
-    }
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_TUTORING, data);
+    return response.data;
   },
 
   confirmTutoring: async (id: string) => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.CONFIRM_TUTORING(id));
-      return response.data;
-    } catch (error) {
-      console.error('Confirm tutoring error:', error);
-      throw error;
-    }
+    const response = await apiClient.post(API_ENDPOINTS.CONFIRM_TUTORING(id));
+    return response.data;
   },
 
   completeTutoring: async (id: string, feedback?: string) => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.COMPLETE_TUTORING(id), { feedback });
-      return response.data;
-    } catch (error) {
-      console.error('Complete tutoring error:', error);
-      throw error;
-    }
+    const response = await apiClient.post(API_ENDPOINTS.COMPLETE_TUTORING(id), { feedback });
+    return response.data;
   },
 
-  // Badges
+  // ─── Badges ─────────────────────────────────────────────────────────────────
   getBadges: async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_BADGES);
-      return response.data;
-    } catch (error) {
-      console.error('Get badges error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_BADGES);
+    return response.data;
   },
 
   getUserBadges: async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_USER_BADGES);
-      return response.data;
-    } catch (error) {
-      console.error('Get user badges error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_USER_BADGES);
+    return response.data;
   },
 
-  // Notifications
+  // ─── Notifications ───────────────────────────────────────────────────────────
   getNotifications: async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_NOTIFICATIONS);
-      return response.data;
-    } catch (error) {
-      console.error('Get notifications error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_NOTIFICATIONS);
+    return response.data;
   },
 
   markNotificationRead: async (id: string) => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.MARK_NOTIFICATION_READ(id));
-      return response.data;
-    } catch (error) {
-      console.error('Mark notification read error:', error);
-      throw error;
-    }
+    const response = await apiClient.post(API_ENDPOINTS.MARK_NOTIFICATION_READ(id));
+    return response.data;
   },
 
   markAllNotificationsRead: async () => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.MARK_ALL_READ);
-      return response.data;
-    } catch (error) {
-      console.error('Mark all notifications read error:', error);
-      throw error;
-    }
+    const response = await apiClient.post(API_ENDPOINTS.MARK_ALL_READ);
+    return response.data;
   },
 
-  // Reports
+  // ─── Reports ─────────────────────────────────────────────────────────────────
   getDailyReport: async (date: string) => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_DAILY_REPORT, {
-        params: { date },
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Get daily report error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_DAILY_REPORT, { params: { date } });
+    return response.data;
   },
 
   getStudentReports: async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_STUDENT_REPORTS);
-      return response.data;
-    } catch (error) {
-      console.error('Get student reports error:', error);
-      throw error;
-    }
+    const response = await apiClient.get(API_ENDPOINTS.GET_STUDENT_REPORTS);
+    return response.data;
   },
 
-  // Admin
-  getAllUsers: async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_ALL_USERS);
-      return response.data;
-    } catch (error) {
-      console.error('Get all users error:', error);
-      throw error;
-    }
+  getAdminStats: async () => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_ADMIN_STATS);
+    return response.data;
   },
 
-  getAllCourses: async () => {
-    try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_ALL_COURSES);
-      return response.data;
-    } catch (error) {
-      console.error('Get all courses error:', error);
-      throw error;
-    }
+  getGroupReport: async (groupId: string) => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_GROUP_REPORT(groupId));
+    return response.data;
   },
 
+  // ─── Admin - Users ───────────────────────────────────────────────────────────
+  // role?: 'student' | 'tutor' | 'admin'
+  getAllUsers: async (role?: string) => {
+    const params = role ? `?role=${role}` : '';
+    const response = await apiClient.get(`${API_ENDPOINTS.GET_ALL_USERS}${params}`);
+    return response.data;
+  },
+
+  createUser: async (data: any) => {
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_USER, data);
+    return response.data;
+  },
+
+  uploadUsersBulk: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Uses a different instance or overrides header for multipart/form-data
+    const token = localStorage.getItem('authToken');
+    const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_USERS_BULK}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: token ? `Bearer ${token}` : '',
+      },
+    });
+    return response.data;
+  },
+
+  // ─── Admin - Groups ──────────────────────────────────────────────────────────
+  getAllGroups: async () => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_GROUPS);
+    return response.data;
+  },
+
+  createGroup: async (data: any) => {
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_GROUP, data);
+    return response.data;
+  },
+
+  enrollStudents: async (groupId: string, data: { userIds: string[]; courseId: string }) => {
+    const response = await apiClient.post(API_ENDPOINTS.ENROLL_STUDENTS(groupId), data);
+    return response.data;
+  },
+
+  // ─── Admin - Courses ─────────────────────────────────────────────────────────
   createCourse: async (data: any) => {
-    try {
-      const response = await apiClient.post(API_ENDPOINTS.CREATE_COURSE, data);
-      return response.data;
-    } catch (error) {
-      console.error('Create course error:', error);
-      throw error;
-    }
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_COURSE, data);
+    return response.data;
   },
 
   updateCourse: async (id: string, data: any) => {
-    try {
-      const response = await apiClient.put(API_ENDPOINTS.UPDATE_COURSE(id), data);
-      return response.data;
-    } catch (error) {
-      console.error('Update course error:', error);
-      throw error;
-    }
+    const response = await apiClient.put(API_ENDPOINTS.UPDATE_COURSE(id), data);
+    return response.data;
   },
 
-  deleteCourse: async (id: string) => {
-    try {
-      const response = await apiClient.delete(API_ENDPOINTS.DELETE_COURSE(id));
-      return response.data;
-    } catch (error) {
-      console.error('Delete course error:', error);
-      throw error;
-    }
+  getCourseTopics: async (courseId: string) => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_COURSE_TOPICS(courseId));
+    return response.data;
+  },
+
+  createTopic: async (data: any) => {
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_TOPIC, data);
+    return response.data;
+  },
+
+  updateTopic: async (id: string, data: any) => {
+    const response = await apiClient.put(API_ENDPOINTS.UPDATE_TOPIC(id), data);
+    return response.data;
+  },
+
+  createContent: async (data: any) => {
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_CONTENT, data);
+    return response.data;
+  },
+
+  updateContent: async (id: string, data: any) => {
+    const response = await apiClient.put(API_ENDPOINTS.UPDATE_CONTENT(id), data);
+    return response.data;
   },
 };
 

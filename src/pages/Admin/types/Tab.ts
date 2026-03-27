@@ -1,0 +1,1 @@
+export type Tab = 'students' | 'tutors' | 'admins' | 'courses' | 'progress' | 'assignments';

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { mockCourses, mockUser, mockBadges, mockTutorings, mockNotifications } from '../utils/mockData';
 import CourseCard from '../components/CourseCard';
 import StatsCard from '../components/StatsCard';
@@ -6,6 +7,13 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    const storedName = localStorage.getItem('userName');
+    if (storedName) setUserName(storedName);
+  }, []);
+
   const inProgressCourses = mockCourses.filter(c => c.progress > 0 && c.progress < 100);
   const completedCourses = mockCourses.filter(c => c.progress === 100);
   const earnedBadges = mockBadges.filter(b => b.status === 'earned');
@@ -52,7 +60,7 @@ export default function Dashboard() {
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/20 rounded-full mb-4">
               <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
               <span className="text-red-400 text-sm font-semibold tracking-wide">
-                BIENVENIDO, {mockUser.name.toUpperCase()}
+                BIENVENIDO, {userName.toUpperCase() || 'ESTUDIANTE'}
               </span>
             </div>
             
