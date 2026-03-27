@@ -26,9 +26,15 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Only redirect if we're not already on the login page
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userName');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -85,6 +91,7 @@ export const API_ENDPOINTS = {
   // Admin - Users
   GET_ALL_USERS: '/users',
   CREATE_USER: '/users',
+  UPDATE_USER_STATUS: (id: string) => `/users/${id}/status`,
   UPLOAD_USERS_BULK: '/users/bulk',
 
   // Admin - Groups
@@ -93,10 +100,12 @@ export const API_ENDPOINTS = {
   ENROLL_STUDENTS: (groupId: string) => `/users/groups/${groupId}/enroll`,
 
   // Admin - Courses
-  GET_ADMIN_COURSES: '/courses',
-  CREATE_COURSE: '/courses',
-  UPDATE_COURSE: (id: string) => `/courses/${id}`,
-  DELETE_COURSE: (id: string) => `/courses/${id}`,
+  GET_ADMIN_COURSES: '/admin/courses',
+  CREATE_COURSE: '/admin/courses',
+  UPDATE_COURSE: (id: string) => `/admin/courses/${id}`,
+  GET_COURSE_DETAIL: (id: string) => `/admin/courses/${id}`,
+  DELETE_COURSE: (id: string) => `/admin/courses/${id}`,
+  UPLOAD_COURSE_IMAGE: '/admin/courses/upload-image',
   GET_COURSE_TOPICS: (courseId: string) => `/courses/${courseId}/topics`,
   CREATE_TOPIC: '/courses/topics',
   UPDATE_TOPIC: (id: string) => `/courses/topics/${id}`,
@@ -111,10 +120,14 @@ export const api = {
     try {
       const response = await apiClient.post(API_ENDPOINTS.LOGIN, { email, password });
       const { success, data } = response.data;
+      console.log('Login response data:', data); // Debug
       if (success && data?.accessToken) {
         localStorage.setItem('authToken', data.accessToken);
         localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('userRole', data.user.role || 'student');
+        // Fix: data.user.role is the correct field
+        const userRole = data.user.role || 'student';
+        console.log('User role:', userRole); // Debug
+        localStorage.setItem('userRole', userRole);
         const userName = data.user.names && data.user.lastNames
           ? `${data.user.names} ${data.user.lastNames}`
           : (data.user.names || data.user.email.split('@')[0]);
@@ -129,9 +142,13 @@ export const api = {
 
   logout: async () => {
     try {
-      if (localStorage.getItem('authToken')) await apiClient.post(API_ENDPOINTS.LOGOUT);
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        await apiClient.post(API_ENDPOINTS.LOGOUT);
+      }
     } catch (error) {
       console.error('Logout error:', error);
+      // Continue with logout even if API call fails
     } finally {
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
@@ -270,14 +287,22 @@ export const api = {
 
   // ─── Admin - Users ───────────────────────────────────────────────────────────
   // role?: 'student' | 'tutor' | 'admin'
-  getAllUsers: async (role?: string) => {
-    const params = role ? `?role=${role}` : '';
-    const response = await apiClient.get(`${API_ENDPOINTS.GET_ALL_USERS}${params}`);
+  getAllUsers: async (role?: string, page: number = 1, limit: number = 10) => {
+    const params = new URLSearchParams();
+    if (role) params.append('role', role);
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    const response = await apiClient.get(`${API_ENDPOINTS.GET_ALL_USERS}?${params.toString()}`);
     return response.data;
   },
 
   createUser: async (data: any) => {
     const response = await apiClient.post(API_ENDPOINTS.CREATE_USER, data);
+    return response.data;
+  },
+
+  updateUserStatus: async (userId: string, status: 'active' | 'inactive') => {
+    const response = await apiClient.patch(API_ENDPOINTS.UPDATE_USER_STATUS(userId), { status });
     return response.data;
   },
 
@@ -313,6 +338,16 @@ export const api = {
   },
 
   // ─── Admin - Courses ─────────────────────────────────────────────────────────
+  getAdminCourses: async () => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_ADMIN_COURSES);
+    return response.data;
+  },
+
+  getCourseDetail: async (id: string) => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_COURSE_DETAIL(id));
+    return response.data;
+  },
+
   createCourse: async (data: any) => {
     const response = await apiClient.post(API_ENDPOINTS.CREATE_COURSE, data);
     return response.data;
@@ -320,6 +355,28 @@ export const api = {
 
   updateCourse: async (id: string, data: any) => {
     const response = await apiClient.put(API_ENDPOINTS.UPDATE_COURSE(id), data);
+    return response.data;
+  },
+
+  deleteCourse: async (id: string) => {
+    const response = await apiClient.delete(API_ENDPOINTS.DELETE_COURSE(id));
+    return response.data;
+  },
+
+  uploadCourseImage: async (file: File, courseName?: string) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    if (courseName) {
+      formData.append('courseName', courseName);
+    }
+    
+    const token = localStorage.getItem('authToken');
+    const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_COURSE_IMAGE}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: token ? `Bearer ${token}` : '',
+      },
+    });
     return response.data;
   },
 

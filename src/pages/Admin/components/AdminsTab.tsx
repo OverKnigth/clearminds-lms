@@ -3,9 +3,16 @@ import type { Student } from '../types';
 interface AdminsTabProps {
   admins: Student[];
   openModal: (type: 'addStudent' | 'editStudent' | 'resetPassword', student?: Student) => void;
+  currentPage: number;
+  totalItems: number;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+  onToggleStatus: (admin: Student) => void;
 }
 
-export function AdminsTab({ admins, openModal }: AdminsTabProps) {
+export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPerPage, onPageChange, onToggleStatus }: AdminsTabProps) {
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -50,13 +57,17 @@ export function AdminsTab({ admins, openModal }: AdminsTabProps) {
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-300">{admin.email}</td>
                 <td className="px-6 py-4">
-                  <span className={`px-2 py-1 text-xs font-semibold rounded ${
-                    admin.status === 'active' 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : 'bg-red-500/20 text-red-400'
-                  }`}>
+                  <button
+                    onClick={() => onToggleStatus(admin)}
+                    className={`px-2 py-1 text-xs font-semibold rounded transition-all hover:opacity-80 cursor-pointer ${
+                      admin.status === 'active' 
+                        ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
+                        : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                    }`}
+                    title={`Click para ${admin.status === 'active' ? 'desactivar' : 'activar'}`}
+                  >
                     {admin.status === 'active' ? 'Activo' : 'Inactivo'}
-                  </span>
+                  </button>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex gap-2">
@@ -78,6 +89,71 @@ export function AdminsTab({ admins, openModal }: AdminsTabProps) {
             ))}
           </tbody>
         </table>
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="px-6 py-4 bg-slate-700/30 border-t border-slate-700 flex items-center justify-between">
+            <div className="text-sm text-slate-400">
+              Mostrando {admins.length} de {totalItems} administradores
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  currentPage === 1
+                    ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                    : 'bg-slate-700 text-white hover:bg-slate-600'
+                }`}
+              >
+                Anterior
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => onPageChange(page)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                          currentPage === page
+                            ? 'bg-gradient-to-r from-red-600 to-red-700 text-white'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  } else if (page === currentPage - 2 || page === currentPage + 2) {
+                    return (
+                      <span key={page} className="px-2 text-slate-500">
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+              
+              <button
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  currentPage === totalPages
+                    ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                    : 'bg-slate-700 text-white hover:bg-slate-600'
+                }`}
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

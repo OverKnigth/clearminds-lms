@@ -1,8 +1,16 @@
 export interface CourseData {
   id: string;
-  title: string;
-  category: string;
-  modules: number;
-  videos: number;
-  students: number;
+  name: string;
+  imageUrl?: string;
+  description?: string;
+  status: string;
+  tutorIds?: string[];
+  tutors?: Array<{
+    id: string;
+    names: string;
+    lastNames: string;
+    email: string;
+  }>;
+  createdAt?: string;
+  updatedAt?: string;
 }

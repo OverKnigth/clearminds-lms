@@ -3,28 +3,38 @@ import Footer from '../../components/Footer';
 import { api } from '../../services/api';
 import { useAdminData } from './hooks/useAdminData';
 import { useAdminModals } from './hooks/useAdminModals';
-import type { Tab } from './types';
+import type { Tab, CourseData } from './types';
 import {
   AdminHeader,
   StudentsTab,
   TutorsTab,
   AdminsTab,
-  AdminModals
+  AdminModals,
+  CoursesTab
 } from './components';
+import { CourseFormModal, type CourseFormData } from './components/CourseFormModal';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<Tab>('students');
   const [isUploading, setIsUploading] = useState(false);
   const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
+  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<CourseData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null!);
 
   const {
     students, setStudents,
     tutors,
     admins,
-    courses,
+    courses, setCourses,
     isLoading,
-    fetchData
+    fetchData,
+    fetchCourses,
+    studentsPage, setStudentsPage,
+    tutorsPage, setTutorsPage,
+    adminsPage, setAdminsPage,
+    studentsTotal, tutorsTotal, adminsTotal,
+    limit
   } = useAdminData();
 
   const {
@@ -51,16 +61,20 @@ export default function Admin() {
           role: formData.role,
           status: formData.status
         };
-        // Agregar cohortes/grupos luego si es necesario
-
-        await api.createUser(payload);
+        
+        console.log('Enviando payload:', payload);
+        const response = await api.createUser(payload);
+        console.log('Respuesta del servidor:', response);
+        
         await fetchData(); // Refresh list
+        setIsModalOpen(false);
       } else if (modalType === 'editStudent' && selectedStudent) {
         // En un futuro implementar editUser
       }
-      setIsModalOpen(false);
-    } catch (error) {
-      alert('Error al guardar estudiante');
+    } catch (error: any) {
+      console.error('Error completo:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Error al guardar usuario';
+      alert(errorMessage);
     }
   };
 
@@ -111,6 +125,63 @@ export default function Admin() {
     console.log('Guardando contenido:', contentFormData);
     setIsContentModalOpen(false);
   };
+
+  const handleToggleStatus = async (user: Student) => {
+    const newStatus = user.status === 'active' ? 'inactive' : 'active';
+    const confirmMessage = newStatus === 'inactive' 
+      ? `¿Desactivar a ${user.fullName}? No podrá iniciar sesión.`
+      : `¿Activar a ${user.fullName}?`;
+    
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      await api.updateUserStatus(user.id, newStatus);
+      await fetchData(); // Refresh list
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Error al cambiar estado';
+      alert(errorMessage);
+    }
+  };
+
+  const handleOpenCourseModal = (type: 'add' | 'edit', course?: CourseData) => {
+    setEditingCourse(type === 'edit' && course ? course : null);
+    setIsCourseModalOpen(true);
+  };
+
+  const handleSubmitCourse = async (data: CourseFormData) => {
+    try {
+      if (editingCourse) {
+        await api.updateCourse(editingCourse.id, data);
+      } else {
+        await api.createCourse(data);
+      }
+      await fetchCourses(); // Solo refresca cursos, no todas las APIs
+      setIsCourseModalOpen(false);
+      setEditingCourse(null);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Error al guardar curso';
+      alert(errorMessage);
+      throw error;
+    }
+  };
+
+  const handleToggleCourseStatus = async (course: CourseData) => {
+    const newStatus = course.status === 'active' ? 'inactive' : 'active';
+    const confirmMessage = newStatus === 'inactive' 
+      ? `¿Desactivar el curso "${course.name}"?`
+      : `¿Activar el curso "${course.name}"?`;
+    
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      await api.updateCourse(course.id, { status: newStatus });
+      await fetchCourses(); // Solo refresca cursos, no todas las APIs
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Error al cambiar estado del curso';
+      alert(errorMessage);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 pt-16">
       <div className="max-w-7xl mx-auto px-6 py-12">
@@ -138,18 +209,42 @@ export default function Admin() {
                 fileInputRef={fileInputRef}
                 handleFileUpload={handleFileUpload}
                 openModal={openModal}
+                currentPage={studentsPage}
+                totalItems={studentsTotal}
+                itemsPerPage={limit}
+                onPageChange={setStudentsPage}
+                onToggleStatus={handleToggleStatus}
               />
             )}
             {activeTab === 'tutors' && (
-              <TutorsTab tutors={tutors} openModal={openModal} />
+              <TutorsTab 
+                tutors={tutors} 
+                openModal={openModal}
+                currentPage={tutorsPage}
+                totalItems={tutorsTotal}
+                itemsPerPage={limit}
+                onPageChange={setTutorsPage}
+                onToggleStatus={handleToggleStatus}
+              />
             )}
             {activeTab === 'admins' && (
-              <AdminsTab admins={admins} openModal={openModal} />
+              <AdminsTab 
+                admins={admins} 
+                openModal={openModal}
+                currentPage={adminsPage}
+                totalItems={adminsTotal}
+                itemsPerPage={limit}
+                onPageChange={setAdminsPage}
+                onToggleStatus={handleToggleStatus}
+              />
             )}
             {activeTab === 'courses' && (
-              <div className="text-slate-400 text-center py-12">
-                Pestaña de cursos en desarrollo
-              </div>
+              <CoursesTab
+                courses={courses}
+                isLoading={isLoading}
+                openModal={(type, course) => handleOpenCourseModal(type === 'addCourse' ? 'add' : 'edit', course)}
+                onToggleStatus={handleToggleCourseStatus}
+              />
             )}
             {activeTab === 'progress' && (
               <div className="text-slate-400 text-center py-12">
@@ -187,6 +282,23 @@ export default function Admin() {
         openContentModal={openContentModal}
         courses={courses}
       />
+      
+      <CourseFormModal
+        isOpen={isCourseModalOpen}
+        onClose={() => {
+          setIsCourseModalOpen(false);
+          setEditingCourse(null);
+        }}
+        onSubmit={handleSubmitCourse}
+        course={editingCourse}
+        tutors={tutors.map(t => ({
+          id: t.id,
+          names: t.fullName.split(' ')[0],
+          lastNames: t.fullName.split(' ').slice(1).join(' '),
+          email: t.email
+        }))}
+      />
+      
       <Footer />
     </div>
   );

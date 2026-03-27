@@ -110,9 +110,11 @@ export const useAdminModals = (activeTab: Tab) => {
   };
 
   const getModalTitle = () => {
+    const roleLabel = formData.role === 'tutor' ? 'Tutor' : formData.role === 'admin' ? 'Administrador' : 'Estudiante';
+    
     switch (modalType) {
-      case 'addStudent': return 'Agregar Nuevo Estudiante';
-      case 'editStudent': return 'Editar Estudiante';
+      case 'addStudent': return `Agregar Nuevo ${roleLabel}`;
+      case 'editStudent': return `Editar ${roleLabel}`;
       case 'addCourse': return 'Crear Nuevo Curso';
       case 'editCourse': return 'Editar Curso';
       case 'editCourseContent': return 'Gestionar Contenido del Curso';

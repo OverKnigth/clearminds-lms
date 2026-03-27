@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { mockNotifications } from '../utils/mockData';
 import krakedevLogo from '../assets/krakedev_logo.png';
+import { api } from '../services/api';
 
 interface NavbarProps {
   user?: {
@@ -17,14 +18,33 @@ export default function Navbar({ user }: NavbarProps) {
   const isTutor = location.pathname.startsWith('/tutor');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Use mock notifications
   const notifications = mockNotifications;
   const unreadCount = notifications.filter(n => !n.read).length;
+  
+  // Get user role from localStorage
+  const userRole = localStorage.getItem('userRole') || 'student';
+  const roleLabels: Record<string, string> = {
+    admin: 'Administrador',
+    tutor: 'Tutor',
+    student: 'Estudiante'
+  };
+  const roleLabel = roleLabels[userRole] || 'Estudiante';
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/');
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await api.logout();
+      navigate('/');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Navigate anyway even if API call fails
+      navigate('/');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const getNotificationIcon = (type: string) => {
@@ -196,16 +216,29 @@ export default function Navbar({ user }: NavbarProps) {
                 <div className="absolute right-0 mt-2 w-48 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 overflow-hidden">
                   <div className="p-3 border-b border-slate-700">
                     <p className="text-sm font-medium text-white">{user.name}</p>
-                    <p className="text-xs text-slate-400">Estudiante</p>
+                    <p className="text-xs text-slate-400">{roleLabel}</p>
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="w-full p-3 text-left text-sm text-red-400 hover:bg-slate-700/50 transition-colors flex items-center gap-2"
+                    disabled={isLoggingOut}
+                    className="w-full p-3 text-left text-sm text-red-400 hover:bg-slate-700/50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Cerrar Sesión
+                    {isLoggingOut ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Cerrando...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Cerrar Sesión
+                      </>
+                    )}
                   </button>
                 </div>
               )}
