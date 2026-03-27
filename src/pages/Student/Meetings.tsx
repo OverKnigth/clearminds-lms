@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
 import Footer from '../../components/Footer';
 
@@ -32,12 +32,21 @@ const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
 
 export default function Meetings() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [tutorings, setTutorings] = useState<Tutoring[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [preselectedBlockId, setPreselectedBlockId] = useState<string | null>(null);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    // Check if there's a preselected block in the navigation state
+    if (location.state && (location.state as any).preselectedBlockId) {
+      setPreselectedBlockId((location.state as any).preselectedBlockId);
+      setShowModal(true);
+    }
+  }, [location]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -74,7 +83,10 @@ export default function Meetings() {
             <h1 className="text-3xl font-bold text-white">Mis Tutorías</h1>
             <p className="text-slate-400">Gestiona tus sesiones de validación</p>
           </div>
-          <button onClick={() => setShowModal(true)}
+          <button onClick={() => {
+            setPreselectedBlockId(null);
+            setShowModal(true);
+          }}
             className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -127,23 +139,34 @@ export default function Meetings() {
         )}
       </div>
 
-      {showModal && <RequestModal courses={courses} onClose={() => setShowModal(false)} onSuccess={loadData} />}
+      {showModal && (
+        <RequestModal 
+          courses={courses} 
+          initialBlockId={preselectedBlockId || ''} 
+          onClose={() => setShowModal(false)} 
+          onSuccess={loadData} 
+        />
+      )}
       <Footer />
     </div>
   );
 }
 
-function RequestModal({ courses, onClose, onSuccess }: { courses: Course[]; onClose: () => void; onSuccess: () => void }) {
-  const [blockId, setBlockId] = useState('');
+function RequestModal({ courses, initialBlockId, onClose, onSuccess }: { courses: Course[]; initialBlockId?: string; onClose: () => void; onSuccess: () => void }) {
+  const [blockId, setBlockId] = useState(initialBlockId || '');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (initialBlockId) setBlockId(initialBlockId);
+  }, [initialBlockId]);
 
   // Collect all blocks from all courses
   const blocks = courses.flatMap(c =>
-    c.topics.filter(t => t.blockId).map(t => ({
+    c.topics?.filter(t => t.blockId).map(t => ({
       id: t.blockId!,
       name: t.blockName || t.blockId!,
       courseName: c.name,
-    }))
+    })) || []
   ).filter((b, i, arr) => arr.findIndex(x => x.id === b.id) === i);
 
   const handleSubmit = async (e: React.FormEvent) => {

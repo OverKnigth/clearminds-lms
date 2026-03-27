@@ -23,6 +23,12 @@ interface Content {
     id: string; gitUrl: string; comment: string | null;
     submittedAt: string; isLate: boolean; status: string;
     grade: number | null; observations: string | null;
+    tutoring: {
+      id: string;
+      tutorName: string;
+      rating: number | null;
+      feedback: string | null;
+    } | null;
   } | null;
 }
 
@@ -36,6 +42,8 @@ export default function ContentView() {
   const [submitting, setSubmitting] = useState(false);
   const [markingDone, setMarkingDone] = useState(false);
   const [lastSavedProgress, setLastSavedProgress] = useState(0);
+  const [blockId, setBlockId] = useState<string | null>(null);
+  const [showRateModal, setShowRateModal] = useState(false);
   const progressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -55,18 +63,27 @@ export default function ContentView() {
           return;
         }
 
+        let foundContent: Content | null = null;
+        let foundBlockId: string | null = null;
+
         for (const topic of courseData.topics) {
-          const found = topic.contents.find((c: Content) => c.slug === ctSlug || c.id === ctSlug);
+          const found = topic.contents.find((c: any) => c.slug === ctSlug || c.id === ctSlug);
           if (found) { 
-            // Redirigir si el contenido se accedió por ID
-            if (ctSlug === found.id && found.slug) {
-              navigate(`/course/${courseData.slug}/content/${found.slug}`, { replace: true });
-              return;
-            }
-            setContent(found); 
-            setLastSavedProgress(found.progress.pctWatched || 0);
+            foundContent = found;
+            foundBlockId = topic.blockId;
             break; 
           }
+        }
+
+        if (foundContent) {
+          // Redirigir si el contenido se accedió por ID
+          if (ctSlug === foundContent.id && foundContent.slug) {
+            navigate(`/course/${courseData.slug}/content/${foundContent.slug}`, { replace: true });
+            return;
+          }
+          setContent(foundContent); 
+          setLastSavedProgress(foundContent.progress.pctWatched || 0);
+          setBlockId(foundBlockId);
         }
       }
     } catch (e) { console.error(e); }
@@ -127,8 +144,9 @@ export default function ContentView() {
     setSubmitting(true);
     try {
       await api.submitChallenge(contentId, { gitUrl, comment: comment || undefined });
-      await loadContent(courseSlug!, contentSlug!);
-      setGitUrl(''); setComment('');
+      // Redirect to meetings/tutoring page after successful submission
+      // Include blockId in state to preselect it in the meetings page
+      navigate('/meetings', { state: { preselectedBlockId: blockId } });
     } catch (e: any) { alert(e.response?.data?.message || e.message); }
     finally { setSubmitting(false); }
   };
@@ -354,11 +372,51 @@ export default function ContentView() {
                     </div>
                   )}
                   {content.submission.grade !== null && (
-                    <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Calificación del tutor</p>
-                      <p className="text-2xl font-bold text-green-400">{content.submission.grade}/10</p>
+                    <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-slate-400 mb-1">Calificación del tutor</p>
+                          <p className="text-3xl font-bold text-green-400">{content.submission.grade}/10</p>
+                        </div>
+                        {content.submission.tutoring && (
+                          <div className="text-right">
+                            <p className="text-xs text-slate-400 mb-1">Tutor</p>
+                            <p className="text-white font-semibold">{content.submission.tutoring.tutorName}</p>
+                          </div>
+                        )}
+                      </div>
+                      
                       {content.submission.observations && (
-                        <p className="text-sm text-slate-300 mt-2">{content.submission.observations}</p>
+                        <div className="pt-3 border-t border-green-500/20">
+                          <p className="text-xs text-slate-400 mb-1">Observaciones</p>
+                          <p className="text-sm text-slate-300">{content.submission.observations}</p>
+                        </div>
+                      )}
+
+                      {/* STAR RATING SECTION */}
+                      {content.submission.tutoring && (
+                        <div className="pt-4 border-t border-green-500/20">
+                          {content.submission.tutoring.rating ? (
+                            <div>
+                              <p className="text-xs text-slate-400 mb-2">Tu calificación al tutor:</p>
+                              <div className="flex gap-1">
+                                {[1, 2, 3, 4, 5].map(star => (
+                                  <span key={star} className={`text-xl ${content.submission!.tutoring!.rating! >= star ? 'text-yellow-400' : 'text-slate-600'}`}>★</span>
+                                ))}
+                              </div>
+                              {content.submission.tutoring.feedback && (
+                                <p className="text-xs text-slate-400 mt-2 italic">"{content.submission.tutoring.feedback}"</p>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setShowRateModal(true)}
+                              className="w-full py-2.5 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+                            >
+                              <span>★</span> Calificar experiencia con el tutor
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
@@ -390,7 +448,120 @@ export default function ContentView() {
           </div>
         )}
       </div>
+      {showRateModal && content.submission?.tutoring && (
+        <RateTutorModal
+          sessionId={content.submission.tutoring.id}
+          tutorName={content.submission.tutoring.tutorName}
+          onClose={() => setShowRateModal(false)}
+          onSuccess={() => {
+            setShowRateModal(false);
+            loadContent(courseSlug!, contentSlug!);
+          }}
+        />
+      )}
       <Footer />
+    </div>
+  );
+}
+
+// ── Star Rating Component ────────────────────────────────────────────────────
+function StarRating({ value, onChange, readonly }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
+  const [hovered, setHovered] = useState(0);
+  return (
+    <div className="flex gap-1 justify-center">
+      {[1, 2, 3, 4, 5].map(star => (
+        <button
+          key={star}
+          type="button"
+          disabled={readonly}
+          onClick={() => onChange?.(star)}
+          onMouseEnter={() => !readonly && setHovered(star)}
+          onMouseLeave={() => !readonly && setHovered(0)}
+          className={`text-3xl transition-transform ${!readonly ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
+        >
+          <span className={(hovered || value) >= star ? 'text-yellow-400' : 'text-slate-600'}>★</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Rate Tutor Modal ─────────────────────────────────────────────────────────
+function RateTutorModal({
+  sessionId,
+  tutorName,
+  onClose,
+  onSuccess,
+}: {
+  sessionId: string;
+  tutorName: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [rating, setRating] = useState(0);
+  const [feedback, setFeedback] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rating) return;
+    setSubmitting(true);
+    try {
+      await api.rateTutoring(sessionId, rating, feedback || undefined);
+      onSuccess();
+    } catch (e: any) {
+      alert(e.response?.data?.message || e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-2xl max-w-sm w-full border border-slate-700 p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-white">Calificar a {tutorName}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="text-center bg-slate-700/30 p-4 rounded-xl">
+            <p className="text-slate-400 text-sm mb-3">¿Cómo fue tu experiencia con el tutor?</p>
+            <StarRating value={rating} onChange={setRating} />
+            {rating > 0 && (
+              <p className="text-xs font-semibold text-yellow-400 mt-2 uppercase tracking-wider">
+                {['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'][rating]}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Comentario (opcional)</label>
+            <textarea
+              rows={3}
+              value={feedback}
+              onChange={e => setFeedback(e.target.value)}
+              placeholder="Comparte tu experiencia..."
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={!rating || submitting}
+              className="flex-1 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-bold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-yellow-900/20"
+            >
+              {submitting ? 'Enviando...' : 'Enviar calificación'}
+            </button>
+            <button type="button" onClick={onClose}
+              className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
