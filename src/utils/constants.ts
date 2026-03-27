@@ -20,8 +20,8 @@ export const ROUTES = {
   landing: '/',
   login: '/login',
   dashboard: '/dashboard',
-  course: (id: string) => `/course/${id}`,
-  video: (courseId: string, videoId: string) => `/course/${courseId}/video/${videoId}`,
-  tutoring: '/tutoring',
+  course: (slugOrId: string) => `/course/${slugOrId}`,
+  video: (courseSlugOrId: string, videoId: string) => `/course/${courseSlugOrId}/video/${videoId}`,
+  tutoring: '/meetings',
   admin: '/admin',
 };

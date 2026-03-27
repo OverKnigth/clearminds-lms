@@ -5,3 +5,7 @@ export * from './AdminsTab';
 export * from './AdminModals';
 export * from './Pagination';
 export * from './CoursesTab';
+export * from './CourseContentTab';
+export * from './AssignmentsTab';
+export * from './SubmissionsTab';
+export * from './TutoringSessionsTab';

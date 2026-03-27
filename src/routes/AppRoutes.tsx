@@ -3,13 +3,12 @@ import Landing from '../pages/Landing';
 import Login from '../pages/Login';
 import ForgotPassword from '../pages/ForgotPassword';
 import ResetPassword from '../pages/ResetPassword';
-import Dashboard from '../pages/Dashboard';
-import CourseView from '../pages/CourseView';
-import VideoPlayer from '../pages/VideoPlayer';
-import Tutoring from '../pages/Tutoring';
+import Student from '../pages/Student/index';
+import CourseView from '../pages/Student/CourseView';
+import ContentView from '../pages/Student/ContentView';
 import Admin from '../pages/Admin/index';
-import Tutor from '../pages/Tutor';
-import Meetings from '../pages/Meetings';
+import Tutor from '../pages/Tutor/index';
+import Meetings from '../pages/Student/Meetings';
 import Reports from '../pages/Reports';
 import MainLayout from '../layouts/MainLayout';
 
@@ -22,10 +21,9 @@ export default function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<MainLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/course/:courseId" element={<CourseView />} />
-          <Route path="/course/:courseId/video/:videoId" element={<VideoPlayer />} />
-          <Route path="/tutoring" element={<Tutoring />} />
+          <Route path="/dashboard" element={<Student />} />
+          <Route path="/course/:courseSlug" element={<CourseView />} />
+          <Route path="/course/:courseSlug/content/:contentSlug" element={<ContentView />} />
           <Route path="/meetings" element={<Meetings />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/reports" element={<Reports />} />

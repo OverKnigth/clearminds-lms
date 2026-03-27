@@ -9,7 +9,7 @@ export default function CourseCard({ course }: CourseCardProps) {
   const isCompleted = course.progress === 100;
   
   return (
-    <Link to={`/course/${course.id}`} className="group">
+    <Link to={`/course/${course.slug || course.id}`} className="group">
       <div className="relative overflow-hidden rounded-xl bg-slate-800 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-red-500/20">
         <div className="aspect-video overflow-hidden">
           <img 

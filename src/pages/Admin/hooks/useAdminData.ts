@@ -36,8 +36,8 @@ export const useAdminData = () => {
         email: u.email,
         enrollmentDate: u.createdAt?.split('T')[0] || '2026-01-01',
         generation: 'Gen 2026-A',
-        assignedCourses: [],
-        progress: 0,
+        assignedCourses: u.assignedCourses || [],
+        progress: u.progress || 0,
         status: u.status,
         role: u.role?.name || 'student'
       });

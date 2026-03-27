@@ -3,14 +3,19 @@ import Footer from '../../components/Footer';
 import { api } from '../../services/api';
 import { useAdminData } from './hooks/useAdminData';
 import { useAdminModals } from './hooks/useAdminModals';
-import type { Tab, CourseData } from './types';
+import type { Tab, CourseData, Student } from './types';
 import {
   AdminHeader,
   StudentsTab,
   TutorsTab,
   AdminsTab,
   AdminModals,
-  CoursesTab
+  CoursesTab,
+  CourseContentTab,
+  AssignmentsTab,
+  SubmissionsTab,
+  TutoringSessionsTab,
+  Pagination,
 } from './components';
 import { CourseFormModal, type CourseFormData } from './components/CourseFormModal';
 
@@ -20,6 +25,7 @@ export default function Admin() {
   const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<CourseData | null>(null);
+  const [managingContentCourse, setManagingContentCourse] = useState<CourseData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null!);
 
   const {
@@ -96,16 +102,18 @@ export default function Admin() {
     }
   };
 
-  const handleAssignCourses = (e: React.FormEvent) => {
+  const handleAssignCourses = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedStudent) {
-      setStudents(students.map(s =>
-        s.id === selectedStudent.id
-          ? { ...s, assignedCourses: formData.selectedCourses }
-          : s
-      ));
+    if (!selectedStudent) return;
+    try {
+      await api.assignCoursesToUser(selectedStudent.id, formData.selectedCourses);
+      await fetchData(); // Refresh list after assignment
+      setIsModalOpen(false);
+      alert(`Cursos asignados correctamente a ${selectedStudent.fullName}`);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Error al asignar cursos';
+      alert(errorMessage);
     }
-    setIsModalOpen(false);
   };
 
   const toggleCourseSelection = (courseId: string) => {
@@ -188,9 +196,6 @@ export default function Admin() {
         <AdminHeader
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          studentsCount={students.length}
-          tutorsCount={tutors.length}
-          adminsCount={admins.length}
         />
 
         {isLoading ? (
@@ -238,12 +243,19 @@ export default function Admin() {
                 onToggleStatus={handleToggleStatus}
               />
             )}
-            {activeTab === 'courses' && (
+            {activeTab === 'courses' && !managingContentCourse && (
               <CoursesTab
                 courses={courses}
                 isLoading={isLoading}
                 openModal={(type, course) => handleOpenCourseModal(type === 'addCourse' ? 'add' : 'edit', course)}
                 onToggleStatus={handleToggleCourseStatus}
+                onManageContent={setManagingContentCourse}
+              />
+            )}
+            {activeTab === 'courses' && managingContentCourse && (
+              <CourseContentTab
+                course={managingContentCourse}
+                onBack={() => setManagingContentCourse(null)}
               />
             )}
             {activeTab === 'progress' && (
@@ -252,9 +264,13 @@ export default function Admin() {
               </div>
             )}
             {activeTab === 'assignments' && (
-              <div className="text-slate-400 text-center py-12">
-                Pestaña de asignaciones en desarrollo
-              </div>
+              <AssignmentsTab />
+            )}
+            {activeTab === 'submissions' && (
+              <SubmissionsTab />
+            )}
+            {activeTab === 'tutoring' && (
+              <TutoringSessionsTab />
             )}
           </>
         )}

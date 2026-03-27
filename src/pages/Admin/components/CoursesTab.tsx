@@ -5,9 +5,10 @@ interface CoursesTabProps {
   isLoading: boolean;
   openModal: (type: 'addCourse' | 'editCourse', course?: CourseData) => void;
   onToggleStatus: (course: CourseData) => void;
+  onManageContent: (course: CourseData) => void;
 }
 
-export function CoursesTab({ courses, isLoading, openModal, onToggleStatus }: CoursesTabProps) {
+export function CoursesTab({ courses, isLoading, openModal, onToggleStatus, onManageContent }: CoursesTabProps) {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -81,6 +82,12 @@ export function CoursesTab({ courses, isLoading, openModal, onToggleStatus }: Co
                   className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
                 >
                   Editar
+                </button>
+                <button
+                  onClick={() => onManageContent(course)}
+                  className="flex-1 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Contenido
                 </button>
               </div>
             </div>

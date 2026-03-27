@@ -1,1 +1,1 @@
-export type Tab = 'students' | 'tutors' | 'admins' | 'courses' | 'progress' | 'assignments';
+export type Tab = 'students' | 'tutors' | 'admins' | 'courses' | 'progress' | 'assignments' | 'submissions' | 'tutoring';

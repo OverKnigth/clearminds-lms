@@ -106,11 +106,28 @@ export const API_ENDPOINTS = {
   GET_COURSE_DETAIL: (id: string) => `/admin/courses/${id}`,
   DELETE_COURSE: (id: string) => `/admin/courses/${id}`,
   UPLOAD_COURSE_IMAGE: '/admin/courses/upload-image',
+
+  // Topics & Contents
   GET_COURSE_TOPICS: (courseId: string) => `/courses/${courseId}/topics`,
-  CREATE_TOPIC: '/courses/topics',
-  UPDATE_TOPIC: (id: string) => `/courses/topics/${id}`,
-  CREATE_CONTENT: '/courses/contents',
-  UPDATE_CONTENT: (id: string) => `/courses/contents/${id}`,
+  CREATE_TOPIC: (courseId: string) => `/courses/${courseId}/topics`,
+  UPDATE_TOPIC: (id: string) => `/topics/${id}`,
+  DELETE_TOPIC: (id: string) => `/topics/${id}`,
+  GET_TOPIC_CONTENTS: (topicId: string) => `/topics/${topicId}/contents`,
+  CREATE_CONTENT: (topicId: string) => `/topics/${topicId}/contents`,
+  UPDATE_CONTENT: (id: string) => `/contents/${id}`,
+  DELETE_CONTENT: (id: string) => `/contents/${id}`,
+
+  // Progress
+  UPDATE_PROGRESS: (contentId: string) => `/progress/content/${contentId}`,
+  GET_COURSE_PROGRESS: (courseId: string) => `/progress/course/${courseId}`,
+  GET_BLOCK_PROGRESS: (blockId: string) => `/progress/block/${blockId}`,
+  GET_MY_PROGRESS: '/progress/me',
+
+  // Challenges
+  SUBMIT_CHALLENGE: (contentId: string) => `/challenges/content/${contentId}/submit`,
+  GET_MY_SUBMISSIONS: '/challenges/me',
+  GET_SUBMISSIONS_BY_CONTENT: (contentId: string) => `/challenges/content/${contentId}`,
+  REVIEW_SUBMISSION: (submissionId: string) => `/challenges/submissions/${submissionId}/review`,
 };
 
 // API Service
@@ -306,6 +323,11 @@ export const api = {
     return response.data;
   },
 
+  assignCoursesToUser: async (userId: string, courseIds: string[]) => {
+    const response = await apiClient.post(`/users/${userId}/assign-courses`, { courseIds });
+    return response.data;
+  },
+
   uploadUsersBulk: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -385,8 +407,8 @@ export const api = {
     return response.data;
   },
 
-  createTopic: async (data: any) => {
-    const response = await apiClient.post(API_ENDPOINTS.CREATE_TOPIC, data);
+  createTopic: async (courseId: string, data: any) => {
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_TOPIC(courseId), data);
     return response.data;
   },
 
@@ -395,13 +417,148 @@ export const api = {
     return response.data;
   },
 
-  createContent: async (data: any) => {
-    const response = await apiClient.post(API_ENDPOINTS.CREATE_CONTENT, data);
+  deleteTopic: async (id: string) => {
+    const response = await apiClient.delete(API_ENDPOINTS.DELETE_TOPIC(id));
+    return response.data;
+  },
+
+  getTopicContents: async (topicId: string) => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_TOPIC_CONTENTS(topicId));
+    return response.data;
+  },
+
+  createContent: async (topicId: string, data: any) => {
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_CONTENT(topicId), data);
     return response.data;
   },
 
   updateContent: async (id: string, data: any) => {
     const response = await apiClient.put(API_ENDPOINTS.UPDATE_CONTENT(id), data);
+    return response.data;
+  },
+
+  deleteContent: async (id: string) => {
+    const response = await apiClient.delete(API_ENDPOINTS.DELETE_CONTENT(id));
+    return response.data;
+  },
+
+  // ─── Progress ────────────────────────────────────────────────────────────────
+  updateProgress: async (contentId: string, pctWatched: number) => {
+    const response = await apiClient.post(API_ENDPOINTS.UPDATE_PROGRESS(contentId), { pctWatched });
+    return response.data;
+  },
+
+  getCourseProgress: async (courseId: string) => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_COURSE_PROGRESS(courseId));
+    return response.data;
+  },
+
+  getMyProgress: async () => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_MY_PROGRESS);
+    return response.data;
+  },
+
+  // ─── Challenges ──────────────────────────────────────────────────────────────
+  submitChallenge: async (contentId: string, data: { gitUrl: string; comment?: string }) => {
+    const response = await apiClient.post(API_ENDPOINTS.SUBMIT_CHALLENGE(contentId), data);
+    return response.data;
+  },
+
+  getMySubmissions: async () => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_MY_SUBMISSIONS);
+    return response.data;
+  },
+
+  getSubmissionsByContent: async (contentId: string) => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_SUBMISSIONS_BY_CONTENT(contentId));
+    return response.data;
+  },
+
+  reviewSubmission: async (submissionId: string, data: { grade?: number; observations?: string }) => {
+    const response = await apiClient.patch(API_ENDPOINTS.REVIEW_SUBMISSION(submissionId), data);
+    return response.data;
+  },
+
+  // ─── Student ─────────────────────────────────────────────────────────────────
+  getStudentCourses: async () => {
+    const response = await apiClient.get('/student/courses');
+    return response.data;
+  },
+
+  getStudentCourseDetail: async (courseId: string) => {
+    const response = await apiClient.get(`/student/courses/${courseId}`);
+    return response.data;
+  },
+
+  getStudentBadges: async () => {
+    const response = await apiClient.get('/student/badges');
+    return response.data;
+  },
+
+  getStudentGrades: async () => {
+    const response = await apiClient.get('/student/grades');
+    return response.data;
+  },
+
+  getStudentTutoring: async () => {
+    const response = await apiClient.get('/student/tutoring');
+    return response.data;
+  },
+
+  requestTutoring: async (blockId: string) => {
+    const response = await apiClient.post('/student/tutoring', { blockId });
+    return response.data;
+  },
+
+  rateTutoring: async (sessionId: string, rating: number, feedback?: string) => {
+    const response = await apiClient.post(`/student/tutoring/${sessionId}/rate`, { rating, feedback });
+    return response.data;
+  },
+
+  getStudentNotifications: async () => {
+    const response = await apiClient.get('/student/notifications');
+    return response.data;
+  },
+
+  markNotificationRead: async (id: string) => {
+    const response = await apiClient.patch(`/student/notifications/${id}/read`);
+    return response.data;
+  },
+
+  // ─── Tutor ───────────────────────────────────────────────────────────────────
+  getTutorSessions: async (status?: string) => {
+    const params = status ? `?status=${status}` : '';
+    const response = await apiClient.get(`/tutor/sessions${params}`);
+    return response.data;
+  },
+
+  confirmTutoringSession: async (id: string, data: { scheduledAt: string; meetingLink?: string }) => {
+    const response = await apiClient.patch(`/tutor/sessions/${id}/confirm`, data);
+    return response.data;
+  },
+
+  rescheduleTutoringSession: async (id: string, data: { scheduledAt: string; meetingLink?: string }) => {
+    const response = await apiClient.patch(`/tutor/sessions/${id}/reschedule`, data);
+    return response.data;
+  },
+
+  cancelTutoringSession: async (id: string, data: { reason: string }) => {
+    const response = await apiClient.patch(`/tutor/sessions/${id}/cancel`, data);
+    return response.data;
+  },
+
+  executeTutoringSession: async (id: string, data: { grade: number; observations?: string; recordingLink?: string }) => {
+    const response = await apiClient.patch(`/tutor/sessions/${id}/execute`, data);
+    return response.data;
+  },
+
+  getTutorStudents: async () => {
+    const response = await apiClient.get('/tutor/students');
+    return response.data;
+  },
+
+  getTutorChallenges: async () => {
+    const response = await apiClient.get('/tutor/challenges');
     return response.data;
   },
 };

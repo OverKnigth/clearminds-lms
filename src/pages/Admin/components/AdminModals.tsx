@@ -230,9 +230,17 @@ export function AdminModals({
                     className="w-5 h-5 rounded border-slate-500 text-red-500 focus:ring-2 focus:ring-red-500"
                   />
                   <div className="flex-1">
-                    <p className="text-white font-medium">{course.title}</p>
-                    <p className="text-sm text-slate-400">{course.category} • {course.modules} módulos • {course.videos} videos</p>
+                    <p className="text-white font-medium">{course.name}</p>
+                    {course.description && <p className="text-sm text-slate-400">{course.description}</p>}
+                    {course.tutors && course.tutors.length > 0 && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Tutores: {course.tutors.map(t => t.names).join(', ')}
+                      </p>
+                    )}
                   </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${course.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                    {course.status === 'active' ? 'Activo' : 'Inactivo'}
+                  </span>
                 </label>
               ))}
             </div>

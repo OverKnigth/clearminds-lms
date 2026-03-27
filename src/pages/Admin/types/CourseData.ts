@@ -1,6 +1,7 @@
 export interface CourseData {
   id: string;
   name: string;
+  slug: string;
   imageUrl?: string;
   description?: string;
   status: string;
