@@ -38,6 +38,8 @@ export default function Meetings() {
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [preselectedBlockId, setPreselectedBlockId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     loadData();
@@ -83,16 +85,36 @@ export default function Meetings() {
             <h1 className="text-3xl font-bold text-white">Mis Tutorías</h1>
             <p className="text-slate-400">Gestiona tus sesiones de validación</p>
           </div>
-          <button onClick={() => {
-            setPreselectedBlockId(null);
-            setShowModal(true);
-          }}
-            className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Solicitar Tutoría
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'list' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Lista
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'calendar' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Calendario
+              </button>
+            </div>
+            <button onClick={() => {
+              setPreselectedBlockId(null);
+              setShowModal(true);
+            }}
+              className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Solicitar Tutoría
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -109,33 +131,40 @@ export default function Meetings() {
           ))}
         </div>
 
-        {/* Sections */}
-        {[
-          { title: 'Pendientes de confirmar', items: pending, color: 'yellow' },
-          { title: 'Próximas', items: confirmed, color: 'blue', showJoin: true },
-          { title: 'Completadas', items: completed, color: 'green', showResults: true },
-        ].map(section => section.items.length > 0 && (
-          <div key={section.title} className="mb-10">
-            <h2 className="text-xl font-bold text-white mb-4">{section.title}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {section.items.map(t => (
-                <TutoringCard
-                  key={t.id}
-                  tutoring={t}
-                  showJoin={section.showJoin}
-                  showResults={section.showResults}
-                  onRated={loadData}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+        {/* Calendar or List View */}
+        {viewMode === 'calendar' ? (
+          <CalendarView tutorings={tutorings} currentDate={currentDate} setCurrentDate={setCurrentDate} onRated={loadData} />
+        ) : (
+          <>
+            {/* Sections */}
+            {[
+              { title: 'Pendientes de confirmar', items: pending, color: 'yellow' },
+              { title: 'Próximas', items: confirmed, color: 'blue', showJoin: true },
+              { title: 'Completadas', items: completed, color: 'green', showResults: true },
+            ].map(section => section.items.length > 0 && (
+              <div key={section.title} className="mb-10">
+                <h2 className="text-xl font-bold text-white mb-4">{section.title}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {section.items.map(t => (
+                    <TutoringCard
+                      key={t.id}
+                      tutoring={t}
+                      showJoin={section.showJoin}
+                      showResults={section.showResults}
+                      onRated={loadData}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
 
-        {tutorings.length === 0 && (
-          <div className="text-center py-16 border-2 border-dashed border-slate-700 rounded-xl">
-            <p className="text-slate-400 mb-2">No tienes tutorías aún</p>
-            <p className="text-slate-500 text-sm">Completa los bloques de tus cursos para solicitar tutorías</p>
-          </div>
+            {tutorings.length === 0 && (
+              <div className="text-center py-16 border-2 border-dashed border-slate-700 rounded-xl">
+                <p className="text-slate-400 mb-2">No tienes tutorías aún</p>
+                <p className="text-slate-500 text-sm">Completa los bloques de tus cursos para solicitar tutorías</p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -148,6 +177,127 @@ export default function Meetings() {
         />
       )}
       <Footer />
+    </div>
+  );
+}
+
+// ── Calendar View Component ──────────────────────────────────────────────────
+function CalendarView({ 
+  tutorings, 
+  currentDate, 
+  setCurrentDate,
+  onRated 
+}: { 
+  tutorings: Tutoring[]; 
+  currentDate: Date; 
+  setCurrentDate: (d: Date) => void;
+  onRated: () => void;
+}) {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startingDayOfWeek = firstDay.getDay();
+  
+  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+  
+  const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const dayNames = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
+  
+  // Group tutorings by date
+  const tutoringsByDate: Record<string, Tutoring[]> = {};
+  tutorings.forEach(t => {
+    if (t.scheduled_at) {
+      const date = new Date(t.scheduled_at);
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      if (!tutoringsByDate[key]) tutoringsByDate[key] = [];
+      tutoringsByDate[key].push(t);
+    }
+  });
+  
+  const days = [];
+  for (let i = 0; i < startingDayOfWeek; i++) {
+    days.push(<div key={`empty-${i}`} className="aspect-square" />);
+  }
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateKey = `${year}-${month}-${day}`;
+    const dayTutorings = tutoringsByDate[dateKey] || [];
+    const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
+    
+    days.push(
+      <div
+        key={day}
+        className={`aspect-square border border-slate-700 p-2 ${isToday ? 'bg-red-500/10 border-red-500/30' : 'bg-slate-800'} rounded-lg relative`}
+      >
+        <span className={`text-sm font-semibold ${isToday ? 'text-red-400' : 'text-slate-300'}`}>{day}</span>
+        {dayTutorings.length > 0 && (
+          <div className="mt-1 space-y-1">
+            {dayTutorings.slice(0, 2).map(t => {
+              const cfg = STATUS_CONFIG[t.status] || STATUS_CONFIG.requested;
+              return (
+                <div
+                  key={t.id}
+                  className={`text-[10px] px-1 py-0.5 rounded bg-${cfg.color}-500/20 text-${cfg.color}-400 truncate`}
+                  title={`${t.block.name} - ${cfg.label}`}
+                >
+                  {t.block.name.substring(0, 15)}
+                </div>
+              );
+            })}
+            {dayTutorings.length > 2 && (
+              <div className="text-[9px] text-slate-500">+{dayTutorings.length - 2} más</div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  return (
+    <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white">{monthNames[month]} {year}</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={prevMonth}
+            className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            onClick={() => setCurrentDate(new Date())}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Hoy
+          </button>
+          <button
+            onClick={nextMonth}
+            className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-7 gap-2 mb-2">
+        {dayNames.map(name => (
+          <div key={name} className="text-center text-xs font-bold text-slate-500 py-2">
+            {name}
+          </div>
+        ))}
+      </div>
+      
+      <div className="grid grid-cols-7 gap-2">
+        {days}
+      </div>
     </div>
   );
 }

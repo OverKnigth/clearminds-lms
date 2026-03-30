@@ -80,6 +80,12 @@ export interface ChallengeSubmission {
   grade?: number;
   feedback?: string;
   submittedOnTime: boolean;
+  gradedByTutor?: {
+    id: string;
+    names: string;
+    lastNames: string;
+    email: string;
+  };
 }
 
 export interface AcademicBlock {

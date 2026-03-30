@@ -507,7 +507,7 @@ function RateTutorModal({
     if (!rating) return;
     setSubmitting(true);
     try {
-      await api.rateTutoring(sessionId, rating, feedback || undefined);
+      await api.rateTutorFromChallenge(sessionId, rating, feedback || undefined);
       onSuccess();
     } catch (e: any) {
       alert(e.response?.data?.message || e.message);
