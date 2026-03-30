@@ -37,7 +37,7 @@ export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPer
             <tr>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">Tutor</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">Correo</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">Generación</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">Rating</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">Estado</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">Acciones</th>
             </tr>
@@ -52,15 +52,16 @@ export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPer
                     </div>
                     <div>
                       <p className="text-sm font-medium text-white">{tutor.fullName}</p>
-                      <p className="text-xs text-slate-400">ID: {tutor.id}</p>
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-300">{tutor.email}</td>
                 <td className="px-6 py-4">
-                  <span className="px-2 py-1 text-xs font-semibold bg-purple-500/20 text-purple-400 rounded">
-                    {tutor.generation || 'Todas'}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-yellow-400 text-lg">★</span>
+                    <span className="text-white font-bold">{(tutor as any).rating > 0 ? (tutor as any).rating.toFixed(2) : '-'}</span>
+                    <span className="text-slate-400 text-xs ml-1">({(tutor as any).reviewsCount || 0} reviews)</span>
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                   <button

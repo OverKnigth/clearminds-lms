@@ -33,7 +33,7 @@ export function SessionCard({ session, onRefresh }: SessionCardProps) {
             <p className="text-white font-semibold">
               {session.student ? `${session.student.names} ${session.student.lastNames}` : 'Sin asignar'}
             </p>
-            <p className="text-xs text-slate-400">{session.block.course.name}</p>
+            <p className="text-xs text-slate-400">{session.block.course.name} • {session.block.name}</p>
           </div>
         </div>
         <span className={`px-2 py-0.5 text-xs rounded-full bg-${cfg.color}-500/20 text-${cfg.color}-400 shrink-0`}>

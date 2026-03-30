@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import Footer from '../../components/Footer';
 import { useTutorData } from './hooks/useTutorData';
-import { TutorHeader, SessionCard, StudentsTab, ChallengesTab } from './components';
+import { SessionCard, StudentsTab, ChallengesTab } from './components';
 import type { TutorTab } from './types';
 
 export default function Tutor() {
-  const [activeTab, setActiveTab] = useState<TutorTab>('pending');
-  const { pending, upcoming, completed, students, challenges, isLoading, fetchSessions, fetchAll } = useTutorData();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const activeTab = (queryParams.get('tab') as TutorTab) || 'pending';
+  const { pending, upcoming, completed, students, challenges, stats, isLoading, fetchSessions, fetchAll } = useTutorData();
 
   if (isLoading) {
     return (
@@ -17,31 +19,31 @@ export default function Tutor() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 pt-16">
+    <div className="min-h-screen bg-slate-900 pt-8">
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <TutorHeader
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          counts={{
-            pending: pending.length,
-            upcoming: upcoming.length,
-            completed: completed.length,
-            students: students.length,
-            challenges: challenges.filter(c => c.status !== 'reviewed').length,
-          }}
-        />
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-black text-white">Panel del Tutor</h1>
+            <p className="text-slate-400">Gestiona a tus estudiantes y valida su aprendizaje</p>
+          </div>
+        </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           {[
+            { label: 'Rating',      value: stats.rating > 0 ? stats.rating.toFixed(2) : '-', subtext: `(${stats.reviewsCount} reseñas)`, color: 'yellow', icon: '★' },
             { label: 'Pendientes',  value: pending.length,   color: 'yellow' },
             { label: 'Próximas',    value: upcoming.length,  color: 'blue' },
             { label: 'Completadas', value: completed.length, color: 'green' },
             { label: 'Estudiantes', value: students.length,  color: 'red' },
           ].map(s => (
-            <div key={s.label} className="bg-slate-800 rounded-xl p-5 border border-slate-700">
+            <div key={s.label} className="bg-slate-800 rounded-xl p-5 border border-slate-700 relative overflow-hidden">
               <p className="text-slate-400 text-sm mb-1">{s.label}</p>
-              <p className="text-3xl font-bold text-white">{s.value}</p>
+              <p className="text-3xl font-bold flex items-end gap-2 text-white">
+                {s.icon && <span className="text-yellow-400 text-2xl">{s.icon}</span>}
+                {s.value}
+                {s.subtext && <span className="text-sm text-slate-400 mb-1">{s.subtext}</span>}
+              </p>
             </div>
           ))}
         </div>

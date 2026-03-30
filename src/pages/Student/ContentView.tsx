@@ -51,6 +51,12 @@ export default function ContentView() {
     return () => { if (progressTimer.current) clearTimeout(progressTimer.current); };
   }, [courseSlug, contentSlug]);
 
+  useEffect(() => {
+    if (content && content.submission?.tutoring && content.submission.tutoring.rating === null) {
+      setShowRateModal(true);
+    }
+  }, [content]);
+
   const loadContent = async (cSlug: string, ctSlug: string) => {
     setIsLoading(true);
     try {
@@ -409,12 +415,10 @@ export default function ContentView() {
                               )}
                             </div>
                           ) : (
-                            <button
-                              onClick={() => setShowRateModal(true)}
-                              className="w-full py-2.5 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-all flex items-center justify-center gap-2"
-                            >
-                              <span>★</span> Calificar experiencia con el tutor
-                            </button>
+                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-center">
+                              <p className="text-yellow-400 font-semibold mb-2">Calificación del tutor pendiente</p>
+                              <p className="text-sm text-slate-300">Por favor, califica la experiencia con tu tutor en la ventana emergente para continuar.</p>
+                            </div>
                           )}
                         </div>
                       )}
@@ -452,7 +456,6 @@ export default function ContentView() {
         <RateTutorModal
           sessionId={content.submission.tutoring.id}
           tutorName={content.submission.tutoring.tutorName}
-          onClose={() => setShowRateModal(false)}
           onSuccess={() => {
             setShowRateModal(false);
             loadContent(courseSlug!, contentSlug!);
@@ -490,12 +493,10 @@ function StarRating({ value, onChange, readonly }: { value: number; onChange?: (
 function RateTutorModal({
   sessionId,
   tutorName,
-  onClose,
   onSuccess,
 }: {
   sessionId: string;
   tutorName: string;
-  onClose: () => void;
   onSuccess: () => void;
 }) {
   const [rating, setRating] = useState(0);
@@ -520,13 +521,11 @@ function RateTutorModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-2xl max-w-sm w-full border border-slate-700 p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-white">Calificar a {tutorName}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <h2 className="text-lg font-bold text-white mb-2">Calificar a {tutorName}</h2>
         </div>
+        <p className="text-sm text-yellow-400 mb-4 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/20">
+          Requisito obligatorio: Debes calificar a tu tutor para continuar con tu progreso.
+        </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="text-center bg-slate-700/30 p-4 rounded-xl">
             <p className="text-slate-400 text-sm mb-3">¿Cómo fue tu experiencia con el tutor?</p>
@@ -547,19 +546,13 @@ function RateTutorModal({
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all"
             />
           </div>
-          <div className="flex gap-3">
             <button
               type="submit"
               disabled={!rating || submitting}
-              className="flex-1 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-bold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-yellow-900/20"
+              className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-bold rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-yellow-900/20"
             >
               {submitting ? 'Enviando...' : 'Enviar calificación'}
             </button>
-            <button type="button" onClick={onClose}
-              className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl transition-colors">
-              Cancelar
-            </button>
-          </div>
         </form>
       </div>
     </div>

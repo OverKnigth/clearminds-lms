@@ -139,7 +139,6 @@ export function StudentsTab({
                     </div>
                     <div>
                       <p className="text-sm font-medium text-white">{student.fullName}</p>
-                      <p className="text-xs text-slate-400">ID: {student.id}</p>
                     </div>
                   </div>
                 </td>

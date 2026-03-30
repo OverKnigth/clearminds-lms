@@ -62,9 +62,6 @@ export const API_ENDPOINTS = {
   GET_VIDEO: (id: string) => `/videos/${id}`,
   UPDATE_VIDEO_PROGRESS: (id: string) => `/videos/${id}/progress`,
 
-  // Challenges
-  SUBMIT_CHALLENGE: '/challenges/submit',
-  GET_CHALLENGE_SUBMISSIONS: (videoId: string) => `/challenges/submissions/${videoId}`,
 
   // Tutoring
   GET_TUTORINGS: '/tutorings',
@@ -123,9 +120,11 @@ export const API_ENDPOINTS = {
   GET_BLOCK_PROGRESS: (blockId: string) => `/progress/block/${blockId}`,
   GET_MY_PROGRESS: '/progress/me',
 
-  // Challenges
+  // Challenges - Student
   SUBMIT_CHALLENGE: (contentId: string) => `/challenges/content/${contentId}/submit`,
   GET_MY_SUBMISSIONS: '/challenges/me',
+  
+  // Challenges - Tutor
   GET_SUBMISSIONS_BY_CONTENT: (contentId: string) => `/challenges/content/${contentId}`,
   REVIEW_SUBMISSION: (submissionId: string) => `/challenges/submissions/${submissionId}/review`,
 };
@@ -222,16 +221,6 @@ export const api = {
     return response.data;
   },
 
-  // ─── Challenges ─────────────────────────────────────────────────────────────
-  submitChallenge: async (data: { videoId: string; githubUrl: string; notes?: string }) => {
-    const response = await apiClient.post(API_ENDPOINTS.SUBMIT_CHALLENGE, data);
-    return response.data;
-  },
-
-  getChallengeSubmissions: async (videoId: string) => {
-    const response = await apiClient.get(API_ENDPOINTS.GET_CHALLENGE_SUBMISSIONS(videoId));
-    return response.data;
-  },
 
   // ─── Tutoring ────────────────────────────────────────────────────────────────
   getTutorings: async () => {
@@ -282,6 +271,11 @@ export const api = {
   },
 
   // ─── Reports ─────────────────────────────────────────────────────────────────
+  getDailyProgressReport: async () => {
+    const response = await apiClient.get('/reports/daily-progress');
+    return response.data;
+  },
+
   getDailyReport: async (date: string) => {
     const response = await apiClient.get(API_ENDPOINTS.GET_DAILY_REPORT, { params: { date } });
     return response.data;
@@ -299,6 +293,16 @@ export const api = {
 
   getGroupReport: async (groupId: string) => {
     const response = await apiClient.get(API_ENDPOINTS.GET_GROUP_REPORT(groupId));
+    return response.data;
+  },
+
+  getGroupHistoricalReport: async (groupId: string) => {
+    const response = await apiClient.get(`/reports/group/${groupId}/historical`);
+    return response.data;
+  },
+
+  triggerDailyProgress: async () => {
+    const response = await apiClient.post('/reports/trigger-daily');
     return response.data;
   },
 
@@ -534,6 +538,11 @@ export const api = {
   getTutorSessions: async (status?: string) => {
     const params = status ? `?status=${status}` : '';
     const response = await apiClient.get(`/tutor/sessions${params}`);
+    return response.data;
+  },
+
+  getTutorStats: async () => {
+    const response = await apiClient.get('/tutor/stats');
     return response.data;
   },
 

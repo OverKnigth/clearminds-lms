@@ -51,7 +51,6 @@ export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPer
                     </div>
                     <div>
                       <p className="text-sm font-medium text-white">{admin.fullName}</p>
-                      <p className="text-xs text-slate-400">ID: {admin.id}</p>
                     </div>
                   </div>
                 </td>

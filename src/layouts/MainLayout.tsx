@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
+import Sidebar from '../components/Sidebar';
 
 export default function MainLayout() {
   const [user, setUser] = useState<{ name: string; role: string } | null>(null);
@@ -18,11 +18,11 @@ export default function MainLayout() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-900">
-      <Navbar user={user || undefined} />
-      <div className="pt-16">
+    <div className="flex h-screen bg-slate-900 overflow-hidden">
+      <Sidebar user={user || undefined} />
+      <main className="flex-1 overflow-y-auto bg-slate-900/50">
         <Outlet />
-      </div>
+      </main>
     </div>
   );
 }

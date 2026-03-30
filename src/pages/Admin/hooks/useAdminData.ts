@@ -39,7 +39,9 @@ export const useAdminData = () => {
         assignedCourses: u.assignedCourses || [],
         progress: u.progress || 0,
         status: u.status,
-        role: u.role?.name || 'student'
+        role: u.role?.name || 'student',
+        rating: u.rating || 0,
+        reviewsCount: u.reviewsCount || 0
       });
 
       if (studentsRes.status === 'fulfilled' && studentsRes.value?.success) {

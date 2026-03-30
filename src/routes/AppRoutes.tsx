@@ -4,6 +4,7 @@ import Login from '../pages/Login';
 import ForgotPassword from '../pages/ForgotPassword';
 import ResetPassword from '../pages/ResetPassword';
 import Student from '../pages/Student/index';
+import StudentCoursesPage from '../pages/Student/StudentCoursesPage';
 import CourseView from '../pages/Student/CourseView';
 import ContentView from '../pages/Student/ContentView';
 import Admin from '../pages/Admin/index';
@@ -22,6 +23,7 @@ export default function AppRoutes() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<Student />} />
+          <Route path="/courses" element={<StudentCoursesPage />} />
           <Route path="/course/:courseSlug" element={<CourseView />} />
           <Route path="/course/:courseSlug/content/:contentSlug" element={<ContentView />} />
           <Route path="/meetings" element={<Meetings />} />

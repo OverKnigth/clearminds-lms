@@ -9,3 +9,7 @@ export * from './CourseContentTab';
 export * from './AssignmentsTab';
 export * from './SubmissionsTab';
 export * from './TutoringSessionsTab';
+export * from './ProgressTab';
+export * from './AcademicBlocksTab';
+export * from './BadgesTab';
+export * from './DailyProgressTab';
