@@ -35,6 +35,13 @@ export const useTutorData = () => {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  // Re-fetch when the tab becomes visible again (user switched roles and came back)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchAll(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [fetchAll]);
+
   const pending = sessions.filter(s => s.status === 'requested');
   const upcoming = sessions.filter(s => s.status === 'confirmed' || s.status === 'rescheduled');
   const completed = sessions.filter(s => s.status === 'executed' || s.status === 'cancelled');

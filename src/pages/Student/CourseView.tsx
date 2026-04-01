@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactPlayerImport from 'react-player';
 const ReactPlayer = ReactPlayerImport as any;
@@ -18,7 +18,21 @@ interface Content {
   deadline: string | null;
   allowDownload: boolean;
   progress: { status: string; pctWatched: number; completedAt: string | null };
-  submission: any | null;
+  submission: {
+    id: string;
+    gitUrl: string;
+    comment: string | null;
+    submittedAt: string | null;
+    status: string;
+    grade: number | null;
+    observations: string | null;
+    tutoring: {
+      id: string;
+      tutorName: string;
+      rating: number | null;
+      feedback: string | null;
+    } | null;
+  } | null;
 }
 
 interface Topic {
@@ -46,10 +60,14 @@ interface CourseDetail {
 
 interface TutoringSession {
   id: string;
-  block_id: string;
+  block_id?: string;
+  block?: { id: string; name: string; course: { id: string; name: string } };
   status: 'requested' | 'confirmed' | 'rescheduled' | 'cancelled' | 'executed';
   grade: number | null;
   scheduled_at: string | null;
+  executed_at?: string | null;
+  attempt_number: number;
+  observations?: string | null;
 }
 
 export default function CourseView() {
@@ -67,7 +85,17 @@ export default function CourseView() {
   const [gitUrl, setGitUrl] = useState('');
   const [comment, setComment] = useState('');
   const [lastSavedProgress, setLastSavedProgress] = useState(0);
-  const [markingDone, setMarkingDone] = useState(false);
+  const [markingDone] = useState(false);
+  const [tutorRating, setTutorRating] = useState(0);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [pendingRatingSubmission, setPendingRatingSubmission] = useState<{ id: string; tutorName: string } | null>(null);
+  const [showTutoringModal, setShowTutoringModal] = useState(false);
+  const [tutoringObservation, setTutoringObservation] = useState('');
+  const [tutoringDate, setTutoringDate] = useState(new Date().toISOString().split('T')[0]);
+  const [requestingTutoring, setRequestingTutoring] = useState(false);
+  const [newBadge, setNewBadge] = useState<any | null>(null);
+  const prevEarnedBadgeIds = useState<Set<string>>(new Set())[0];
 
   useEffect(() => {
     if (courseSlug) {
@@ -75,6 +103,32 @@ export default function CourseView() {
       loadTutoring();
     }
   }, [courseSlug]);
+
+  // Auto-show rating modal if there's a pending tutor rating
+  useEffect(() => {
+    if (!course) return;
+    for (const topic of course.topics) {
+      for (const content of topic.contents) {
+        if (content.submission?.tutoring && content.submission.grade !== null && !content.submission.tutoring.rating) {
+          setPendingRatingSubmission({ id: content.submission.tutoring.id, tutorName: content.submission.tutoring.tutorName });
+          setShowRatingModal(true);
+          setTutorRating(0);
+          return;
+        }
+      }
+    }
+  }, [course]);
+
+  // Detect newly earned badges
+  useEffect(() => {
+    if (!course?.badges) return;
+    const currentEarned = course.badges.filter((b: any) => b.state === 'earned');
+    const newlyEarned = currentEarned.filter((b: any) => !prevEarnedBadgeIds.has(b.id));
+    if (newlyEarned.length > 0) {
+      setNewBadge(newlyEarned[0]);
+    }
+    currentEarned.forEach((b: any) => prevEarnedBadgeIds.add(b.id));
+  }, [course?.badges]);
 
   const loadTutoring = async () => {
     try {
@@ -117,7 +171,7 @@ export default function CourseView() {
   const selectedContent = selectedTopic?.contents.find(c => c.id === selectedContentId);
   
   const blockSessions = selectedTopic?.blockId 
-    ? tutoringSessions.filter(s => s.block_id === selectedTopic.blockId) 
+    ? tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === selectedTopic.blockId) 
     : [];
   const activeSession = blockSessions.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
   const currentBlock = course.blocks?.find(b => b.id === selectedTopic?.blockId);
@@ -125,41 +179,46 @@ export default function CourseView() {
   // Lógica de habilitación de tutoría (13.2)
   const canRequestTutoring = () => {
     if (!currentBlock) return false;
+    if (!currentBlock.mandatoryTutoring && !currentBlock.tutor_required) return false; // bloque sin tutoría obligatoria
     const blockTopics = course.topics.filter(t => t.blockId === currentBlock.id);
     const totalBlockContents = blockTopics.reduce((acc, t) => acc + t.contents.length, 0);
+    if (totalBlockContents === 0) return true;
     const completedBlockContents = blockTopics.reduce((acc, t) => acc + t.contents.filter(c => c.progress.status === 'completed').length, 0);
     const actualBlockProgress = (completedBlockContents / totalBlockContents) * 100;
-    
-    return actualBlockProgress >= currentBlock.expectedProgress;
+    const required = currentBlock.expectedProgress ?? 100;
+    return actualBlockProgress >= required;
+  };
+
+  // Extrae el video ID de YouTube de cualquier formato de URL
+  const getYouTubeId = (url: string): string | null => {
+    if (!url) return null;
+    // youtu.be/ID
+    const shortMatch = url.match(/youtu\.be\/([^?&/]+)/);
+    if (shortMatch) return shortMatch[1];
+    // youtube.com/watch?v=ID
+    const watchMatch = url.match(/[?&]v=([^?&/]+)/);
+    if (watchMatch) return watchMatch[1];
+    // youtube.com/embed/ID
+    const embedMatch = url.match(/youtube\.com\/embed\/([^?&/]+)/);
+    if (embedMatch) return embedMatch[1];
+    // youtube.com/shorts/ID
+    const shortsMatch = url.match(/youtube\.com\/shorts\/([^?&/]+)/);
+    if (shortsMatch) return shortsMatch[1];
+    return null;
+  };
+
+  const getVimeoId = (url: string): string | null => {
+    if (!url) return null;
+    const match = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    return match ? match[1] : null;
   };
 
   const getCleanVideoUrl = (url: string | null) => {
     if (!url) return '';
-    
-    // Si ya es una URL limpia, no hacemos nada
-    if (url.includes('youtube.com/watch?v=') || url.includes('vimeo.com/')) return url;
-
-    // Convertir embed a watch (YouTube)
-    if (url.includes('youtube.com/embed/') || url.includes('youtu.be/')) {
-      const id = url.includes('embed/') 
-        ? url.split('embed/')[1]?.split('?')[0]
-        : url.split('youtu.be/')[1]?.split('?')[0];
-      return `https://www.youtube.com/watch?v=${id}`;
-    }
-
-    // Convertir embed a normal (Vimeo)
-    if (url.includes('player.vimeo.com/video/')) {
-      const id = url.split('video/')[1]?.split('?')[0];
-      return `https://vimeo.com/${id}`;
-    }
-
-    // Si detectamos YouTube pero no tiene el formato correcto
-    if (url.includes('youtube.com') && !url.includes('watch?v=')) {
-        const urlParams = new URL(url);
-        const v = urlParams.searchParams.get('v');
-        if (v) return `https://www.youtube.com/watch?v=${v}`;
-    }
-
+    const ytId = getYouTubeId(url);
+    if (ytId) return `https://www.youtube.com/watch?v=${ytId}`;
+    const vimeoId = getVimeoId(url);
+    if (vimeoId) return `https://vimeo.com/${vimeoId}`;
     return url;
   };
 
@@ -177,15 +236,17 @@ export default function CourseView() {
     }
   };
 
-  const handleManualComplete = async () => {
-    if (!selectedContent) return;
-    setMarkingDone(true);
+  const handleYouTubeProgress = async (contentId: string, pct: number) => {
+    if (!selectedContent || selectedContent.progress.status === 'completed') return;
     try {
-      await api.updateProgress(selectedContent.id, 100);
-      if (courseSlug) await loadCourse(courseSlug);
+      const res = await api.updateProgress(contentId, pct);
+      if (res.success && res.data.status === 'completed' && courseSlug) {
+        loadCourse(courseSlug);
+      }
     } catch (e) { console.error(e); }
-    finally { setMarkingDone(false); }
   };
+
+  const handleManualComplete = async () => { /* kept for potential future use */ };
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,17 +259,37 @@ export default function CourseView() {
     finally { setSubmittingChallenge(false); }
   };
 
+  const handleRateTutor = async (submissionId: string, rating: number) => {
+    setRatingSubmitting(true);
+    try {
+      await api.rateTutorFromChallenge(submissionId, rating);
+      setShowRatingModal(false);
+      setPendingRatingSubmission(null);
+      setTutorRating(0);
+      if (courseSlug) await loadCourse(courseSlug);
+    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    finally { setRatingSubmitting(false); }
+  };
+
   const handleRequestTutoring = async () => {
     if (!selectedTopic?.blockId) return;
+    setRequestingTutoring(true);
     try {
-      const res = await api.requestTutoring(selectedTopic.blockId);
-      if (res.success) {
-        loadTutoring();
-        alert('Tutoría solicitada con éxito. Revisa tu panel de tutorías.');
-      }
+      await (api as any).requestTutoring(selectedTopic.blockId, tutoringObservation || undefined);
+      setShowTutoringModal(false);
+      setTutoringObservation('');
+      loadTutoring();
     } catch (e: any) {
       alert(e.response?.data?.message || e.message);
+    } finally {
+      setRequestingTutoring(false);
     }
+  };
+
+  const openTutoringModal = () => {
+    setTutoringObservation('');
+    setTutoringDate(new Date().toISOString().split('T')[0]);
+    setShowTutoringModal(true);
   };
 
   const getContentStatus = (c: Content) => {
@@ -221,6 +302,28 @@ export default function CourseView() {
     }
     if (c.submission) return 'submitted';
     return 'pending';
+  };
+
+  // Per spec 13.10 (revised): a failed challenge ONLY unlocks subsequent content
+  // if the student has ALREADY rescheduled — i.e. there is an active tutoring session
+  // (requested / confirmed / rescheduled) for that block.
+  // A past executed session with a failing grade does NOT unlock — the student must
+  // explicitly request a new tutoring first.
+  const isContentUnlockedForProgress = (c: Content): boolean => {
+    const status = getContentStatus(c);
+    if (status === 'completed') return true;
+    if (status === 'failed' && c.type === 'challenge') {
+      const topic = course?.topics.find(t => t.contents.some(x => x.id === c.id));
+      if (topic?.blockId) {
+        // Only active (pending) sessions count — not past executed ones
+        const hasActiveTutoring = tutoringSessions.some(
+          s => (s.block_id ?? s.block?.id) === topic.blockId &&
+               ['requested', 'confirmed', 'rescheduled'].includes(s.status)
+        );
+        if (hasActiveTutoring) return true;
+      }
+    }
+    return false;
   };
 
   // Lógica de bloqueo secuencial
@@ -239,14 +342,14 @@ export default function CourseView() {
     // El primero siempre está desbloqueado
     if (idx === 0) return false;
     
-    // Un contenido está bloqueado si el anterior NO está satisfactoriamente completado
+    // Un contenido está bloqueado si el anterior no está completado
+    // (pero un challenge con tutoría activa/pendiente no bloquea el siguiente)
     const prev = flat[idx - 1];
-    const prevStatus = getContentStatus(prev);
-    
-    return prevStatus !== 'completed';
+    return !isContentUnlockedForProgress(prev);
   };
 
   return (
+    <>
     <div className="h-screen flex overflow-hidden">
       {/* Sidebar */}
       <div className="w-84 bg-slate-800 border-r border-slate-700 overflow-y-auto flex-shrink-0 hidden md:flex flex-col">
@@ -321,7 +424,12 @@ export default function CourseView() {
                         const isContentActive = selectedContentId === content.id;
                         const status = getContentStatus(content);
                         const locked = isContentLocked(content.id);
-
+                        // Check if this failed challenge has an active tutoring (spec 13.10)
+                        const hasPendingTutoring = status === 'failed' && topic.blockId &&
+                          tutoringSessions.some(s =>
+                            (s.block_id ?? s.block?.id) === topic.blockId &&
+                            ['requested', 'confirmed', 'rescheduled'].includes(s.status)
+                          );
                         return (
                           <button key={content.id} 
                             disabled={locked}
@@ -343,6 +451,11 @@ export default function CourseView() {
                             ) : status === 'completed' ? (
                                <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                               </svg>
+                            ) : hasPendingTutoring ? (
+                               /* Clock icon — tutoring pending, can still advance */
+                               <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                </svg>
                             ) : status === 'failed' ? (
                                <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -418,77 +531,123 @@ export default function CourseView() {
                   <h1 className="text-3xl font-extrabold text-white leading-tight">{selectedContent.title}</h1>
                 </div>
                 
-                {selectedTopic?.blockId && currentBlock && (
+                {selectedTopic?.blockId && currentBlock && canRequestTutoring() && (
                   <div className="flex flex-col items-end gap-2">
                     {activeSession ? (
                       <div className="px-4 py-2 bg-orange-500/10 text-orange-500 rounded-xl border border-orange-500/20 text-xs font-bold uppercase tracking-tighter">
-                        Tutoría {activeSession.status}
+                        Tutoría {activeSession.status === 'requested' ? 'Pendiente' : activeSession.status === 'confirmed' ? 'Confirmada' : 'Reagendada'}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-end">
-                        {!canRequestTutoring() && (
-                          <span className="text-[10px] font-bold text-amber-500 mb-1 animate-pulse">
-                            Necesitas {currentBlock.expectedProgress}% de avance en este bloque
-                          </span>
-                        )}
-                        <button 
-                          disabled={!canRequestTutoring()}
-                          onClick={handleRequestTutoring} 
-                          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-lg ${
-                            canRequestTutoring() 
-                              ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20' 
-                              : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                          }`}
-                        >
-                          Solicitar Tutoría
-                        </button>
-                      </div>
+                      <button 
+                        onClick={openTutoringModal} 
+                        className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-red-900/20"
+                      >
+                        Solicitar Tutoría
+                      </button>
                     )}
                   </div>
                 )}
               </div>
+
+              {/* Block tutoring status banner — spec 13.10 */}
+              {selectedTopic?.blockId && (() => {
+                const blockSess = tutoringSessions.filter(
+                  s => (s.block_id ?? s.block?.id) === selectedTopic.blockId
+                );
+                const pending = blockSess.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
+                const lastExecuted = blockSess
+                  .filter(s => s.status === 'executed')
+                  .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
+                const isApproved = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade >= 7;
+                const isFailed = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade < 7 && !pending;
+
+                if (isApproved) return (
+                  <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
+                    <svg className="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-xs text-green-400 font-bold uppercase tracking-widest">Bloque aprobado — insignia desbloqueada</p>
+                  </div>
+                );
+
+                if (pending) return (
+                  <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                    <svg className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs text-blue-400 font-bold uppercase tracking-widest">Tutoría en espera de confirmación</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Puedes seguir avanzando. La insignia se entregará cuando el tutor apruebe este bloque.</p>
+                    </div>
+                  </div>
+                );
+
+                if (isFailed) return (
+                  <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                    <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs text-amber-400 font-bold uppercase tracking-widest">Bloque no aprobado — reagenda tu tutoría</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Puedes seguir avanzando, pero la insignia estará bloqueada hasta aprobar.</p>
+                    </div>
+                  </div>
+                );
+
+                return null;
+              })()}
 
               {/* VIEWERS */}
               {selectedContent.type === 'video' && (
                 <div className="space-y-6">
                   {selectedContent.url ? (
                     <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800 relative">
-                      <ReactPlayer
-                        key={getCleanVideoUrl(selectedContent.url)}
-                        url={getCleanVideoUrl(selectedContent.url)}
-                        width="100%"
-                        height="100%"
-                        controls
-                        onProgress={handleVideoProgress}
-                        onError={(e: any) => console.error('ReactPlayer Error:', e)}
-                        onStart={() => {
-                          if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
-                        }}
-                        config={{
-                          youtube: { playerVars: { showinfo: 0, rel: 0 } },
-                          vimeo: { playerOptions: { autopause: true } }
-                        }}
-                      />
+                      {getYouTubeId(selectedContent.url) ? (
+                        /* YouTube — IFrame API para rastrear progreso real */
+                        <YouTubePlayer
+                          videoId={getYouTubeId(selectedContent.url)!}
+                          onProgress={(pct) => {
+                            setLastSavedProgress(pct);
+                            handleYouTubeProgress(selectedContent.id, pct);
+                          }}
+                          onStart={() => {
+                            if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
+                          }}
+                          initialProgress={selectedContent.progress.pctWatched || 0}
+                        />
+                      ) : (
+                        /* Vimeo / otros — ReactPlayer */
+                        <ReactPlayer
+                          key={getCleanVideoUrl(selectedContent.url)}
+                          url={getCleanVideoUrl(selectedContent.url)}
+                          width="100%"
+                          height="100%"
+                          controls
+                          onProgress={handleVideoProgress}
+                          onError={(e: any) => console.error('ReactPlayer Error:', e)}
+                          onStart={() => {
+                            if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
+                          }}
+                          config={{
+                            vimeo: { playerOptions: { autopause: true } }
+                          }}
+                        />
+                      )}
                     </div>
                   ) : (
                     <div className="aspect-video bg-slate-800 rounded-2xl flex items-center justify-center border border-slate-700">
                       <p className="text-slate-400">URL del video no disponible</p>
                     </div>
                   )}
-                  <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex flex-col md:flex-row items-center gap-6">
-                    <div className="flex-1 w-full">
-                       <div className="flex justify-between mb-2"><span className="text-[10px] font-bold text-slate-500 uppercase">Tu Avance</span><span className="text-xs font-bold text-red-500">{lastSavedProgress}%</span></div>
-                       <div className="h-2 bg-slate-900 rounded-full overflow-hidden shrink-0">
-                         <div className="h-full bg-red-600 transition-all duration-500" style={{ width: `${lastSavedProgress}%` }} />
-                       </div>
+                  {/* Indicador de completado automático */}
+                  {selectedContent.progress.status === 'completed' && (
+                    <div className="flex items-center gap-2 px-4 py-2.5 bg-green-500/10 border border-green-500/20 rounded-xl">
+                      <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Video completado</span>
                     </div>
-                    {selectedContent.progress.status !== 'completed' && (
-                      <button onClick={handleManualComplete} disabled={markingDone} className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-                        {markingDone && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                        Terminé de ver
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -524,21 +683,121 @@ export default function CourseView() {
                   </div>
 
                   {selectedContent.submission ? (
-                    <div className="bg-slate-800 p-8 rounded-2xl border border-green-500/20 relative overflow-hidden">
-                       <div className="absolute top-0 right-0 p-4 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest border-l border-b border-green-500/20 rounded-bl-xl">Entregado</div>
-                       <h3 className="text-lg font-bold text-white mb-6">Tu Entrega</h3>
-                       <div className="space-y-4">
-                         <div className="p-4 bg-slate-900 rounded-xl border border-slate-700">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Repositorio</label>
-                            <a href={selectedContent.submission.gitUrl} target="_blank" className="text-sm text-blue-400 font-medium break-all">{selectedContent.submission.gitUrl}</a>
-                         </div>
-                         {selectedContent.submission.comment && (
-                           <div className="p-4 bg-slate-900 rounded-xl border border-slate-700">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Comentario</label>
-                              <p className="text-sm text-slate-300">{selectedContent.submission.comment}</p>
-                           </div>
-                         )}
-                       </div>
+                    <div className="bg-slate-800 p-8 rounded-2xl border border-green-500/20 relative overflow-hidden space-y-4">
+                      <div className="absolute top-0 right-0 p-4 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest border-l border-b border-green-500/20 rounded-bl-xl">Entregado</div>
+                      <h3 className="text-lg font-bold text-white">Tu Entrega</h3>
+
+                      {/* Repo & comment */}
+                      <div className="p-4 bg-slate-900 rounded-xl border border-slate-700">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Repositorio</label>
+                        <a href={selectedContent.submission.gitUrl} target="_blank" className="text-sm text-blue-400 font-medium break-all">{selectedContent.submission.gitUrl}</a>
+                      </div>
+                      {selectedContent.submission.comment && (
+                        <div className="p-4 bg-slate-900 rounded-xl border border-slate-700">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Comentario</label>
+                          <p className="text-sm text-slate-300">{selectedContent.submission.comment}</p>
+                        </div>
+                      )}
+
+                      {/* Tutor grade & observations */}
+                      {selectedContent.submission.grade !== null && (
+                        <div className={`p-4 rounded-xl border ${selectedContent.submission.grade >= 7 ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Calificación del Tutor</label>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-2xl font-black ${selectedContent.submission.grade >= 7 ? 'text-green-400' : 'text-red-400'}`}>
+                                {selectedContent.submission.grade}/10
+                              </span>
+                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${selectedContent.submission.grade >= 7 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {selectedContent.submission.grade >= 7 ? '✓ Aprobado' : '✗ No aprobado'}
+                              </span>
+                            </div>
+                          </div>
+                          {selectedContent.submission.observations && (
+                            <p className="text-sm text-slate-300 mt-2 italic">"{selectedContent.submission.observations}"</p>
+                          )}
+                          {selectedContent.submission.tutoring?.tutorName && (
+                            <p className="text-[10px] text-slate-500 mt-1">— {selectedContent.submission.tutoring.tutorName}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Reagendar button — when not approved and no active session */}
+                      {selectedContent.submission.grade !== null &&
+                       selectedContent.submission.grade < 7 &&
+                       !activeSession &&
+                       selectedTopic?.blockId && (
+                        <div className="p-4 bg-slate-900/50 border border-slate-700 rounded-xl space-y-3">
+                          <div className="flex items-start gap-3">
+                            <svg className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                              <p className="text-sm font-black text-white mb-0.5">Bloque no aprobado</p>
+                              <p className="text-xs text-slate-400">Puedes solicitar una nueva tutoría para volver a presentar este bloque.</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={openTutoringModal}
+                            className="w-full py-2.5 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Reagendar Tutoría
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Historial de intentos del bloque */}
+                      {selectedTopic?.blockId && blockSessions.filter(s => s.status === 'executed').length > 0 && (
+                        <div className="border border-slate-700 rounded-xl overflow-hidden">
+                          <div className="px-4 py-2.5 bg-slate-700/30 border-b border-slate-700">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historial de Intentos</p>
+                          </div>
+                          <table className="w-full text-xs">
+                            <thead className="bg-slate-800/50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">#</th>
+                                <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Fecha</th>
+                                <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Nota</th>
+                                <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-700/50">
+                              {blockSessions
+                                .filter(s => s.status === 'executed')
+                                .sort((a, b) => a.attempt_number - b.attempt_number)
+                                .map(s => (
+                                  <tr key={s.id} className="hover:bg-slate-700/20">
+                                    <td className="px-3 py-2 text-slate-400 font-bold">{s.attempt_number}</td>
+                                    <td className="px-3 py-2 text-slate-400">{s.executed_at ? new Date(s.executed_at).toLocaleDateString('es-ES') : '—'}</td>
+                                    <td className="px-3 py-2 text-center">
+                                      <span className={`font-black ${s.grade !== null ? (s.grade >= 7 ? 'text-green-400' : 'text-red-400') : 'text-slate-500'}`}>
+                                        {s.grade !== null ? `${s.grade}/10` : '—'}
+                                      </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-center">
+                                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${s.grade !== null ? (s.grade >= 7 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400') : 'bg-slate-700 text-slate-500'}`}>
+                                        {s.grade !== null ? (s.grade >= 7 ? 'Aprobado' : 'No aprobado') : 'Pendiente'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* Rate tutor — handled by mandatory modal */}
+
+                      {/* Already rated */}
+                      {selectedContent.submission.tutoring?.rating && (
+                        <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-center gap-2">
+                          <span className="text-yellow-400 text-sm">{'★'.repeat(selectedContent.submission.tutoring.rating)}{'☆'.repeat(5 - selectedContent.submission.tutoring.rating)}</span>
+                          <span className="text-[10px] text-slate-400 uppercase font-black">Ya calificaste a tu tutor</span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <form onSubmit={handleSubmitChallenge} className="bg-slate-800 p-8 rounded-2xl border border-slate-700 space-y-6">
@@ -602,5 +861,290 @@ export default function CourseView() {
         <Footer />
       </div>
     </div>
+
+    {/* ── Badge Earned Modal ── */}
+    {newBadge && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center animate-in zoom-in-95 duration-300">
+          {/* Confetti-like decoration */}
+          <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+            <div className="absolute top-0 left-1/4 w-1 h-8 bg-yellow-400/30 rotate-12" />
+            <div className="absolute top-2 right-1/3 w-1 h-6 bg-red-400/30 -rotate-12" />
+            <div className="absolute top-1 right-1/4 w-1 h-10 bg-blue-400/30 rotate-6" />
+          </div>
+
+          <div className="relative mb-6">
+            <div className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border-2 border-yellow-500/40 flex items-center justify-center overflow-hidden shadow-xl shadow-yellow-900/20">
+              {newBadge.imageUrl || newBadge.image_url ? (
+                <img src={newBadge.imageUrl || newBadge.image_url} alt={newBadge.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-5xl">🏆</span>
+              )}
+            </div>
+            <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-white text-lg shadow-lg">
+              ✓
+            </div>
+          </div>
+
+          <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2">¡Insignia Obtenida!</p>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">{newBadge.name}</h2>
+          {newBadge.description && (
+            <p className="text-sm text-slate-400 mb-6 italic">"{newBadge.description}"</p>
+          )}
+
+          <button
+            onClick={() => setNewBadge(null)}
+            className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black text-sm uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-yellow-900/20"
+          >
+            Aceptar
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* ── Tutoring Request Modal ── */}
+    {showTutoringModal && selectedTopic && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+          <div className="mb-6">
+            <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Solicitar Tutoría</h2>
+            <p className="text-xs text-slate-500">Completa los datos para solicitar tu sesión de validación.</p>
+          </div>
+
+          <div className="space-y-4">
+            {/* Bloque */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bloque</label>
+              <div className="px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm font-bold">
+                {currentBlock?.name ?? selectedTopic.blockName ?? 'Bloque actual'}
+              </div>
+            </div>
+
+            {/* Fecha de solicitud */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
+              <input
+                type="date"
+                value={tutoringDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={e => setTutoringDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            {/* Observación */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                Observación <span className="text-slate-600 normal-case font-medium">(opcional)</span>
+              </label>
+              <textarea
+                rows={3}
+                value={tutoringObservation}
+                onChange={(e) => setTutoringObservation(e.target.value)}
+                placeholder="Ej: Tengo dudas sobre el tema X, me gustaría reforzar..."
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none placeholder-slate-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              type="button"
+              onClick={() => setShowTutoringModal(false)}
+              className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={requestingTutoring}
+              onClick={handleRequestTutoring}
+              className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {requestingTutoring && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              Solicitar Tutoría
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Mandatory Tutor Rating Modal ── */}
+    {showRatingModal && pendingRatingSubmission && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-yellow-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Califica a tu Tutor</h2>
+            <p className="text-sm text-slate-400">Tu tutor <span className="text-white font-bold">{pendingRatingSubmission.tutorName}</span> ya calificó tu reto.</p>
+            <p className="text-xs text-slate-500 mt-1">Debes calificarlo para continuar.</p>
+          </div>
+
+          <div className="flex items-center justify-center gap-3 mb-6">
+            {[1, 2, 3, 4, 5].map(star => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setTutorRating(star)}
+                className={`text-4xl transition-all hover:scale-110 ${star <= tutorRating ? 'text-yellow-400 drop-shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+
+          {tutorRating > 0 && (
+            <p className="text-center text-sm text-slate-400 mb-4">
+              {['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'][tutorRating]}
+              {' '}— {tutorRating}/5
+            </p>
+          )}
+
+          <button
+            disabled={tutorRating === 0 || ratingSubmitting}
+            onClick={() => handleRateTutor(pendingRatingSubmission!.id, tutorRating)}
+            className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black text-sm uppercase tracking-widest rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {ratingSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+            {tutorRating === 0 ? 'Selecciona una calificación' : 'Enviar Calificación'}
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   );
+}
+
+// ── YouTube IFrame API Player ────────────────────────────────────────────────
+// Uses the official YouTube IFrame API to track real watch progress
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
+
+function YouTubePlayer({
+  videoId,
+  onProgress,
+  onStart,
+  initialProgress,
+}: {
+  videoId: string;
+  onProgress: (pct: number) => void;
+  onStart: () => void;
+  initialProgress: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<any>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastReportedRef = useRef<number>(initialProgress);
+  const startedRef = useRef(false);
+
+  const clearTracking = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const startTracking = useCallback(() => {
+    clearTracking();
+    intervalRef.current = setInterval(() => {
+      const player = playerRef.current;
+      if (!player || typeof player.getCurrentTime !== 'function') return;
+      const duration = player.getDuration?.() || 0;
+      if (duration <= 0) return;
+      const current = player.getCurrentTime();
+      const pct = Math.round((current / duration) * 100);
+      // Report every 5% or when >= 90%
+      if (pct >= lastReportedRef.current + 5 || (pct >= 90 && lastReportedRef.current < 90)) {
+        lastReportedRef.current = pct;
+        onProgress(pct);
+      }
+    }, 3000);
+  }, [onProgress]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const initPlayer = () => {
+      if (!containerRef.current || !isMounted) return;
+      // Destroy previous player if any
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch (_) {}
+        playerRef.current = null;
+      }
+      clearTracking();
+      startedRef.current = false;
+      lastReportedRef.current = initialProgress;
+
+      playerRef.current = new window.YT.Player(containerRef.current, {
+        videoId,
+        width: '100%',
+        height: '100%',
+        playerVars: { rel: 0, modestbranding: 1, enablejsapi: 1 },
+        events: {
+          onStateChange: (event: any) => {
+            const YT = window.YT;
+            if (event.data === YT.PlayerState.PLAYING) {
+              if (!startedRef.current) {
+                startedRef.current = true;
+                onStart();
+              }
+              startTracking();
+            } else if (
+              event.data === YT.PlayerState.PAUSED ||
+              event.data === YT.PlayerState.ENDED
+            ) {
+              clearTracking();
+              // Report final position on pause/end
+              const duration = playerRef.current?.getDuration?.() || 0;
+              const current = playerRef.current?.getCurrentTime?.() || 0;
+              if (duration > 0) {
+                const pct = event.data === YT.PlayerState.ENDED
+                  ? 100
+                  : Math.round((current / duration) * 100);
+                if (pct > lastReportedRef.current) {
+                  lastReportedRef.current = pct;
+                  onProgress(pct);
+                }
+              }
+            }
+          },
+        },
+      });
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      // Load the API script if not already loaded
+      if (!document.getElementById('yt-iframe-api')) {
+        const script = document.createElement('script');
+        script.id = 'yt-iframe-api';
+        script.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(script);
+      }
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        prev?.();
+        if (isMounted) initPlayer();
+      };
+    }
+
+    return () => {
+      isMounted = false;
+      clearTracking();
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch (_) {}
+        playerRef.current = null;
+      }
+    };
+  }, [videoId]);
+
+  return <div ref={containerRef} className="w-full h-full" />;
 }

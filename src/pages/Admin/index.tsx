@@ -28,25 +28,10 @@ export default function Admin() {
   const activeTab = (searchParams.get('tab') as Tab) || 'dashboard';
 
   const {
-    students,
-    tutors,
-    admins,
-    courses,
-    groups,
-    stats,
-    badges,
-    studentsPage,
-    setStudentsPage,
-    tutorsPage,
-    setTutorsPage,
-    adminsPage,
-    setAdminsPage,
-    studentsTotal,
-    tutorsTotal,
-    adminsTotal,
-    isLoading,
-    fetchData,
-    limit
+    students, tutors, admins, courses, groups, stats, badges,
+    studentsPage, setStudentsPage, tutorsPage, setTutorsPage, adminsPage, setAdminsPage,
+    studentsTotal, tutorsTotal, adminsTotal,
+    isLoading, fetchData, fetchByRole, limit
   } = useAdminData();
 
   const {
@@ -56,6 +41,7 @@ export default function Admin() {
   } = useAdminModals(activeTab);
 
   const { dialog, close: closeDialog, showAlert, showConfirm } = useDialog();
+  const [submitting, setSubmitting] = useState(false);
   const [isImportMenuOpen, setIsImportMenuOpen] = useState(false);
   
   const [managingContentCourse, setManagingContentCourse] = useState<any | null>(null);
@@ -80,8 +66,9 @@ export default function Admin() {
 
   const handleSubmitStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
-      if (modalType === 'addStudent') {
+      if (modalType === 'addStudent' || modalType === 'addTutor' || modalType === 'addAdmin') {
         const payload: any = {
           names: formData.firstName,
           lastNames: formData.lastName,
@@ -93,7 +80,7 @@ export default function Admin() {
           groupId: formData.groupId
         };
         await api.createUser(payload);
-        await fetchData();
+        await fetchByRole(formData.role as 'student' | 'tutor' | 'admin');
         setIsModalOpen(false);
       } else if (modalType === 'editStudent' && selectedStudent) {
         const payload: any = {
@@ -101,26 +88,25 @@ export default function Admin() {
           lastNames: formData.lastName,
           email: formData.email,
           status: formData.status,
-          generation: formData.generation,
-          groupId: formData.groupId
         };
-        await (api as any).updateUser(selectedStudent.id, payload);
-        await fetchData();
+        await api.updateUser(selectedStudent.id, payload);
+        await fetchByRole((selectedStudent as any).role || 'student');
         setIsModalOpen(false);
       }
     } catch (error: any) { showAlert(error.response?.data?.message || 'Error al guardar usuario'); }
+    finally { setSubmitting(false); }
   };
 
   const handleToggleStatus = async (user: Student) => {
     const ns = user.status === 'active' ? 'inactive' : 'active';
     showConfirm('¿Cambiar el estado de este usuario?', async () => {
-      try { await api.updateUserStatus(user.id, ns); await fetchData(); } catch (e: any) { showAlert(e.message); }
+      try { await api.updateUserStatus(user.id, ns); await fetchByRole(user.role as 'student' | 'tutor' | 'admin'); } catch (e: any) { showAlert(e.message); }
     }, { title: 'Cambiar Estado', confirmLabel: 'Cambiar' });
   };
 
   const handleSubmitCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    setSubmitting(true);
     try {
       const payload = {
         name: formData.courseName,
@@ -131,9 +117,15 @@ export default function Admin() {
       };
 
       if (modalType === 'addCourse') {
-        await api.createCourse(payload);
+        const res = await api.createCourse(payload);
+        if (formData.courseTutorIds?.length && res.data?.id) {
+          await (api as any).assignTutorsToCourse(res.data.id, formData.courseTutorIds);
+        }
       } else if (modalType === 'editCourse' && selectedCourse) {
         await api.updateCourse(selectedCourse.id, payload);
+        if (formData.courseTutorIds !== undefined) {
+          await (api as any).assignTutorsToCourse(selectedCourse.id, formData.courseTutorIds);
+        }
       }
       
       await fetchData();
@@ -141,7 +133,7 @@ export default function Admin() {
     } catch (e: any) {
       showAlert(e.response?.data?.message || e.message);
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
@@ -223,25 +215,29 @@ export default function Admin() {
             {/* ── DASHBOARD ── */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
-                <div className="flex justify-between items-center bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4">
-                  <div>
-                    <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Panel de Administración</h1>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-0.5">Resumen general de la plataforma</p>
-                  </div>
+                <div className="bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4">
+                  <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Dashboard</h1>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-0.5">Resumen general de la plataforma</p>
                 </div>
 
-                {/* Stats cards */}
+                {/* Stats — 7 métricas spec 21 */}
                 {stats ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
                     {[
-                      { label: 'Estudiantes Activos', value: stats.totalStudents, color: 'text-white', bg: 'bg-slate-800', border: 'border-slate-700/50' },
-                      { label: 'Cursos Disponibles', value: stats.totalCourses, color: 'text-white', bg: 'bg-slate-800', border: 'border-slate-700/50' },
-                      { label: 'Alerta de Avance', value: stats.behindStudents, color: 'text-red-500', bg: 'bg-red-900/10', border: 'border-red-900/40' },
-                      { label: 'Cumplimiento Global', value: `${stats.avgGroupProgress}%`, color: 'text-green-500', bg: 'bg-green-900/10', border: 'border-green-900/40' },
-                    ].map(({ label, value, color, bg, border }) => (
-                      <div key={label} className={`${bg} rounded-lg p-5 border ${border} shadow-lg text-center`}>
-                        <p className="text-slate-400 text-[10px] mb-2 uppercase font-black tracking-widest">{label}</p>
-                        <p className={`text-4xl font-black ${color}`}>{value}</p>
+                      { label: 'Cursos Activos', value: stats.totalCourses, icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+                      { label: 'Grupos Activos', value: stats.activeGroups ?? stats.totalGroups, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
+                      { label: 'Estudiantes', value: stats.totalStudents, icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
+                      { label: 'Tutorías Pendientes', value: stats.pendingTutorings ?? 0, icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
+                      { label: 'Atrasados', value: stats.behindStudents, icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
+                      { label: 'Avance Promedio', value: `${stats.avgGroupProgress}%`, icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
+                      { label: 'Alertas', value: stats.behindStudents + (stats.pendingTutorings ?? 0), icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+                    ].map(({ label, value, icon, color, bg, border }) => (
+                      <div key={label} className={`${bg} rounded-lg p-4 border ${border} flex flex-col items-center text-center gap-2`}>
+                        <svg className={`w-5 h-5 ${color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
+                        </svg>
+                        <p className={`text-2xl font-black ${color}`}>{value}</p>
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-tight">{label}</p>
                       </div>
                     ))}
                   </div>
@@ -327,68 +323,34 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  {/* Resumen de Insignias */}
+                  {/* Resumen de Insignias → Acceso Rápido */}
                   <div className="bg-slate-800 border border-slate-700/50 rounded-lg overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-700/50 flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Insignias</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Resumen de logros</p>
-                      </div>
-                      <a href="/admin?tab=badges" className="text-[10px] font-black text-red-400 hover:text-red-300 uppercase tracking-widest transition-colors">Ver todas →</a>
+                    <div className="px-5 py-4 border-b border-slate-700/50">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Acceso Rápido</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Módulos principales</p>
                     </div>
-                    <div className="p-5">
-                      <div className="flex items-center justify-center mb-4">
-                        <div className="text-center">
-                          <p className="text-5xl font-black text-white">{badges.length}</p>
-                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Insignias creadas</p>
-                        </div>
-                      </div>
-                      {badges.length === 0 ? (
-                        <p className="text-center text-[10px] text-slate-600 uppercase font-black py-4">Sin insignias creadas</p>
-                      ) : (
-                        <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-none">
-                          {badges.slice(0, 6).map((badge: any) => (
-                            <div key={badge.id} className="flex items-center gap-3 p-2 bg-slate-700/30 rounded-lg">
-                              <div className="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center flex-shrink-0 text-sm">
-                                {badge.icon || '🏅'}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[10px] font-black text-white uppercase tracking-tighter truncate">{badge.name}</p>
-                                <p className="text-[9px] text-slate-500 uppercase font-bold truncate">{badge.course?.name || badge.category || 'General'}</p>
-                              </div>
-                            </div>
-                          ))}
-                          {badges.length > 6 && (
-                            <p className="text-center text-[9px] text-slate-600 uppercase font-black pt-1">+{badges.length - 6} más</p>
-                          )}
-                        </div>
-                      )}
+                    <div className="p-4 grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'Estudiantes', tab: 'students', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', color: 'text-blue-400', bg: 'bg-blue-500/10' },
+                        { label: 'Cursos', tab: 'courses', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', color: 'text-red-400', bg: 'bg-red-500/10' },
+                        { label: 'Progreso', tab: 'progress', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', color: 'text-green-400', bg: 'bg-green-500/10' },
+                        { label: 'Catálogo', tab: 'catalog', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+                        { label: 'Tutores', tab: 'tutors', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', color: 'text-purple-400', bg: 'bg-purple-500/10' },
+                        { label: 'Insignias', tab: 'badges', icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+                      ].map(({ label, tab, icon, color, bg }) => (
+                        <a key={tab} href={`/admin?tab=${tab}`}
+                          className="bg-slate-700/40 hover:bg-slate-700 border border-slate-700/50 hover:border-slate-600 rounded-lg p-3 flex flex-col items-center gap-2 transition-all group text-center">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bg}`}>
+                            <svg className={`w-4 h-4 ${color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
+                            </svg>
+                          </div>
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest group-hover:text-white transition-colors">{label}</span>
+                        </a>
+                      ))}
                     </div>
                   </div>
 
-                </div>
-
-                {/* Quick access */}
-                <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Acceso Rápido</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {[
-                      { label: 'Estudiantes', tab: 'students', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', colorIcon: 'text-blue-400', colorBg: 'bg-blue-500/10' },
-                      { label: 'Gestión de Cursos', tab: 'courses', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.247 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', colorIcon: 'text-red-400', colorBg: 'bg-red-500/10' },
-                      { label: 'Progreso', tab: 'progress', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', colorIcon: 'text-green-400', colorBg: 'bg-green-500/10' },
-                      { label: 'Retos', tab: 'submissions', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4', colorIcon: 'text-purple-400', colorBg: 'bg-purple-500/10' },
-                    ].map(({ label, tab, icon, colorIcon, colorBg }) => (
-                      <a key={tab} href={`/admin?tab=${tab}`}
-                        className="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 rounded-lg p-4 flex items-center gap-3 transition-all group">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorBg} flex-shrink-0`}>
-                          <svg className={`w-5 h-5 ${colorIcon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
-                          </svg>
-                        </div>
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest group-hover:text-white transition-colors">{label}</span>
-                      </a>
-                    ))}
-                  </div>
                 </div>
               </div>
             )}
@@ -408,7 +370,10 @@ export default function Admin() {
                 totalItems={studentsTotal} 
                 itemsPerPage={limit} 
                 onPageChange={setStudentsPage} 
-                onToggleStatus={handleToggleStatus} 
+                onToggleStatus={handleToggleStatus}
+                onDelete={(student) => showConfirm(`¿Eliminar a "${student.fullName}"? Esta acción no se puede deshacer.`, async () => {
+                  try { await api.deleteUser(student.id); await fetchByRole('student'); } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
+                }, { title: 'Eliminar Estudiante', confirmLabel: 'Eliminar', danger: true })}
               />
             )}
 
@@ -416,7 +381,10 @@ export default function Admin() {
               <TutorsTab 
                 tutors={tutors} 
                 openModal={openModal} 
-                onToggleStatus={handleToggleStatus} 
+                onToggleStatus={handleToggleStatus}
+                onDelete={(tutor) => showConfirm(`¿Eliminar al tutor "${tutor.fullName}"? Esta acción no se puede deshacer.`, async () => {
+                  try { await api.deleteUser(tutor.id); await fetchByRole('tutor'); } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
+                }, { title: 'Eliminar Tutor', confirmLabel: 'Eliminar', danger: true })}
                 currentPage={tutorsPage}
                 totalItems={tutorsTotal}
                 itemsPerPage={limit}
@@ -428,7 +396,10 @@ export default function Admin() {
               <AdminsTab 
                 admins={admins} 
                 openModal={openModal} 
-                onToggleStatus={handleToggleStatus} 
+                onToggleStatus={handleToggleStatus}
+                onDelete={(admin) => showConfirm(`¿Eliminar al administrador "${admin.fullName}"? Esta acción no se puede deshacer.`, async () => {
+                  try { await api.deleteUser(admin.id); await fetchByRole('admin'); } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
+                }, { title: 'Eliminar Administrador', confirmLabel: 'Eliminar', danger: true })}
                 currentPage={adminsPage}
                 totalItems={adminsTotal}
                 itemsPerPage={limit}
@@ -440,6 +411,7 @@ export default function Admin() {
               <>
                 {coursesView === 'list' && (
                   <GenerationsTab
+                    courses={courses}
                     onSelectGeneration={(generation) => {
                       setSelectedGeneration(generation);
                       setCoursesView('generationDetail');
@@ -478,7 +450,6 @@ export default function Admin() {
             )}
 
             {activeTab === 'progress' && <ProgressTab />}
-            {activeTab === 'badges' && <BadgesTab />}
 
             {/* ── CATÁLOGO DE CURSOS ── */}
             {activeTab === 'catalog' && !managingContentCourse && (
@@ -506,8 +477,7 @@ export default function Admin() {
             )}
             {activeTab === 'badges' && <BadgesTab />}
 
-            {managingContentCourse && (
-              <CourseContentTab 
+            {managingContentCourse && (              <CourseContentTab 
                 course={managingContentCourse} 
                 onBack={() => setManagingContentCourse(null)} 
               />
@@ -538,7 +508,8 @@ export default function Admin() {
         toggleCourseSelection={toggleCourseSelection} 
         openContentModal={openContentModal} 
         courses={courses} 
-        groups={groups} 
+        groups={groups}
+        submitting={submitting}
       />
 
       <ConfirmDialog

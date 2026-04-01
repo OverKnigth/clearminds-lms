@@ -25,7 +25,7 @@ export function GenerationDetailView({
   onManageBlocks,
   onSelectParallel,
 }: GenerationDetailViewProps) {
-  const { detail, isLoading, addCourses, createParallel } = useGenerationDetail(generation.id);
+  const { detail, isLoading, addCourses, createParallel, refetch } = useGenerationDetail(generation.id);
 
   // ── Add Courses Modal ──────────────────────────────────────────────────────
   const [isAddCoursesOpen, setIsAddCoursesOpen] = useState(false);
@@ -41,6 +41,12 @@ export function GenerationDetailView({
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
   const [creatingParallel, setCreatingParallel] = useState(false);
   const [parallelError, setParallelError] = useState<string | null>(null);
+
+  // ── Edit Parallel Modal ────────────────────────────────────────────────────
+  const [editingParallel, setEditingParallel] = useState<Parallel | null>(null);
+  const [editParallelName, setEditParallelName] = useState('');
+  const [savingParallel, setSavingParallel] = useState(false);
+  const [editParallelError, setEditParallelError] = useState<string | null>(null);
 
   // Collect all blocks from assigned courses
   const allBlocks = (detail?.courses ?? []).flatMap((c) =>
@@ -113,21 +119,46 @@ export function GenerationDetailView({
     setIsCreateParallelOpen(true);
   };
 
+  const openEditParallel = (parallel: Parallel) => {
+    setEditingParallel(parallel);
+    setEditParallelName(parallel.name);
+    setEditParallelError(null);
+    setSelectedBlockIds([]);
+  };
+
+  const handleEditParallel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingParallel) return;
+    const name = editParallelName.trim();
+    if (!name) return;
+    setSavingParallel(true);
+    setEditParallelError(null);
+    try {
+      await (api as any).updateParallel(editingParallel.id, name);
+      setEditingParallel(null);
+      refetch();
+    } catch (err: any) {
+      setEditParallelError(err?.message ?? 'Error al actualizar el paralelo');
+    } finally {
+      setSavingParallel(false);
+    }
+  };
+
   return (
     <div className="animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-4 mb-8 bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4">
         <button
           onClick={onBack}
-          className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          className="p-2 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 flex-shrink-0"
           aria-label="Volver"
         >
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div>
-          <h2 className="text-xl font-black text-white uppercase tracking-tighter">
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
             {generation.name}
           </h2>
           {generation.description && (
@@ -136,9 +167,6 @@ export function GenerationDetailView({
             </p>
           )}
         </div>
-        <button onClick={onBack} className={BTN_GHOST + ' ml-auto text-[10px]'}>
-          ← Volver
-        </button>
       </div>
 
       {/* Loading */}
@@ -262,12 +290,20 @@ export function GenerationDetailView({
                         {parallel.studentCount} estudiante{parallel.studentCount !== 1 ? 's' : ''}
                       </p>
                     </div>
-                    <button
-                      onClick={() => onSelectParallel(parallel)}
-                      className="ml-4 shrink-0 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-white rounded-lg transition-colors"
-                    >
-                      Ver paralelo
-                    </button>
+                    <div className="flex items-center gap-2 ml-4 shrink-0">
+                      <button
+                        onClick={() => openEditParallel(parallel)}
+                        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-white rounded-lg transition-colors"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => onSelectParallel(parallel)}
+                        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-white rounded-lg transition-colors"
+                      >
+                        Ver paralelo
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -370,8 +406,100 @@ export function GenerationDetailView({
         </div>
       </Modal>
 
-      {/* ── Create Parallel Modal ─────────────────────────────────────────── */}
+      {/* ── Edit Parallel Modal ───────────────────────────────────────────── */}
       <Modal
+        isOpen={!!editingParallel}
+        onClose={() => setEditingParallel(null)}
+        title="Editar Paralelo"
+      >
+        <form onSubmit={handleEditParallel} className="space-y-5">
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+              Nombre del paralelo *
+            </label>
+            <input
+              required
+              autoFocus
+              className={INPUT_CLS}
+              value={editParallelName}
+              onChange={(e) => setEditParallelName(e.target.value)}
+              placeholder="Ej: Paralelo A"
+            />
+          </div>
+
+          {/* Blocks selector — same as create */}
+          {allBlocks.length > 0 && (
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                Bloques del paralelo{' '}
+                <span className="text-slate-600 normal-case font-medium">(opcional)</span>
+              </label>
+              <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 max-h-52 overflow-y-auto space-y-1">
+                {allBlocks.map((block: any) => {
+                  const selected = selectedBlockIds.includes(block.id);
+                  return (
+                    <button
+                      key={block.id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedBlockIds((prev) =>
+                          prev.includes(block.id)
+                            ? prev.filter((id) => id !== block.id)
+                            : [...prev, block.id]
+                        )
+                      }
+                      className={`w-full flex items-center gap-3 p-2.5 rounded-lg border transition-all text-left ${
+                        selected
+                          ? 'bg-red-600/15 border-red-500/50'
+                          : 'bg-slate-800/50 border-slate-700/50 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 transition-colors ${
+                        selected ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-400'
+                      }`}>
+                        {selected ? '✓' : block.order ?? '·'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[10px] font-black uppercase tracking-tighter truncate ${selected ? 'text-white' : 'text-slate-300'}`}>
+                          {block.name}
+                        </p>
+                        <p className="text-[9px] text-slate-500 uppercase font-bold truncate">
+                          {block.courseName}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedBlockIds.length > 0 && (
+                <p className="text-[9px] text-red-400 font-black uppercase tracking-widest mt-1">
+                  {selectedBlockIds.length} bloque{selectedBlockIds.length !== 1 ? 's' : ''} seleccionado{selectedBlockIds.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          )}
+
+          {editParallelError && (
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+              <p className="text-xs text-red-400 font-bold">{editParallelError}</p>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={() => setEditingParallel(null)} className={BTN_GHOST + ' flex-1 text-[10px]'}>
+              Cancelar
+            </button>
+            <button type="submit" disabled={savingParallel}
+              className={BTN_PRIMARY + ' flex-1 text-[10px] disabled:opacity-50 flex items-center justify-center gap-2'}>
+              {savingParallel ? (
+                <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Guardando...</>
+              ) : 'Guardar Cambios'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── Create Parallel Modal ─────────────────────────────────────────── */}      <Modal
         isOpen={isCreateParallelOpen}
         onClose={() => setIsCreateParallelOpen(false)}
         title="Crear Paralelo"

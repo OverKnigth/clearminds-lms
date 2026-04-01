@@ -38,4 +38,4 @@ export interface ChallengeSubmission {
   content: { id: string; title: string; course?: { id: string; name: string } };
 }
 
-export type TutorTab = 'pending' | 'upcoming' | 'completed' | 'students' | 'challenges';
+export type TutorTab = 'dashboard' | 'pending' | 'upcoming' | 'completed' | 'students' | 'challenges';

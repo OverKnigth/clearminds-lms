@@ -6,6 +6,7 @@ interface GenerationCardProps {
   generation: Generation;
   onClick: () => void;
   onUpdate: (id: string, data: UpdateGenerationPayload) => Promise<Generation>;
+  onDelete: (id: string) => void;
 }
 
 const INPUT_CLS =
@@ -15,7 +16,7 @@ const BTN_PRIMARY =
 const BTN_GHOST =
   'px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-black uppercase tracking-widest rounded-lg transition-colors';
 
-export function GenerationCard({ generation, onClick, onUpdate }: GenerationCardProps) {
+export function GenerationCard({ generation, onClick, onUpdate, onDelete }: GenerationCardProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [form, setForm] = useState<UpdateGenerationPayload>({
     name: generation.name,
@@ -102,13 +103,19 @@ export function GenerationCard({ generation, onClick, onUpdate }: GenerationCard
           </div>
         </div>
 
-        {/* Edit button */}
-        <div className="mt-4 pt-3 border-t border-slate-700/50">
+        {/* Actions */}
+        <div className="mt-4 pt-3 border-t border-slate-700/50 flex gap-2">
           <button
             onClick={openEdit}
-            className="w-full px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-white rounded-lg transition-colors"
+            className="flex-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-white rounded-lg transition-colors"
           >
             Editar
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(generation.id); }}
+            className="px-3 py-1.5 bg-red-900/10 hover:bg-red-900/30 text-[10px] font-black uppercase tracking-widest text-red-500 rounded-lg transition-colors border border-red-900/20"
+          >
+            Eliminar
           </button>
         </div>
       </div>

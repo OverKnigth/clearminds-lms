@@ -198,14 +198,14 @@ export function CourseManagementView({ course, onBack, hideParallelsTab }: Cours
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <button onClick={onBack} className="p-2 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700">
+      <div className="flex items-center gap-4 mb-8 bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4">
+        <button onClick={onBack} className="p-2 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 flex-shrink-0">
           <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-black text-white uppercase tracking-tighter truncate">{course.name}</h2>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter truncate">{course.name}</h2>
           <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Gestión Académica del Curso</p>
         </div>
       </div>

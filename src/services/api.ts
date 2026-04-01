@@ -18,7 +18,7 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -354,6 +354,21 @@ export const api = {
     return response.data;
   },
 
+  getCourseGroupDetail: async (groupId: string) => {
+    const response = await apiClient.get(`/reports/group/${groupId}/detail`);
+    return response.data;
+  },
+
+  getStudentDetailReport: async (userId: string) => {
+    const response = await apiClient.get(`/reports/student/${userId}`);
+    return response.data;
+  },
+
+  getTutoringMetricsReport: async () => {
+    const response = await apiClient.get('/reports/tutoring');
+    return response.data;
+  },
+
   // ─── Admin - Users ───────────────────────────────────────────────────────────
   // role?: 'student' | 'tutor' | 'admin'
   getAllUsers: async (role?: string, page: number = 1, limit: number = 10) => {
@@ -377,6 +392,16 @@ export const api = {
 
   updateUserStatus: async (userId: string, status: 'active' | 'inactive') => {
     const response = await apiClient.patch(API_ENDPOINTS.UPDATE_USER_STATUS(userId), { status });
+    return response.data;
+  },
+
+  deleteUser: async (userId: string) => {
+    const response = await apiClient.delete(`/users/${userId}`);
+    return response.data;
+  },
+
+  resetUserPassword: async (userId: string, password: string) => {
+    const response = await apiClient.patch(`/users/${userId}/reset-password`, { password });
     return response.data;
   },
 
@@ -459,6 +484,11 @@ export const api = {
 
   deleteCourse: async (id: string) => {
     const response = await apiClient.delete(API_ENDPOINTS.DELETE_COURSE(id));
+    return response.data;
+  },
+
+  assignTutorsToCourse: async (courseId: string, tutorIds: string[]) => {
+    const response = await apiClient.post(`/admin/courses/${courseId}/tutors`, { tutorIds });
     return response.data;
   },
 
@@ -582,8 +612,8 @@ export const api = {
     return response.data;
   },
 
-  requestTutoring: async (blockId: string) => {
-    const response = await apiClient.post('/student/tutoring', { blockId });
+  requestTutoring: async (blockId: string, observations?: string) => {
+    const response = await apiClient.post('/student/tutoring', { blockId, observations });
     return response.data;
   },
 
@@ -671,8 +701,7 @@ export const api = {
     }
   },
 
-  updateGeneration: async (id: string, data: UpdateGenerationPayload): Promise<Generation> => {
-    try {
+  updateGeneration: async (id: string, data: UpdateGenerationPayload): Promise<Generation> => {    try {
       const response = await apiClient.patch(API_ENDPOINTS.UPDATE_GENERATION(id), data);
       return response.data.data ?? response.data;
     } catch (error) {
@@ -707,6 +736,11 @@ export const api = {
       if (status === 400 || status === 404 || status === 409) throw Object.assign(new Error(message), { status });
       throw error;
     }
+  },
+
+  deleteGeneration: async (id: string): Promise<void> => {
+    const response = await apiClient.delete(`/admin/generations/${id}`);
+    return response.data;
   },
 
   createParallel: async (generationId: string, data: CreateParallelPayload): Promise<Parallel> => {
@@ -748,6 +782,11 @@ export const api = {
     }
   },
 
+  updateParallel: async (parallelId: string, name: string) => {
+    const response = await apiClient.patch(`/admin/parallels/${parallelId}`, { name });
+    return response.data;
+  },
+
   // ─── Blocks & Topics Linking ──────────────────────────────────────────────
   createBlock: async (courseId: string, data: any) => {
     const response = await apiClient.post(API_ENDPOINTS.CREATE_BLOCK(courseId), data);
@@ -786,7 +825,8 @@ export const api = {
   },
 
   getTutoringConfig: async () => {
-    const response = await apiClient.get('/admin/tutoring/config');
+    // Use tutor-accessible endpoint — /admin/tutoring/config is admin-only
+    const response = await apiClient.get('/tutor/config');
     return response.data;
   },
 

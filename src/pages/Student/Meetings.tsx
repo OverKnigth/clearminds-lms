@@ -149,9 +149,14 @@ export default function Meetings() {
                     <TutoringCard
                       key={t.id}
                       tutoring={t}
+                      allTutorings={tutorings}
                       showJoin={section.showJoin}
                       showResults={section.showResults}
                       onRated={loadData}
+                      onReagend={() => {
+                        setPreselectedBlockId(t.block.id);
+                        setShowModal(true);
+                      }}
                     />
                   ))}
                 </div>
@@ -304,6 +309,8 @@ function CalendarView({
 
 function RequestModal({ courses, initialBlockId, onClose, onSuccess }: { courses: Course[]; initialBlockId?: string; onClose: () => void; onSuccess: () => void }) {
   const [blockId, setBlockId] = useState(initialBlockId || '');
+  const [observations, setObservations] = useState('');
+  const [requestDate, setRequestDate] = useState(new Date().toISOString().split('T')[0]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -324,12 +331,14 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess }: { courses
     if (!blockId) return;
     setSubmitting(true);
     try {
-      await api.requestTutoring(blockId);
+      await (api as any).requestTutoring(blockId, observations || undefined);
       onSuccess();
       onClose();
     } catch (e: any) { alert(e.response?.data?.message || e.message); }
     finally { setSubmitting(false); }
   };
+
+  const today = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -343,26 +352,55 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess }: { courses
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Bloque */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Bloque</label>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bloque *</label>
             <select required value={blockId} onChange={e => setBlockId(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500">
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 text-sm">
               <option value="">Selecciona un bloque</option>
               {blocks.map(b => (
                 <option key={b.id} value={b.id}>{b.courseName} — {b.name}</option>
               ))}
             </select>
             {blocks.length === 0 && (
-              <p className="text-xs text-slate-500 mt-1">No hay bloques disponibles. Asegúrate de tener cursos asignados con bloques.</p>
+              <p className="text-xs text-slate-500 mt-1">No hay bloques disponibles.</p>
             )}
           </div>
+
+          {/* Fecha de solicitud */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
+            <input
+              type="date"
+              value={requestDate}
+              min={new Date().toISOString().split('T')[0]}
+              onChange={e => setRequestDate(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+          </div>
+
+          {/* Observación */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+              Observación <span className="text-slate-600 normal-case font-medium">(opcional)</span>
+            </label>
+            <textarea
+              rows={3}
+              value={observations}
+              onChange={e => setObservations(e.target.value)}
+              placeholder="Ej: Tengo dudas sobre el tema X, me gustaría reforzar..."
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none placeholder-slate-500"
+            />
+          </div>
+
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={submitting || !blockId}
-              className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all disabled:opacity-50">
-              {submitting ? 'Enviando...' : 'Solicitar'}
+              className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs uppercase tracking-widest rounded-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+              {submitting && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {submitting ? 'Enviando...' : 'Solicitar Tutoría'}
             </button>
             <button type="button" onClick={onClose}
-              className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
+              className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-colors">
               Cancelar
             </button>
           </div>
@@ -397,106 +435,184 @@ function StarRating({ value, onChange, readonly }: { value: number; onChange?: (
 // ── TutoringCard Component ───────────────────────────────────────────────────
 function TutoringCard({
   tutoring,
+  allTutorings,
   showJoin,
   showResults,
   onRated,
+  onReagend,
 }: {
   tutoring: Tutoring;
+  allTutorings?: Tutoring[];
   showJoin?: boolean;
   showResults?: boolean;
   onRated: () => void;
+  onReagend?: () => void;
 }) {
   const cfg = STATUS_CONFIG[tutoring.status] || STATUS_CONFIG.requested;
   const [showRateModal, setShowRateModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Get all attempts for this block (history)
+  const blockHistory = (allTutorings || [])
+    .filter(t => t.block.id === tutoring.block.id && t.status === 'executed')
+    .sort((a, b) => a.attempt_number - b.attempt_number);
+
+  const isNotApproved = tutoring.status === 'executed' && tutoring.grade !== null && tutoring.grade !== undefined && tutoring.grade < 7;
+  const isApproved = tutoring.status === 'executed' && tutoring.grade !== null && tutoring.grade !== undefined && tutoring.grade >= 7;
 
   return (
-    <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 flex flex-col gap-3">
+    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between p-5 border-b border-slate-700/50">
         <div>
-          <p className="text-white font-semibold">{tutoring.block.name}</p>
-          <p className="text-sm text-slate-400">{tutoring.block.course.name}</p>
+          <p className="text-white font-black text-sm uppercase tracking-tighter">{tutoring.block.name}</p>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{tutoring.block.course.name}</p>
         </div>
-        <span className={`px-2 py-0.5 text-xs rounded-full bg-${cfg.color}-500/20 text-${cfg.color}-400 shrink-0`}>
-          {cfg.label}
-        </span>
-      </div>
-
-      {/* Info */}
-      <div className="space-y-1 text-sm text-slate-400">
-        {tutoring.tutor && (
-          <p>Tutor: <span className="text-slate-300">{tutoring.tutor.names} {tutoring.tutor.lastNames}</span></p>
-        )}
-        {tutoring.scheduled_at && (
-          <p>Fecha: <span className="text-slate-300">{new Date(tutoring.scheduled_at).toLocaleString('es')}</span></p>
-        )}
-        <p>Solicitada: {new Date(tutoring.requested_at).toLocaleDateString('es')}</p>
-        {tutoring.attempt_number > 1 && (
-          <p className="text-orange-400">Intento #{tutoring.attempt_number}</p>
-        )}
-        {tutoring.cancellation_reason && (
-          <p className="text-red-400">Cancelada: {tutoring.cancellation_reason}</p>
-        )}
-      </div>
-
-      {/* Results */}
-      {showResults && tutoring.grade !== undefined && tutoring.grade !== null && (
-        <div className="p-3 bg-slate-700/50 rounded-lg space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-300 text-sm">Calificación:</span>
-            <span className={`text-xl font-bold ${tutoring.grade >= 7 ? 'text-green-400' : 'text-red-400'}`}>
-              {tutoring.grade}/10
+        <div className="flex items-center gap-2 shrink-0">
+          {tutoring.attempt_number > 1 && (
+            <span className="text-[9px] font-black text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+              Intento #{tutoring.attempt_number}
             </span>
-          </div>
-          {tutoring.grade >= 7 ? (
-            <p className="text-xs text-green-400 font-semibold">✓ Bloque aprobado</p>
-          ) : (
-            <p className="text-xs text-red-400 font-semibold">✗ No aprobado — puedes reagendar</p>
           )}
-          {tutoring.observations && (
-            <p className="text-sm text-slate-300 border-t border-slate-600 pt-2">{tutoring.observations}</p>
-          )}
-          {tutoring.recording_link && (
-            <a href={tutoring.recording_link} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1 text-red-400 hover:text-red-300 text-sm">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              Ver grabación
-            </a>
-          )}
+          <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full bg-${cfg.color}-500/20 text-${cfg.color}-400`}>
+            {cfg.label}
+          </span>
         </div>
-      )}
+      </div>
 
-      {/* Tutor rating */}
-      {showResults && (
-        <div className="border-t border-slate-700 pt-3">
-          {tutoring.tutor_rating ? (
-            <div>
-              <p className="text-xs text-slate-500 mb-1">Tu calificación al tutor:</p>
-              <StarRating value={tutoring.tutor_rating} readonly />
-              {tutoring.tutor_feedback && (
-                <p className="text-xs text-slate-400 mt-1 italic">"{tutoring.tutor_feedback}"</p>
-              )}
+      <div className="p-5 space-y-3">
+        {/* Info */}
+        <div className="space-y-1.5 text-xs">
+          {tutoring.tutor && (
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-bold uppercase tracking-widest">Tutor</span>
+              <span className="text-slate-300 font-bold">{tutoring.tutor.names} {tutoring.tutor.lastNames}</span>
             </div>
-          ) : tutoring.grade !== undefined && tutoring.grade !== null ? (
-            <button
-              onClick={() => setShowRateModal(true)}
-              className="w-full py-2 text-sm text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 hover:border-yellow-500/60 rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              <span>★</span> Calificar al tutor
-            </button>
-          ) : null}
+          )}
+          <div className="flex justify-between">
+            <span className="text-slate-500 font-bold uppercase tracking-widest">Solicitada</span>
+            <span className="text-slate-300">{new Date(tutoring.requested_at).toLocaleDateString('es-ES')}</span>
+          </div>
+          {tutoring.scheduled_at && (
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-bold uppercase tracking-widest">Programada</span>
+              <span className="text-slate-300">{new Date(tutoring.scheduled_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+            </div>
+          )}
+          {tutoring.cancellation_reason && (
+            <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-[10px] text-red-400 font-black uppercase tracking-widest mb-0.5">Cancelada</p>
+              <p className="text-xs text-slate-400">{tutoring.cancellation_reason}</p>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Join button */}
-      {showJoin && tutoring.meeting_link && (
-        <a href={tutoring.meeting_link} target="_blank" rel="noopener noreferrer"
-          className="block text-center py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all text-sm">
-          Unirse a la reunión
-        </a>
-      )}
+        {/* Results */}
+        {showResults && tutoring.grade !== undefined && tutoring.grade !== null && (
+          <div className={`p-3 rounded-lg border ${isApproved ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resultado</span>
+              <div className="flex items-center gap-2">
+                <span className={`text-xl font-black ${isApproved ? 'text-green-400' : 'text-red-400'}`}>{tutoring.grade}/10</span>
+                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isApproved ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                  {isApproved ? '✓ Aprobado' : '✗ No aprobado'}
+                </span>
+              </div>
+            </div>
+            {tutoring.observations && (
+              <p className="text-xs text-slate-400 mt-1 italic border-t border-slate-700/50 pt-1">"{tutoring.observations}"</p>
+            )}
+            {tutoring.recording_link && (
+              <a href={tutoring.recording_link} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-purple-400 hover:text-purple-300 text-[10px] font-black uppercase tracking-widest mt-2 transition-colors">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Ver grabación
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Tutor rating */}
+        {showResults && tutoring.grade !== undefined && tutoring.grade !== null && (
+          <div className="border-t border-slate-700/50 pt-3">
+            {tutoring.tutor_rating ? (
+              <div>
+                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Tu calificación al tutor</p>
+                <StarRating value={tutoring.tutor_rating} readonly />
+              </div>
+            ) : (
+              <button onClick={() => setShowRateModal(true)}
+                className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 hover:border-yellow-500/60 rounded-lg transition-colors flex items-center justify-center gap-1">
+                ★ Calificar al tutor
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Reagendar button — only when not approved */}
+        {isNotApproved && onReagend && (
+          <button onClick={onReagend}
+            className="w-full py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Reagendar Tutoría
+          </button>
+        )}
+
+        {/* Join button */}
+        {showJoin && tutoring.meeting_link && (
+          <a href={tutoring.meeting_link} target="_blank" rel="noopener noreferrer"
+            className="block text-center py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-lg transition-all">
+            Unirse a la reunión
+          </a>
+        )}
+
+        {/* History toggle */}
+        {blockHistory.length > 1 && (
+          <button onClick={() => setShowHistory(!showHistory)}
+            className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center gap-1">
+            {showHistory ? '▲' : '▼'} Historial de intentos ({blockHistory.length})
+          </button>
+        )}
+
+        {/* History table */}
+        {showHistory && blockHistory.length > 0 && (
+          <div className="border border-slate-700 rounded-lg overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-700/50">
+                <tr>
+                  <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">#</th>
+                  <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Fecha</th>
+                  <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Nota</th>
+                  <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/50">
+                {blockHistory.map(h => (
+                  <tr key={h.id} className="hover:bg-slate-700/20">
+                    <td className="px-3 py-2 text-slate-400 font-bold">{h.attempt_number}</td>
+                    <td className="px-3 py-2 text-slate-400">{h.executed_at ? new Date(h.executed_at).toLocaleDateString('es-ES') : '—'}</td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={`font-black ${h.grade !== null && h.grade !== undefined ? (h.grade >= 7 ? 'text-green-400' : 'text-red-400') : 'text-slate-500'}`}>
+                        {h.grade !== null && h.grade !== undefined ? `${h.grade}/10` : '—'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${h.grade !== null && h.grade !== undefined ? (h.grade >= 7 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400') : 'bg-slate-700 text-slate-500'}`}>
+                        {h.grade !== null && h.grade !== undefined ? (h.grade >= 7 ? 'Aprobado' : 'No aprobado') : 'Pendiente'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {showRateModal && (
         <RateTutorModal

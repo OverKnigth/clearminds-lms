@@ -8,6 +8,7 @@ interface UseGenerationsReturn {
   error: string | null;
   createGeneration: (data: CreateGenerationPayload) => Promise<Generation>;
   updateGeneration: (id: string, data: UpdateGenerationPayload) => Promise<Generation>;
+  deleteGeneration: (id: string) => Promise<void>;
   refetch: () => void;
 }
 
@@ -46,12 +47,18 @@ export function useGenerations(): UseGenerationsReturn {
     return updated;
   }, []);
 
+  const deleteGeneration = useCallback(async (id: string): Promise<void> => {
+    await (api as any).deleteGeneration(id);
+    setGenerations((prev) => prev.filter((g) => g.id !== id));
+  }, []);
+
   return {
     generations,
     isLoading,
     error,
     createGeneration,
     updateGeneration,
+    deleteGeneration,
     refetch: fetchGenerations,
   };
 }

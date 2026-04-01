@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useGenerations } from '../../../hooks/useGenerations';
 import { api } from '../../../services/api';
 import type { Generation } from '../../../types/generation';
@@ -8,6 +8,7 @@ import { GenerationCard } from './GenerationCard';
 
 interface GenerationsTabProps {
   onSelectGeneration: (generation: Generation) => void;
+  courses?: CourseData[];
 }
 
 const INPUT_CLS =
@@ -23,8 +24,9 @@ const INITIAL_FORM = {
   courseIds: [] as string[],
 };
 
-export function GenerationsTab({ onSelectGeneration }: GenerationsTabProps) {
-  const { generations, isLoading, createGeneration, updateGeneration } = useGenerations();
+export function GenerationsTab({ onSelectGeneration, courses: propCourses }: GenerationsTabProps) {
+  const { generations, isLoading, createGeneration, updateGeneration, deleteGeneration } = useGenerations();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
@@ -34,24 +36,23 @@ export function GenerationsTab({ onSelectGeneration }: GenerationsTabProps) {
   const [availableCourses, setAvailableCourses] = useState<CourseData[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
 
-  useEffect(() => {
-    if (isModalOpen) {
-      setCoursesLoading(true);
-      api
-        .getAdminCourses()
-        .then((res) => {
-          const data = res?.data ?? res;
-          setAvailableCourses(Array.isArray(data) ? data : []);
-        })
-        .catch(() => setAvailableCourses([]))
-        .finally(() => setCoursesLoading(false));
-    }
-  }, [isModalOpen]);
-
   const openModal = () => {
     setForm(INITIAL_FORM);
     setFormError(null);
     setIsModalOpen(true);
+    // Use courses from props if available, otherwise fetch
+    if (propCourses && propCourses.length > 0) {
+      setAvailableCourses(propCourses);
+      return;
+    }
+    setCoursesLoading(true);
+    api.getAdminCourses()
+      .then((res) => {
+        const data = res?.data ?? (Array.isArray(res) ? res : []);
+        setAvailableCourses(Array.isArray(data) ? data : []);
+      })
+      .catch((e) => { console.error('Error loading courses:', e); setAvailableCourses([]); })
+      .finally(() => setCoursesLoading(false));
   };
 
   const toggleCourse = (id: string) => {
@@ -136,6 +137,12 @@ export function GenerationsTab({ onSelectGeneration }: GenerationsTabProps) {
               generation={generation}
               onClick={() => onSelectGeneration(generation)}
               onUpdate={updateGeneration}
+              onDelete={async (id) => {
+                if (!confirm(`¿Eliminar la generación "${generation.name}"? Esta acción eliminará todos sus paralelos y no se puede deshacer.`)) return;
+                setDeletingId(id);
+                try { await deleteGeneration(id); } catch (e: any) { alert(e.message); }
+                finally { setDeletingId(null); }
+              }}
             />
           ))}
         </div>

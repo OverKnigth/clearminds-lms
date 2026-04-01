@@ -16,4 +16,5 @@ export interface FormData {
   courseDescription?: string;
   courseStatus?: 'active' | 'inactive';
   courseImageUrl?: string;
+  courseTutorIds?: string[];
 }

@@ -2,15 +2,16 @@ import type { Student } from '../types';
 
 interface AdminsTabProps {
   admins: Student[];
-  openModal: (type: 'addStudent' | 'editStudent' | 'resetPassword', student?: Student) => void;
+  openModal: (type: 'addAdmin' | 'editStudent' | 'resetPassword', admin?: Student) => void;
   currentPage: number;
   totalItems: number;
   itemsPerPage: number;
   onPageChange: (page: number) => void;
   onToggleStatus: (admin: Student) => void;
+  onDelete?: (admin: Student) => void;
 }
 
-export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPerPage, onPageChange, onToggleStatus }: AdminsTabProps) {
+export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPerPage, onPageChange, onToggleStatus, onDelete }: AdminsTabProps) {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   
   return (
@@ -21,7 +22,7 @@ export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPer
           <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Administra perfiles de alto nivel</p>
         </div>
         <button
-          onClick={() => openModal('addStudent')}
+          onClick={() => openModal('addAdmin')}
           className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-red-900/20"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,19 +70,36 @@ export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPer
                   </button>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex gap-2">
-                    <button 
+                  <div className="flex items-center gap-1">
+                    <button
                       onClick={() => openModal('editStudent', admin)}
-                      className="text-red-400 hover:text-red-300 text-sm font-medium"
+                      title="Editar"
+                      className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-all"
                     >
-                      Editar
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
                     </button>
-                    <button 
+                    <button
                       onClick={() => openModal('resetPassword', admin)}
-                      className="text-yellow-400 hover:text-yellow-300 text-sm font-medium"
+                      title="Restablecer contraseña"
+                      className="p-2 rounded-lg bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 transition-all"
                     >
-                      Reset
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                      </svg>
                     </button>
+                    {onDelete && (
+                      <button
+                        onClick={() => onDelete(admin)}
+                        title="Eliminar"
+                        className="p-2 rounded-lg bg-red-900/10 hover:bg-red-900/30 text-red-500 transition-all"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

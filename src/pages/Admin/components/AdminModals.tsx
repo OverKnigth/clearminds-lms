@@ -27,6 +27,7 @@ interface AdminModalsProps {
   openContentModal: (type: any, moduleId?: string) => void;
   courses: CourseData[];
   groups: any[];
+  submitting?: boolean;
 }
 
 export function AdminModals({
@@ -38,7 +39,8 @@ export function AdminModals({
   contentFormData, setContentFormData,
   selectedStudent, selectedCourse,
   handleSubmitStudent, handleAssignCourses, handleSubmitContent, handleSubmitCourse,
-  toggleCourseSelection, openContentModal, courses, groups
+  toggleCourseSelection, openContentModal, courses, groups,
+  submitting = false
 }: AdminModalsProps) {
   // ── Cascading generation → course → parallel selection ──────────────────────
   const [generations, setGenerations] = useState<Generation[]>([]);
@@ -52,7 +54,7 @@ export function AdminModals({
 
   // Load generations when modal opens for addStudent
   useEffect(() => {
-    if (isModalOpen && (modalType === 'addStudent' || modalType === 'editStudent')) {
+    if (isModalOpen && (modalType === 'addStudent' || modalType === 'addTutor' || modalType === 'addAdmin' || modalType === 'editStudent')) {
       setLoadingGenerations(true);
       api.getGenerations()
         .then(setGenerations)
@@ -96,150 +98,108 @@ export function AdminModals({
       {/* Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={getModalTitle()}>
         {/* Add Student Form */}
-        {modalType === 'addStudent' && (
+        {(modalType === 'addStudent' || modalType === 'addTutor' || modalType === 'addAdmin') && (
           <form onSubmit={handleSubmitStudent} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Nombres</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.firstName}
+                <input type="text" required value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="Juan Carlos"
-                />
+                  placeholder="Juan Carlos" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Apellidos</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.lastName}
+                <input type="text" required value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="Pérez López"
-                />
+                  placeholder="Pérez López" />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Correo Electrónico</label>
-              <input
-                type="email"
-                required
-                value={formData.email}
+              <input type="email" required value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="usuario@email.com"
-              />
+                placeholder="usuario@email.com" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Contraseña Inicial</label>
-              <input
-                type="password"
-                required
-                value={formData.password}
+              <input type="password" required value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="••••••••"
-              />
+                placeholder="••••••••" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Rol</label>
-                <select
-                  value={formData.role}
+
+            {/* Rol — editable solo para addStudent, fijo para tutor/admin */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Rol</label>
+              {modalType === 'addStudent' ? (
+                <select value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as 'student' | 'tutor' | 'admin' })}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500">
                   <option value="student">Estudiante</option>
                   <option value="tutor">Tutor</option>
                   <option value="admin">Administrador</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Estado</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="active">Activo</option>
-                  <option value="inactive">Inactivo</option>
-                </select>
-              </div>
+              ) : (
+                <div className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 text-sm font-black uppercase tracking-widest">
+                  {modalType === 'addTutor' ? 'Tutor' : 'Administrador'}
+                </div>
+              )}
             </div>
-            {(formData.role === 'student' || formData.role === 'tutor') && (
+
+            {/* Generación/Curso/Paralelo — solo para estudiantes */}
+            {formData.role === 'student' && modalType === 'addStudent' && (
               <div className="space-y-3">
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-2">Generación (Opcional)</label>
-                  <select
-                    value={selectedGenerationId}
-                    onChange={(e) => setSelectedGenerationId(e.target.value)}
+                  <select value={selectedGenerationId} onChange={(e) => setSelectedGenerationId(e.target.value)}
                     className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 font-bold uppercase tracking-tighter text-xs"
-                    disabled={loadingGenerations}
-                  >
+                    disabled={loadingGenerations}>
                     <option value="">-- No Asignar Generación --</option>
-                    {generations.map(g => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
+                    {generations.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
                 </div>
                 {selectedGenerationId && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-2">Curso (Opcional)</label>
-                      <select
-                        value={selectedCourseId}
-                        onChange={(e) => {
-                          setSelectedCourseId(e.target.value);
-                          setFormData({ ...formData, generationId: selectedGenerationId, generation: e.target.value, groupId: '' });
-                        }}
+                      <select value={selectedCourseId}
+                        onChange={(e) => { setSelectedCourseId(e.target.value); setFormData({ ...formData, generationId: selectedGenerationId, generation: e.target.value, groupId: '' }); }}
                         className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 font-bold uppercase tracking-tighter text-xs"
-                        disabled={loadingDetail}
-                      >
-                        <option value="">-- No Asignar Curso --</option>
-                        {generationDetail?.courses.map(c => (
-                          <option key={c.course.id} value={c.course.id}>{c.course.name}</option>
-                        ))}
+                        disabled={loadingDetail}>
+                        <option value="">-- Sin curso --</option>
+                        {generationDetail?.courses.map((c: any) => <option key={c.course.id} value={c.course.id}>{c.course.name}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-2">Paralelo (Opcional)</label>
-                      <select
-                        value={formData.groupId}
-                        onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
+                      <select value={formData.groupId} onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
                         className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 font-bold uppercase tracking-tighter text-xs"
-                        disabled={loadingDetail || availableParallels.length === 0}
-                      >
-                        <option value="">-- No Asignar Paralelo --</option>
-                        {availableParallels.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
+                        disabled={loadingDetail || availableParallels.length === 0}>
+                        <option value="">-- Sin paralelo --</option>
+                        {availableParallels.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </select>
                     </div>
                   </div>
                 )}
               </div>
             )}
+
             <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
-              >
-                Crear Usuario
+              <button type="submit" disabled={submitting}
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all disabled:opacity-70 flex items-center justify-center gap-2">
+                {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
+                {submitting ? 'Guardando...' : 'Crear Usuario'}
               </button>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-              >
+              <button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting}
+                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50">
                 Cancelar
               </button>
             </div>
           </form>
         )}
-
         {/* Edit Student Form */}
         {modalType === 'editStudent' && selectedStudent && (
           <EditStudentForm
@@ -247,84 +207,85 @@ export function AdminModals({
             setFormData={setFormData}
             onSubmit={handleSubmitStudent}
             onCancel={() => setIsModalOpen(false)}
+            userRole={(selectedStudent as any).role || formData.role || 'student'}
+            submitting={submitting}
           />
         )}
 
         {/* Assign Courses Form */}
         {modalType === 'assignCourse' && selectedStudent && (
           <form onSubmit={handleAssignCourses} className="space-y-4">
-            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg mb-4">
-              <p className="text-red-400 text-sm">
-                Asignando cursos a <span className="font-semibold">{selectedStudent.fullName}</span>
-              </p>
-            </div>
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-slate-300 mb-3 font-black uppercase tracking-widest text-[10px]">Selecciona los cursos e Instancias</label>
-              {courses.map(course => (
-                <div key={course.id} className={`p-4 rounded-2xl border transition-all ${formData.selectedCourses.includes(course.id) ? 'bg-slate-800 border-red-500/50 shadow-lg shadow-red-900/5' : 'bg-slate-800/40 border-slate-700/50'}`}>
-                  <label className="flex items-center gap-4 cursor-pointer mb-4">
-                    <input
-                      type="checkbox"
-                      checked={formData.selectedCourses.includes(course.id)}
-                      onChange={() => toggleCourseSelection(course.id)}
-                      className="w-5 h-5 rounded-lg border-slate-600 text-red-600 focus:ring-offset-0 focus:ring-red-600 bg-slate-700"
-                    />
-                    <div className="flex-1">
-                      <p className="text-white font-black uppercase tracking-tighter text-lg">{course.name}</p>
-                      {course.description && <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">{course.description}</p>}
-                    </div>
-                    <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${course.status === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'}`}>
-                      {course.status === 'active' ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </label>
+            <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">
+              Asignando a <span className="text-white">{selectedStudent.fullName}</span>
+            </p>
 
-                  {formData.selectedCourses.includes(course.id) && (
-                    <div className="pl-9 animate-in slide-in-from-top-2 duration-300">
-                      <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Asignar a Paralelo (Instancia)</label>
-                        <select
-                          value={formData.courseParallelMap?.[course.id] || ''}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            courseParallelMap: {
-                              ...formData.courseParallelMap,
-                              [course.id]: e.target.value
-                            }
-                          })}
-                          className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 font-black uppercase tracking-tighter text-xs"
-                        >
-                          <option value="">-- SELECCIONAR PARALELO --</option>
-                          {groups
-                            .filter(g => g.offerings?.some((off: any) => off.course_id === course.id))
-                            .map(group => {
-                              const offering = group.offerings?.find((off: any) => off.course_id === course.id);
-                              return (
-                                <option key={group.id} value={offering?.id}>{group.name}</option>
-                              );
-                            })
-                          }
-                        </select>
-                        <p className="text-[9px] text-slate-500 mt-2 font-bold uppercase tracking-widest italic">
-                          * El alumno se inscribirá en el plan de estudios de este paralelo.
-                        </p>
+            <div className="space-y-2">
+              {courses.map(course => {
+                const isSelected = formData.selectedCourses.includes(course.id);
+                const parallelOptions = groups.filter(
+                  g => g.name !== '__template__' && !g.name.startsWith('direct_') && g.offerings?.some((off: any) => off.course_id === course.id)
+                );
+                return (
+                  <div key={course.id}
+                    className={`rounded-lg border transition-all ${isSelected ? 'border-slate-500 bg-slate-800' : 'border-slate-700/50 bg-slate-800/40'}`}>
+                    {/* Course row */}
+                    <label className="flex items-center gap-3 px-4 py-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleCourseSelection(course.id)}
+                        className="w-4 h-4 rounded border-slate-600 text-red-600 bg-slate-700 focus:ring-red-500 focus:ring-offset-0 flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-white uppercase tracking-tighter">{course.name}</p>
+                        {course.description && (
+                          <p className="text-[10px] text-slate-500 truncate mt-0.5">{course.description}</p>
+                        )}
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded flex-shrink-0 ${
+                        course.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-slate-600/30 text-slate-500'
+                      }`}>
+                        {course.status === 'active' ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </label>
+
+                    {/* Parallel selector — shown when course is selected */}
+                    {isSelected && (
+                      <div className="px-4 pb-3 border-t border-slate-700/50 pt-3">
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                          Paralelo
+                        </label>
+                        {parallelOptions.length === 0 ? (
+                          <p className="text-[10px] text-slate-600 italic">Sin paralelos disponibles para este curso</p>
+                        ) : (
+                          <select
+                            value={formData.courseParallelMap?.[course.id] || ''}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              courseParallelMap: { ...formData.courseParallelMap, [course.id]: e.target.value }
+                            })}
+                            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-xs font-bold focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                          >
+                            {parallelOptions.map(group => {
+                              const offering = group.offerings?.find((off: any) => off.course_id === course.id);
+                              return <option key={group.id} value={offering?.id}>{group.name}</option>;
+                            })}
+                          </select>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all"
-              >
-                Asignar Cursos ({formData.selectedCourses.length})
+
+            <div className="flex gap-3 pt-2">
+              <button type="submit"
+                className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-all">
+                Asignar ({formData.selectedCourses.length})
               </button>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-              >
+              <button type="button" onClick={() => setIsModalOpen(false)}
+                className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-colors">
                 Cancelar
               </button>
             </div>
@@ -333,48 +294,11 @@ export function AdminModals({
 
         {/* Reset Password Form */}
         {modalType === 'resetPassword' && selectedStudent && (
-          <form className="space-y-4">
-            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg mb-4">
-              <p className="text-yellow-400 text-sm">
-                Vas a restablecer la contraseña de <span className="font-semibold">{selectedStudent.fullName}</span>
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Nueva Contraseña</label>
-              <input
-                type="password"
-                required
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="••••••••"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Confirmar Contraseña</label>
-              <input
-                type="password"
-                required
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                placeholder="••••••••"
-              />
-            </div>
-            <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                className="flex-1 py-3 bg-yellow-500 hover:bg-yellow-400 text-white font-semibold rounded-lg transition-all"
-              >
-                Restablecer Contraseña
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
+          <ResetPasswordForm
+            student={selectedStudent}
+            onClose={() => setIsModalOpen(false)}
+          />
         )}
-
         {/* Edit Course Info Form */}
         {modalType === 'editCourse' && selectedCourse && (
           <form onSubmit={handleSubmitCourse} className="space-y-4">
@@ -442,17 +366,19 @@ export function AdminModals({
                 </select>
               </div>
             </div>
+            <TutorSelector
+              selectedIds={formData.courseTutorIds || []}
+              onChange={(ids) => setFormData({ ...formData, courseTutorIds: ids })}
+            />
             <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black uppercase tracking-widest rounded-lg transition-all"
+              <button type="submit" disabled={submitting}
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black uppercase tracking-widest rounded-lg transition-all disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                Guardar Cambios
+                {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
+                {submitting ? 'Guardando...' : 'Guardar Cambios'}
               </button>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-black uppercase tracking-widest rounded-lg transition-colors"
+              <button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting}
+                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-black uppercase tracking-widest rounded-lg transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -714,17 +640,19 @@ export function AdminModals({
                 </label>
               </div>
             </div>
+            <TutorSelector
+              selectedIds={formData.courseTutorIds || []}
+              onChange={(ids) => setFormData({ ...formData, courseTutorIds: ids })}
+            />
             <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black uppercase tracking-widest rounded-lg transition-all shadow-lg"
+              <button type="submit" disabled={submitting}
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black uppercase tracking-widest rounded-lg transition-all shadow-lg disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                Crear Curso
+                {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
+                {submitting ? 'Guardando...' : 'Crear Curso'}
               </button>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-black uppercase tracking-widest rounded-lg transition-colors border border-slate-600"
+              <button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting}
+                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-black uppercase tracking-widest rounded-lg transition-colors border border-slate-600 disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -940,16 +868,21 @@ function EditStudentForm({
   setFormData,
   onSubmit,
   onCancel,
+  userRole = 'student',
+  submitting = false,
 }: {
   formData: FormData;
   setFormData: (v: FormData) => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
+  userRole?: string;
+  submitting?: boolean;
 }) {
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [generationDetail, setGenerationDetail] = useState<any | null>(null);
   const [selectedGenerationId, setSelectedGenerationId] = useState('');
   const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [loadingGenerations, setLoadingGenerations] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   // Track if user has actively changed the generation (to avoid clearing on mount)
   const [generationChanged, setGenerationChanged] = useState(false);
@@ -958,7 +891,11 @@ function EditStudentForm({
 
   // Load generations on mount
   useEffect(() => {
-    api.getGenerations().then(setGenerations).catch(() => {});
+    setLoadingGenerations(true);
+    api.getGenerations()
+      .then(setGenerations)
+      .catch(() => {})
+      .finally(() => setLoadingGenerations(false));
   }, []);
 
   // Load generation detail when user actively selects a generation
@@ -1004,26 +941,35 @@ function EditStudentForm({
           onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
       </div>
 
-      {/* Generation selector */}
       <div>
-        <label className={LABEL}>Cambiar Generación (Opcional)</label>
-        <select
-          className={INPUT + ' font-bold uppercase tracking-tighter text-xs'}
-          value={selectedGenerationId}
-          onChange={(e) => {
-            setGenerationChanged(true);
-            setSelectedGenerationId(e.target.value);
-          }}
-        >
-          <option value="">-- Mantener asignación actual --</option>
-          {generations.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}</option>
-          ))}
+        <label className={LABEL}>Estado</label>
+        <select className={INPUT} value={formData.status}
+          onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}>
+          <option value="active">Activo</option>
+          <option value="inactive">Inactivo</option>
         </select>
       </div>
 
+      {/* Generation selector — only for students */}
+      {userRole === 'student' && (
+        <div>
+          <label className={LABEL}>Cambiar Generación (Opcional)</label>
+          <select
+            className={INPUT + ' font-bold uppercase tracking-tighter text-xs'}
+            value={selectedGenerationId}
+            onChange={(e) => { setGenerationChanged(true); setSelectedGenerationId(e.target.value); }}
+            disabled={loadingGenerations}
+          >
+            <option value="">{loadingGenerations ? 'Cargando...' : '-- Mantener asignación actual --'}</option>
+            {generations.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Course + Parallel selectors — only shown when user actively picks a generation */}
-      {selectedGenerationId && generationChanged && (
+      {userRole === 'student' && selectedGenerationId && generationChanged && (
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={LABEL}>Curso</label>
@@ -1064,15 +1010,126 @@ function EditStudentForm({
       )}
 
       <div className="flex gap-3 pt-4">
-        <button type="submit"
-          className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all">
-          Guardar Cambios
+        <button type="submit" disabled={submitting}
+          className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all disabled:opacity-70 flex items-center justify-center gap-2">
+          {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
+          {submitting ? 'Guardando...' : 'Guardar Cambios'}
         </button>
-        <button type="button" onClick={onCancel}
-          className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
+        <button type="button" onClick={onCancel} disabled={submitting}
+          className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50">
           Cancelar
         </button>
       </div>
     </form>
+  );
+}
+
+// ── ResetPasswordForm ─────────────────────────────────────────────────────────
+function ResetPasswordForm({ student, onClose }: { student: Student; onClose: () => void }) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (password !== confirm) { setError('Las contraseñas no coinciden.'); return; }
+    setSaving(true);
+    try {
+      await (api as any).resetUserPassword(student.id, password);
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error al restablecer contraseña');
+    } finally { setSaving(false); }
+  };
+
+  const INPUT = 'w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500';
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+        <p className="text-yellow-400 text-sm">
+          Restableciendo contraseña de <span className="font-black">{student.fullName}</span>
+        </p>
+      </div>
+      {error && <p className="text-red-400 text-xs font-bold">{error}</p>}
+      <div>
+        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nueva Contraseña</label>
+        <input type="password" required className={INPUT} value={password}
+          onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+      </div>
+      <div>
+        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Confirmar Contraseña</label>
+        <input type="password" required className={INPUT} value={confirm}
+          onChange={(e) => setConfirm(e.target.value)} placeholder="••••••••" />
+      </div>
+      <div className="flex gap-3 pt-2">
+        <button type="button" onClick={onClose}
+          className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-black text-xs uppercase tracking-widest transition-colors">
+          Cancelar
+        </button>
+        <button type="submit" disabled={saving}
+          className="flex-1 py-3 bg-yellow-500 hover:bg-yellow-400 text-white font-black text-xs uppercase tracking-widest rounded-lg transition-all disabled:opacity-50">
+          {saving ? 'Guardando...' : 'Restablecer'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ── TutorSelector ─────────────────────────────────────────────────────────────
+function TutorSelector({ selectedIds, onChange }: { selectedIds: string[]; onChange: (ids: string[]) => void }) {
+  const [tutors, setTutors] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getAllUsers('tutor', 1, 100)
+      .then(res => { if (res.success) setTutors(res.rows || res.data || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggle = (id: string) => {
+    onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]);
+  };
+
+  return (
+    <div>
+      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+        Tutores del Curso
+      </label>
+      {loading ? (
+        <div className="flex items-center gap-2 py-3 text-[10px] text-slate-500">
+          <div className="w-3 h-3 border-2 border-slate-500/20 border-t-slate-400 rounded-full animate-spin" />
+          Cargando tutores...
+        </div>
+      ) : tutors.length === 0 ? (
+        <p className="text-[10px] text-slate-600 italic py-2">Sin tutores registrados</p>
+      ) : (
+        <div className="bg-slate-700/30 border border-slate-600 rounded-lg divide-y divide-slate-700/50 max-h-40 overflow-y-auto scrollbar-none">
+          {tutors.map((t: any) => {
+            const id = t.id;
+            const name = t.names ? `${t.names} ${t.lastNames || t.last_names || ''}`.trim() : t.fullName || id;
+            const selected = selectedIds.includes(id);
+            return (
+              <label key={id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-700/40 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() => toggle(id)}
+                  className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-700 text-red-600 focus:ring-red-500 focus:ring-offset-0"
+                />
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white text-[9px] font-black flex-shrink-0">
+                  {name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                </div>
+                <span className="text-xs font-bold text-slate-300 truncate">{name}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

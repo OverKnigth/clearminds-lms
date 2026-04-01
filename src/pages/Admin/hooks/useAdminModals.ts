@@ -55,17 +55,26 @@ export function useAdminModals(activeTab: Tab) {
     } else if (type === 'addStudent') {
       setSelectedStudent(null);
       setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        password: '',
-        role: 'student',
-        status: 'active',
-        generationId: '',
-        generation: '',
-        groupId: '',
-        selectedCourses: [],
-        courseParallelMap: {},
+        firstName: '', lastName: '', email: '', password: '',
+        role: 'student', status: 'active',
+        generationId: '', generation: '', groupId: '',
+        selectedCourses: [], courseParallelMap: {},
+      });
+    } else if (type === 'addTutor') {
+      setSelectedStudent(null);
+      setFormData({
+        firstName: '', lastName: '', email: '', password: '',
+        role: 'tutor', status: 'active',
+        generationId: '', generation: '', groupId: '',
+        selectedCourses: [], courseParallelMap: {},
+      });
+    } else if (type === 'addAdmin') {
+      setSelectedStudent(null);
+      setFormData({
+        firstName: '', lastName: '', email: '', password: '',
+        role: 'admin', status: 'active',
+        generationId: '', generation: '', groupId: '',
+        selectedCourses: [], courseParallelMap: {},
       });
     } else if (type === 'assignCourse' && data) {
       setSelectedStudent(data);
@@ -82,6 +91,7 @@ export function useAdminModals(activeTab: Tab) {
         courseDescription: data.description || '',
         courseStatus: data.status,
         courseImageUrl: data.imageUrl || '',
+        courseTutorIds: data.tutors?.map((t: any) => t.id) || [],
       });
     } else if (type === 'addCourse') {
       setFormData({
