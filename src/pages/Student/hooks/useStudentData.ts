@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
-import type { Course, Badge, Tutoring } from '../types';
+import type { Course, BadgeAward, Tutoring } from '../types';
+import type { StudentBadgeDisplay } from '../components/StudentBadges';
 
 export function useStudentData() {
   const [courses, setCourses] = useState<Course[]>([]);
-  const [badges, setBadges] = useState<Badge[]>([]);
+  const [badges, setBadges] = useState<StudentBadgeDisplay[]>([]);
   const [tutorings, setTutorings] = useState<Tutoring[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [overallPct, setOverallPct] = useState(0);
@@ -27,7 +28,6 @@ export function useStudentData() {
 
       if (coursesRes.status === 'fulfilled' && coursesRes.value.success) {
         const list: Course[] = coursesRes.value.data;
-        // Load progress for each course
         const withProgress = await Promise.all(
           list.map(async (c) => {
             try {
@@ -42,7 +42,21 @@ export function useStudentData() {
           setOverallPct(avg);
         }
       }
-      if (badgesRes.status === 'fulfilled' && badgesRes.value.success) setBadges(badgesRes.value.data);
+
+      if (badgesRes.status === 'fulfilled' && badgesRes.value.success) {
+        // Map BadgeAward[] → StudentBadgeDisplay[] (all earned since they come from /student/badges)
+        const mapped: StudentBadgeDisplay[] = (badgesRes.value.data as BadgeAward[]).map((a) => ({
+          id: a.badge.id,
+          name: a.badge.name,
+          description: a.badge.description,
+          imageUrl: a.badge.imageUrl,
+          category: a.badge.category,
+          state: 'earned' as const,
+          awardedAt: a.awardedAt,
+        }));
+        setBadges(mapped);
+      }
+
       if (tutoringRes.status === 'fulfilled' && tutoringRes.value.success) setTutorings(tutoringRes.value.data);
     } catch (e) {
       console.error(e);

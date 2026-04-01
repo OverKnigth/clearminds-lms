@@ -4,6 +4,7 @@ import ReactPlayerImport from 'react-player';
 const ReactPlayer = ReactPlayerImport as any;
 import { api } from '../../services/api';
 import Footer from '../../components/Footer';
+import { StudentBadges } from './components';
 
 interface Content {
   id: string;
@@ -39,6 +40,7 @@ interface CourseDetail {
   tutors: any[];
   topics: Topic[];
   blocks: any[];
+  badges: any[];
   progress: { total: number; completed: number; pct: number };
 }
 
@@ -56,6 +58,7 @@ export default function CourseView() {
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
+  const [showBadges, setShowBadges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [tutoringSessions, setTutoringSessions] = useState<TutoringSession[]>([]);
   
@@ -269,6 +272,26 @@ export default function CourseView() {
 
           <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4 px-1">Curriculum</p>
           <div className="space-y-4">
+            {/* Badges Link */}
+            <button
+              onClick={() => {
+                setShowBadges(true);
+                setSelectedTopicId(null);
+                setSelectedContentId(null);
+              }}
+              className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${showBadges ? 'bg-red-600/20 text-red-500 border border-red-500/30 shadow-lg shadow-red-900/10' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 flex items-center justify-center rounded border-2 ${showBadges ? 'border-red-500 bg-red-500/10' : 'border-slate-700'}`}>
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                </div>
+                <p className="text-xs font-bold uppercase tracking-wide">Mis Insignias</p>
+              </div>
+              <span className="text-[10px] font-bold opacity-50">
+                {course.badges?.filter((b: any) => b.state === 'earned').length || 0}/{course.badges?.length || 0}
+              </span>
+            </button>
+
             {course.topics.map(topic => {
               const completed = topic.contents.filter(c => c.progress.status === 'completed').length;
               const isTopicActive = selectedTopicId === topic.id;
@@ -276,6 +299,7 @@ export default function CourseView() {
               return (
                 <div key={topic.id} className="space-y-1">
                   <button onClick={() => {
+                    setShowBadges(false);
                     setSelectedTopicId(topic.id);
                     if (!isTopicActive && topic.contents.length > 0) {
                       setSelectedContentId(null);
@@ -302,6 +326,7 @@ export default function CourseView() {
                           <button key={content.id} 
                             disabled={locked}
                             onClick={() => {
+                              setShowBadges(false);
                               setSelectedTopicId(topic.id);
                               setSelectedContentId(content.id);
                               setLastSavedProgress(content.progress.pctWatched || 0);
@@ -341,7 +366,40 @@ export default function CourseView() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto bg-slate-900/50 flex flex-col">
-        {selectedContent ? (
+        {showBadges && course ? (
+          <div className="max-w-6xl w-full mx-auto p-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <div className="mb-10">
+              <h1 className="text-4xl font-black text-white mb-2">Colección del Curso</h1>
+              <p className="text-slate-400">Gana insignias exclusivas al completar los hitos de {course.name}</p>
+            </div>
+            
+            <StudentBadges badges={course.badges || []} />
+            
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center mb-4">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>
+                <h4 className="text-white font-bold mb-1 uppercase tracking-tighter text-xs">Bloqueada</h4>
+                <p className="text-[10px] text-slate-500">Aún no alcanzas el avance mínimo requerido para este bloque.</p>
+              </div>
+              <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center mb-4">
+                  <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                </div>
+                <h4 className="text-white font-bold mb-1 uppercase tracking-tighter text-xs">Disponible por obtener</h4>
+                <p className="text-[10px] text-slate-500">¡Meta de avance cumplida! Aprueba tu tutoría para reclamarla.</p>
+              </div>
+              <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center mb-4">
+                  <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <h4 className="text-white font-bold mb-1 uppercase tracking-tighter text-xs">Obtenida</h4>
+                <p className="text-[10px] text-slate-500">Logro desbloqueado y visible en tu perfil público.</p>
+              </div>
+            </div>
+          </div>
+        ) : selectedContent ? (
           <div className="max-w-5xl w-full mx-auto p-6 md:p-10 flex-1">
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">

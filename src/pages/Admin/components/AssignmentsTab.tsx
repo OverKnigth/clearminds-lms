@@ -17,9 +17,11 @@ export function AssignmentsTab({
 }: AssignmentsTabProps) {
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-white mb-1">Asignación de Cursos</h2>
-        <p className="text-sm text-slate-400">Habilita o deshabilita cursos para cada estudiante</p>
+      <div className="flex justify-between items-center mb-6 bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4">
+        <div>
+          <h2 className="text-xl font-semibold text-white mb-1">Asignación de Cursos</h2>
+          <p className="text-sm text-slate-400">Habilita o deshabilita cursos para cada estudiante</p>
+        </div>
       </div>
 
       {/* Filters */}
@@ -45,7 +47,7 @@ export function AssignmentsTab({
         </select>
       </div>
 
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+      <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-700/50">

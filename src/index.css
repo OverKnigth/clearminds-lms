@@ -16,4 +16,7 @@
   .custom-scrollbar::-webkit-scrollbar-thumb {
     @apply bg-slate-700/50 rounded-full hover:bg-red-500/50 transition-colors;
   }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }

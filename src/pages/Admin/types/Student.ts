@@ -5,6 +5,7 @@ export interface Student {
   enrollmentDate: string;
   generation: string;
   assignedCourses: string[];
+  courseParallelMap?: { [courseId: string]: string };
   progress: number;
   status: 'active' | 'inactive';
   role?: string;

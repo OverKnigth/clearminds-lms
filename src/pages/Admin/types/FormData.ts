@@ -5,6 +5,15 @@ export interface FormData {
   password: string;
   role: 'student' | 'tutor' | 'admin';
   status: 'active' | 'inactive';
-  generation: string;
+  generationId: string;  // cohort/generation id for cascading selection
+  generation: string;    // courseId assigned to the user
+  groupId: string;
   selectedCourses: string[];
+  courseParallelMap?: { [courseId: string]: string };
+  // Course fields
+  courseName?: string;
+  courseCategory?: string;
+  courseDescription?: string;
+  courseStatus?: 'active' | 'inactive';
+  courseImageUrl?: string;
 }

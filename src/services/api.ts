@@ -1,4 +1,15 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios';
+import type {
+  Generation,
+  GenerationDetail,
+  Parallel,
+  EnrolledStudent,
+  CreateGenerationPayload,
+  UpdateGenerationPayload,
+  AddCoursesPayload,
+  CreateParallelPayload,
+  EnrollStudentsPayload,
+} from '../types/generation';
 
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
@@ -88,13 +99,18 @@ export const API_ENDPOINTS = {
   // Admin - Users
   GET_ALL_USERS: '/users',
   CREATE_USER: '/users',
+  UPDATE_USER: (id: string) => `/users/${id}`,
   UPDATE_USER_STATUS: (id: string) => `/users/${id}/status`,
   UPLOAD_USERS_BULK: '/users/bulk',
 
-  // Admin - Groups
+  // Admin - Groups & Academic Structure
   GET_GROUPS: '/users/groups',
   CREATE_GROUP: '/users/groups',
-  ENROLL_STUDENTS: (groupId: string) => `/users/groups/${groupId}/enroll`,
+  GET_COHORTS: '/admin/cohorts',
+  CREATE_COHORT: '/admin/cohorts',
+  CREATE_OFFERING: '/admin/offerings',
+  GET_OFFERINGS: (courseId: string) => `/admin/courses/${courseId}/offerings`,
+  ENROLL_STUDENTS: (offeringId: string) => `/admin/offerings/${offeringId}/enroll`,
 
   // Admin - Courses
   GET_ADMIN_COURSES: '/admin/courses',
@@ -114,6 +130,13 @@ export const API_ENDPOINTS = {
   UPDATE_CONTENT: (id: string) => `/contents/${id}`,
   DELETE_CONTENT: (id: string) => `/contents/${id}`,
 
+  // Blocks
+  CREATE_BLOCK: (courseId: string) => `/admin/courses/${courseId}/blocks`,
+  UPDATE_BLOCK: (blockId: string) => `/admin/blocks/${blockId}`,
+  DELETE_BLOCK: (blockId: string) => `/admin/blocks/${blockId}`,
+  LINK_TOPIC_BLOCK: (topicId: string, blockId: string) => `/topics/${topicId}/blocks/${blockId}`,
+  UNLINK_TOPIC_BLOCK: (topicId: string) => `/topics/${topicId}/blocks`,
+
   // Progress
   UPDATE_PROGRESS: (contentId: string) => `/progress/content/${contentId}`,
   GET_COURSE_PROGRESS: (courseId: string) => `/progress/course/${courseId}`,
@@ -127,6 +150,16 @@ export const API_ENDPOINTS = {
   // Challenges - Tutor
   GET_SUBMISSIONS_BY_CONTENT: (contentId: string) => `/challenges/content/${contentId}`,
   REVIEW_SUBMISSION: (submissionId: string) => `/challenges/submissions/${submissionId}/review`,
+
+  // Admin - Generations
+  GET_GENERATIONS: '/admin/generations',
+  CREATE_GENERATION: '/admin/generations',
+  UPDATE_GENERATION: (id: string) => `/admin/generations/${id}`,
+  GET_GENERATION_DETAIL: (id: string) => `/admin/generations/${id}`,
+  ADD_COURSES_TO_GENERATION: (id: string) => `/admin/generations/${id}/courses`,
+  CREATE_PARALLEL: (generationId: string) => `/admin/generations/${generationId}/parallels`,
+  GET_PARALLEL_STUDENTS: (parallelId: string) => `/admin/parallels/${parallelId}/students`,
+  ENROLL_STUDENTS_IN_PARALLEL: (parallelId: string) => `/admin/parallels/${parallelId}/enroll`,
 };
 
 // API Service
@@ -249,6 +282,21 @@ export const api = {
     return response.data;
   },
 
+  createBadge: async (data: any) => {
+    const response = await apiClient.post(API_ENDPOINTS.GET_BADGES, data);
+    return response.data;
+  },
+
+  updateBadge: async (id: string, data: any) => {
+    const response = await apiClient.put(`${API_ENDPOINTS.GET_BADGES}/${id}`, data);
+    return response.data;
+  },
+
+  deleteBadge: async (id: string) => {
+    const response = await apiClient.delete(`${API_ENDPOINTS.GET_BADGES}/${id}`);
+    return response.data;
+  },
+
   getUserBadges: async () => {
     const response = await apiClient.get(API_ENDPOINTS.GET_USER_BADGES);
     return response.data;
@@ -322,6 +370,11 @@ export const api = {
     return response.data;
   },
 
+  updateUser: async (id: string, data: any) => {
+    const response = await apiClient.patch(API_ENDPOINTS.UPDATE_USER(id), data);
+    return response.data;
+  },
+
   updateUserStatus: async (userId: string, status: 'active' | 'inactive') => {
     const response = await apiClient.patch(API_ENDPOINTS.UPDATE_USER_STATUS(userId), { status });
     return response.data;
@@ -358,8 +411,28 @@ export const api = {
     return response.data;
   },
 
-  enrollStudents: async (groupId: string, data: { userIds: string[]; courseId: string }) => {
-    const response = await apiClient.post(API_ENDPOINTS.ENROLL_STUDENTS(groupId), data);
+  getAllCohorts: async () => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_COHORTS);
+    return response.data;
+  },
+
+  createCohort: async (data: any) => {
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_COHORT, data);
+    return response.data;
+  },
+
+  getCourseOfferings: async (courseId: string) => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_OFFERINGS(courseId));
+    return response.data;
+  },
+
+  createOffering: async (data: { courseId: string; groupId: string; tutorId?: string }) => {
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_OFFERING, data);
+    return response.data;
+  },
+
+  enrollStudents: async (offeringId: string, data: { userIds: string[] }) => {
+    const response = await apiClient.post(API_ENDPOINTS.ENROLL_STUDENTS(offeringId), data);
     return response.data;
   },
 
@@ -529,11 +602,6 @@ export const api = {
     return response.data;
   },
 
-  markNotificationRead: async (id: string) => {
-    const response = await apiClient.patch(`/student/notifications/${id}/read`);
-    return response.data;
-  },
-
   // ─── Tutor ───────────────────────────────────────────────────────────────────
   getTutorSessions: async (status?: string) => {
     const params = status ? `?status=${status}` : '';
@@ -573,6 +641,157 @@ export const api = {
 
   getTutorChallenges: async () => {
     const response = await apiClient.get('/tutor/challenges');
+    return response.data;
+  },
+
+  // ─── Admin - Generations ─────────────────────────────────────────────────────
+  getGenerations: async (): Promise<Generation[]> => {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.GET_GENERATIONS);
+      return response.data.data ?? response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message ?? 'Error al obtener generaciones';
+      if (status === 404) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  createGeneration: async (data: CreateGenerationPayload): Promise<Generation> => {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.CREATE_GENERATION, data);
+      return response.data.data ?? response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message ?? 'Error al crear generación';
+      if (status === 400 || status === 409) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  updateGeneration: async (id: string, data: UpdateGenerationPayload): Promise<Generation> => {
+    try {
+      const response = await apiClient.patch(API_ENDPOINTS.UPDATE_GENERATION(id), data);
+      return response.data.data ?? response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message ?? 'Error al actualizar generación';
+      if (status === 400 || status === 404 || status === 409) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  getGenerationDetail: async (id: string): Promise<GenerationDetail> => {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.GET_GENERATION_DETAIL(id));
+      return response.data.data ?? response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message ?? 'Generación no encontrada';
+      if (status === 404) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  addCoursesToGeneration: async (id: string, data: AddCoursesPayload): Promise<void> => {
+    try {
+      await apiClient.post(API_ENDPOINTS.ADD_COURSES_TO_GENERATION(id), data);
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message ?? 'Error al agregar cursos';
+      if (status === 400 || status === 404 || status === 409) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  createParallel: async (generationId: string, data: CreateParallelPayload): Promise<Parallel> => {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.CREATE_PARALLEL(generationId), data);
+      return response.data.data ?? response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message ?? 'Error al crear paralelo';
+      if (status === 400 || status === 404 || status === 409) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  getParallelStudents: async (parallelId: string): Promise<EnrolledStudent[]> => {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.GET_PARALLEL_STUDENTS(parallelId));
+      return response.data.data ?? response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message ?? 'Paralelo no encontrado';
+      if (status === 404) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  enrollStudentsInParallel: async (parallelId: string, data: EnrollStudentsPayload): Promise<{ enrolled: number }> => {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.ENROLL_STUDENTS_IN_PARALLEL(parallelId), data);
+      return response.data.data ?? response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message ?? 'Error al inscribir estudiantes';
+      if (status === 400 || status === 404 || status === 409) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  // ─── Blocks & Topics Linking ──────────────────────────────────────────────
+  createBlock: async (courseId: string, data: any) => {
+    const response = await apiClient.post(API_ENDPOINTS.CREATE_BLOCK(courseId), data);
+    return response.data;
+  },
+
+  updateBlock: async (blockId: string, data: any) => {
+    const response = await apiClient.put(API_ENDPOINTS.UPDATE_BLOCK(blockId), data);
+    return response.data;
+  },
+
+  deleteBlock: async (blockId: string) => {
+    const response = await apiClient.delete(API_ENDPOINTS.DELETE_BLOCK(blockId));
+    return response.data;
+  },
+
+  linkTopicToBlock: async (topicId: string, blockId: string) => {
+    const response = await apiClient.post(API_ENDPOINTS.LINK_TOPIC_BLOCK(topicId, blockId));
+    return response.data;
+  },
+
+  unlinkTopicFromBlock: async (topicId: string) => {
+    const response = await apiClient.delete(API_ENDPOINTS.UNLINK_TOPIC_BLOCK(topicId));
+    return response.data;
+  },
+
+  // ─── Admin - Tutoring Rules ───────────────────────────────────────────────
+  getTutoringRules: async () => {
+    const response = await apiClient.get('/admin/tutoring/rules');
+    return response.data;
+  },
+
+  updateTutoringRulesBulk: async (rules: { id: string; tutorRequired: boolean; minPassGrade: number }[]) => {
+    const response = await apiClient.patch('/admin/tutoring/rules/bulk', { rules });
+    return response.data;
+  },
+
+  getTutoringConfig: async () => {
+    const response = await apiClient.get('/admin/tutoring/config');
+    return response.data;
+  },
+
+  updateTutoringConfig: async (globalMessage: string) => {
+    const response = await apiClient.patch('/admin/tutoring/config', { globalMessage });
     return response.data;
   },
 };

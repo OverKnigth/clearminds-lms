@@ -40,7 +40,6 @@ export default function ContentView() {
   const [gitUrl, setGitUrl] = useState('');
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [markingDone, setMarkingDone] = useState(false);
   const [lastSavedProgress, setLastSavedProgress] = useState(0);
   const [blockId, setBlockId] = useState<string | null>(null);
   const [showRateModal, setShowRateModal] = useState(false);
@@ -96,11 +95,11 @@ export default function ContentView() {
     finally { setIsLoading(false); }
   };
 
-  const handleVideoProgress = async (state: { played: number; playedSeconds: number; loaded: number; loadedSeconds: number }) => {
+  const handleVideoProgress = async (state: any) => {
     if (!content || content.progress.status === 'completed') return;
 
     const contentId = content.id;
-    const currentPct = Math.round(state.played * 100);
+    const currentPct = Math.round((state.played || 0) * 100);
     
     // Guardar progreso cada 5% de avance o si llega al umbral
     if (currentPct >= lastSavedProgress + 5 || currentPct >= (content.minProgressToComplete || 90)) {
@@ -117,15 +116,15 @@ export default function ContentView() {
     }
   };
 
-  const markCompleted = async () => {
+  const markAsCompleted = async () => {
     if (!content) return;
     const contentId = content.id;
-    setMarkingDone(true);
     try {
       await api.updateProgress(contentId, 100);
       await loadContent(courseSlug!, contentSlug!);
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
-    finally { setMarkingDone(false); }
+    } catch (e: any) { 
+      console.error('Error marking as completed:', e);
+    }
   };
 
   const getCleanVideoUrl = (url: string | null) => {
@@ -241,19 +240,13 @@ export default function ContentView() {
                 </p>
               </div>
 
-              {isCompleted ? (
+              {isCompleted && (
                 <div className="flex items-center gap-2 px-5 py-2.5 bg-green-500/20 border border-green-500/30 rounded-lg shrink-0">
                   <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <span className="text-green-400 font-bold text-sm">Completado</span>
                 </div>
-              ) : (
-                <button onClick={markCompleted} disabled={markingDone}
-                  className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold text-sm transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
-                  {markingDone ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
-                  Marcar manualmente
-                </button>
               )}
             </div>
           </div>
@@ -276,6 +269,7 @@ export default function ContentView() {
             {content.url && (
               <div className="flex gap-3">
                 <a href={content.url} target="_blank" rel="noopener noreferrer"
+                  onClick={() => !isCompleted && markAsCompleted()}
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -284,6 +278,7 @@ export default function ContentView() {
                 </a>
                 {content.allowDownload && (
                   <a href={content.url} download target="_blank" rel="noopener noreferrer"
+                    onClick={() => !isCompleted && markAsCompleted()}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -293,7 +288,9 @@ export default function ContentView() {
                 )}
               </div>
             )}
-            <p className="text-xs text-slate-500 mt-3">Este documento es de consulta y no afecta tu progreso.</p>
+            <p className="text-xs text-slate-500 mt-3">
+              {isCompleted ? '✓ Documento revisado' : '* El progreso se marcará automáticamente al abrir el documento.'}
+            </p>
           </div>
         )}
 

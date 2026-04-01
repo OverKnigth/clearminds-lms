@@ -13,9 +13,18 @@ export interface Course {
 
 export interface Badge {
   id: string;
+  name: string;
+  description: string | null;
+  imageUrl?: string;
+  category?: string;
+}
+
+export interface BadgeAward {
+  id: string;
   awardedAt: string;
-  badge: { id: string; name: string; description: string; imageUrl?: string; course: any };
-  block: any;
+  badge: Badge;
+  block?: { id: string; name: string };
+  course?: { id: string; name: string };
 }
 
 export interface Tutoring {

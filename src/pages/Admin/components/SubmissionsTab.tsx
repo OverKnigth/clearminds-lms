@@ -171,7 +171,7 @@ export function SubmissionsTab() {
           <div className="w-8 h-8 border-4 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
         </div>
       ) : selectedChallengeId && (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-700/50 text-slate-300 font-medium uppercase tracking-wider text-[10px]">

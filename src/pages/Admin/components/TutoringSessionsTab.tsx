@@ -111,6 +111,12 @@ export function TutoringSessionsTab() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center mb-6 bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4">
+        <div>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Sesiones de Tutoría</h2>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Gestiona y supervisa todas las sesiones de tutoría</p>
+        </div>
+      </div>
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
           {['all', 'requested', 'confirmed', 'rescheduled', 'executed', 'cancelled'].map(f => (
@@ -136,7 +142,7 @@ export function TutoringSessionsTab() {
           <div className="w-8 h-8 border-4 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+        <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-700/50 text-slate-300 font-medium uppercase tracking-wider text-[10px]">

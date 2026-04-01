@@ -58,6 +58,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
   const [topicModal, setTopicModal] = useState<{ open: boolean; editing: Topic | null }>({ open: false, editing: null });
   const [topicForm, setTopicForm] = useState({ title: '', description: '', order: 1, blockId: '' });
   const [savingTopic, setSavingTopic] = useState(false);
+  const [courseBlocks, setCourseBlocks] = useState<any[]>([]);
 
   // Content modal
   const [contentModal, setContentModal] = useState<{ open: boolean; topicId: string; editing: Content | null }>({ open: false, topicId: '', editing: null });
@@ -79,6 +80,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
 
   useEffect(() => {
     loadTopics();
+    loadBlocks();
   }, [course.id]);
 
   const loadTopics = async () => {
@@ -102,6 +104,15 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       console.error('[loadTopics] error:', e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadBlocks = async () => {
+    try {
+      const res = await api.getCourseDetail(course.id);
+      if (res.success) setCourseBlocks(res.data.blocks || []);
+    } catch (e) {
+      console.error('[loadBlocks] error:', e);
     }
   };
 
@@ -440,8 +451,17 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
               <input required type="number" min={1} className={INPUT_CLS} value={topicForm.order} onChange={e => setTopicForm(f => ({ ...f, order: Number(e.target.value) }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">ID de Bloque</label>
-              <input className={INPUT_CLS} value={topicForm.blockId} onChange={e => setTopicForm(f => ({ ...f, blockId: e.target.value }))} placeholder="UUID del bloque (opcional)" />
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Vincular a Bloque Estratégico</label>
+              <select 
+                className={INPUT_CLS} 
+                value={topicForm.blockId} 
+                onChange={e => setTopicForm(f => ({ ...f, blockId: e.target.value }))}
+              >
+                <option value="">-- No vincular --</option>
+                {courseBlocks.map(b => (
+                  <option key={b.id} value={b.id}>{b.name} (Meta: {b.expectedProgress}%)</option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="flex gap-3 pt-2">

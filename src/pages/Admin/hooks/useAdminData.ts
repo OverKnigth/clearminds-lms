@@ -7,7 +7,9 @@ export const useAdminData = () => {
   const [tutors, setTutors] = useState<Student[]>([]);
   const [admins, setAdmins] = useState<Student[]>([]);
   const [courses, setCourses] = useState<CourseData[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const [badges, setBadges] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   // Pagination states
@@ -22,21 +24,27 @@ export const useAdminData = () => {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [studentsRes, tutorsRes, adminsRes, coursesRes, statsRes] = await Promise.allSettled([
+      // Corregido el orden de desestructuración para coincidir con el array de promesas
+      const results = await Promise.allSettled([
         api.getAllUsers('student', studentsPage, limit),
         api.getAllUsers('tutor', tutorsPage, limit),
         api.getAllUsers('admin', adminsPage, limit),
         api.getAdminCourses(),
-        api.getAdminStats()
+        api.getAllGroups(),
+        api.getAdminStats(),
+        api.getBadges(),
       ]);
+
+      const [studentsRes, tutorsRes, adminsRes, coursesRes, groupsRes, statsRes, badgesRes] = results;
 
       const mapUser = (u: any) => ({
         id: u.id,
         fullName: `${u.names} ${u.lastNames}`,
         email: u.email,
         enrollmentDate: u.createdAt?.split('T')[0] || '2026-01-01',
-        generation: 'Gen 2026-A',
+        generation: u.generation || 'N/A',
         assignedCourses: u.assignedCourses || [],
+        courseParallelMap: u.courseParallelMap || {},
         progress: u.progress || 0,
         status: u.status,
         role: u.role?.name || 'student',
@@ -46,30 +54,36 @@ export const useAdminData = () => {
 
       if (studentsRes.status === 'fulfilled' && studentsRes.value?.success) {
         const rows = studentsRes.value.rows || studentsRes.value.data || [];
-        const total = studentsRes.value.total || 0;
-        if (Array.isArray(rows)) setStudents(rows.map(mapUser));
-        setStudentsTotal(total);
+        setStudents(Array.isArray(rows) ? rows.map(mapUser) : []);
+        setStudentsTotal(studentsRes.value.total || 0);
       }
+      
       if (tutorsRes.status === 'fulfilled' && tutorsRes.value?.success) {
         const rows = tutorsRes.value.rows || tutorsRes.value.data || [];
-        const total = tutorsRes.value.total || 0;
-        if (Array.isArray(rows)) setTutors(rows.map(mapUser));
-        setTutorsTotal(total);
+        setTutors(Array.isArray(rows) ? rows.map(mapUser) : []);
+        setTutorsTotal(tutorsRes.value.total || 0);
       }
+
       if (adminsRes.status === 'fulfilled' && adminsRes.value?.success) {
         const rows = adminsRes.value.rows || adminsRes.value.data || [];
-        const total = adminsRes.value.total || 0;
-        if (Array.isArray(rows)) setAdmins(rows.map(mapUser));
-        setAdminsTotal(total);
+        setAdmins(Array.isArray(rows) ? rows.map(mapUser) : []);
+        setAdminsTotal(adminsRes.value.total || 0);
       }
+
       if (coursesRes.status === 'fulfilled' && coursesRes.value?.success) {
-        const data = coursesRes.value.data || [];
-        if (Array.isArray(data)) {
-          setCourses(data);
-        }
+        setCourses(Array.isArray(coursesRes.value.data) ? coursesRes.value.data : []);
       }
+
+      if (groupsRes.status === 'fulfilled' && groupsRes.value?.success) {
+        setGroups(Array.isArray(groupsRes.value.data) ? groupsRes.value.data : []);
+      }
+
       if (statsRes.status === 'fulfilled' && statsRes.value?.success) {
         setStats(statsRes.value.data);
+      }
+
+      if (badgesRes.status === 'fulfilled' && badgesRes.value?.success) {
+        setBadges(Array.isArray(badgesRes.value.data) ? badgesRes.value.data : []);
       }
     } catch (error) {
       console.error('Error fetching admin data:', error);
@@ -78,15 +92,11 @@ export const useAdminData = () => {
     }
   }, [studentsPage, tutorsPage, adminsPage]);
 
-  // Función específica para refrescar solo cursos
   const fetchCourses = useCallback(async () => {
     try {
       const response = await api.getAdminCourses();
       if (response?.success) {
-        const data = response.data || [];
-        if (Array.isArray(data)) {
-          setCourses(data);
-        }
+        setCourses(Array.isArray(response.data) ? response.data : []);
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
@@ -102,11 +112,12 @@ export const useAdminData = () => {
     tutors, setTutors,
     admins, setAdmins,
     courses, setCourses,
+    groups, setGroups,
     stats, setStats,
+    badges,
     isLoading, setIsLoading,
     fetchData,
     fetchCourses,
-    // Pagination
     studentsPage, setStudentsPage,
     tutorsPage, setTutorsPage,
     adminsPage, setAdminsPage,

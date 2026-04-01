@@ -12,6 +12,11 @@ export interface CourseData {
     lastNames: string;
     email: string;
   }>;
+  blocks?: Array<{
+    id: string;
+    name: string;
+    order?: number;
+  }>;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -39,12 +39,18 @@ export default function Sidebar({ user }: SidebarProps) {
       show: !isAdmin && !isTutor
     },
     {
+      title: 'Mi Perfil',
+      path: '/profile',
+      icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+      show: !isAdmin && !isTutor
+    },
+    {
       title: 'Panel Admin',
       path: '/admin',
       icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
       show: isAdmin
     },
-    // Admin Sub-items
+    // Admin modules
     {
       title: 'Estudiantes',
       path: '/admin?tab=students',
@@ -64,45 +70,21 @@ export default function Sidebar({ user }: SidebarProps) {
       show: isAdmin
     },
     {
-      title: 'Cursos',
+      title: 'Gestión de Cursos',
       path: '/admin?tab=courses',
       icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.247 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
       show: isAdmin
     },
     {
-      title: 'Bloques',
-      path: '/admin?tab=blocks',
-      icon: 'M4 6h16M4 10h16M4 14h16M4 18h16',
-      show: isAdmin
-    },
-    {
-      title: 'Retos',
-      path: '/admin?tab=submissions',
-      icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
-      show: isAdmin
-    },
-    {
-      title: 'Tutorías',
-      path: '/admin?tab=tutoring',
-      icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+      title: 'Cursos',
+      path: '/admin?tab=catalog',
+      icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
       show: isAdmin
     },
     {
       title: 'Progreso',
       path: '/admin?tab=progress',
       icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
-      show: isAdmin
-    },
-    {
-      title: 'Progreso Diario',
-      path: '/admin?tab=daily-progress',
-      icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
-      show: isAdmin
-    },
-    {
-      title: 'Asignaciones',
-      path: '/admin?tab=assignments',
-      icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
       show: isAdmin
     },
     {
@@ -174,10 +156,14 @@ export default function Sidebar({ user }: SidebarProps) {
       </div>
 
       {/* Navigation Links - Scrollable */}
-      <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar pb-6">
+      <nav className="flex-1 px-4 space-y-2 overflow-y-auto scrollbar-none pb-6" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-2 opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-300 whitespace-nowrap">Menú Principal</div>
         {menuItems.filter(item => item.show).map((item) => {
-          const isActive = location.pathname === item.path || (location.pathname === '/admin' && location.search.includes(item.path.split('?')[1] || ''));
+          const itemPath = item.path.split('?')[0];
+          const itemQuery = item.path.includes('?') ? item.path.split('?')[1] : null;
+          const isActive = itemQuery
+            ? location.pathname === itemPath && location.search.includes(itemQuery)
+            : location.pathname === itemPath && !location.search;
           return (
             <Link
               key={item.path}

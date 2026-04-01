@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Footer from '../../components/Footer';
+import { api } from '../../services/api';
 import { useTutorData } from './hooks/useTutorData';
 import { SessionCard, StudentsTab, ChallengesTab } from './components';
 import type { TutorTab } from './types';
@@ -9,6 +11,13 @@ export default function Tutor() {
   const queryParams = new URLSearchParams(location.search);
   const activeTab = (queryParams.get('tab') as TutorTab) || 'pending';
   const { pending, upcoming, completed, students, challenges, stats, isLoading, fetchSessions, fetchAll } = useTutorData();
+  const [globalMessage, setGlobalMessage] = useState('');
+
+  useEffect(() => {
+    api.getTutoringConfig().then(res => {
+      if (res.success && res.data.globalMessage) setGlobalMessage(res.data.globalMessage);
+    }).catch(() => {});
+  }, []);
 
   if (isLoading) {
     return (
@@ -27,6 +36,19 @@ export default function Tutor() {
             <p className="text-slate-400">Gestiona a tus estudiantes y valida su aprendizaje</p>
           </div>
         </div>
+
+        {/* Admin global message */}
+        {globalMessage && (
+          <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-start gap-3">
+            <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest mb-1">Aviso del Administrador</p>
+              <p className="text-sm text-slate-300 whitespace-pre-wrap">{globalMessage}</p>
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">

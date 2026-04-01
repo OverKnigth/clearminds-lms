@@ -1,16 +1,13 @@
 import { useState } from 'react';
-import type { Student, CourseData, FormData, ContentFormData, Tab } from '../types';
+import type { Tab, Student, CourseData, FormData, ContentFormData } from '../types';
 
-export const useAdminModals = (activeTab: Tab) => {
+export function useAdminModals(activeTab: Tab) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
-  
-  const [modalType, setModalType] = useState<'addStudent' | 'editStudent' | 'addCourse' | 'editCourse' | 'assignCourse' | 'resetPassword' | 'editCourseContent'>('addStudent');
-  const [contentModalType, setContentModalType] = useState<'addModule' | 'editModule' | 'addContent' | 'editContent'>('addContent');
-  
+  const [modalType, setModalType] = useState<string>('');
+  const [contentModalType, setContentModalType] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
-  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
@@ -19,108 +16,123 @@ export const useAdminModals = (activeTab: Tab) => {
     password: '',
     role: 'student',
     status: 'active',
-    generation: 'Gen 2026-A',
+    generationId: '',
+    generation: '',
+    groupId: '',
     selectedCourses: [],
+    courseParallelMap: {},
   });
 
   const [contentFormData, setContentFormData] = useState<ContentFormData>({
-    type: 'video',
     title: '',
     description: '',
-    duration: '',
-    url: '',
     order: 1,
+    type: 'video',
+    url: '',
+    duration: '',
     requiresEvidence: false,
     requiresGithubLink: false,
-    requiresTutorReview: false,
+    requiresTutorReview: false
   });
 
-  const openModal = (type: typeof modalType, student?: Student, course?: CourseData) => {
+  const openModal = (type: string, data?: any) => {
     setModalType(type);
-    setSelectedStudent(student || null);
-    setSelectedCourse(course || null);
-    
-    // Pre-fill form data when editing
-    if (type === 'editStudent' && student) {
-      const [firstName, ...lastNameParts] = student.fullName.split(' ');
+    if (type === 'editStudent' && data) {
+      setSelectedStudent(data);
       setFormData({
-        firstName,
-        lastName: lastNameParts.join(' '),
-        email: student.email,
+        firstName: data.fullName.split(' ')[0],
+        lastName: data.fullName.split(' ').slice(1).join(' '),
+        email: data.email,
         password: '',
-        role: (student.role as any) || 'student',
-        status: student.status,
-        generation: student.generation,
-        selectedCourses: student.assignedCourses,
+        role: data.role,
+        status: data.status,
+        generationId: data.generationId || '',
+        generation: data.generation || '',
+        groupId: data.groupId || '',
+        selectedCourses: data.assignedCourses || [],
+        courseParallelMap: data.courseParallelMap || {},
       });
-    } else if (type === 'assignCourse' && student) {
-      setFormData({
-        ...formData,
-        selectedCourses: student.assignedCourses,
-      });
-    } else {
-      let defaultRole: 'student' | 'tutor' | 'admin' = 'student';
-      if (activeTab === 'tutors') defaultRole = 'tutor';
-      if (activeTab === 'admins') defaultRole = 'admin';
-      
+    } else if (type === 'addStudent') {
+      setSelectedStudent(null);
       setFormData({
         firstName: '',
         lastName: '',
         email: '',
         password: '',
-        role: defaultRole,
+        role: 'student',
         status: 'active',
-        generation: 'Gen 2026-A',
+        generationId: '',
+        generation: '',
+        groupId: '',
         selectedCourses: [],
+        courseParallelMap: {},
+      });
+    } else if (type === 'assignCourse' && data) {
+      setSelectedStudent(data);
+      setFormData({
+        ...formData,
+        selectedCourses: data.assignedCourses || [],
+        courseParallelMap: data.courseParallelMap || {},
+      });
+    } else if (type === 'editCourse' && data) {
+      setSelectedCourse(data);
+      setFormData({
+        ...formData,
+        courseName: data.name,
+        courseDescription: data.description || '',
+        courseStatus: data.status,
+        courseImageUrl: data.imageUrl || '',
+      });
+    } else if (type === 'addCourse') {
+      setFormData({
+        ...formData,
+        courseName: '',
+        courseDescription: '',
+        courseStatus: 'active',
+        courseImageUrl: '',
       });
     }
-    
     setIsModalOpen(true);
   };
 
-  const openContentModal = (type: typeof contentModalType, moduleId?: string) => {
+  const openContentModal = (type: string, moduleId?: string) => {
     setContentModalType(type);
-    setSelectedModuleId(moduleId || null);
-    
-    if (type === 'addContent' || type === 'addModule') {
+    if (type === 'addModule') {
       setContentFormData({
-        type: 'video',
         title: '',
         description: '',
-        duration: '',
-        url: '',
         order: 1,
+        type: 'video',
+        url: '',
+        duration: '',
         requiresEvidence: false,
         requiresGithubLink: false,
-        requiresTutorReview: false,
+        requiresTutorReview: false
       });
     }
-    
     setIsContentModalOpen(true);
+  };
+
+  const getModalTitle = () => {
+    switch (modalType) {
+      case 'addStudent': return 'Registrar Nuevo Estudiante';
+      case 'addTutor': return 'Registrar Nuevo Tutor';
+      case 'addAdmin': return 'Registrar Nuevo Administrador';
+      case 'editStudent': return 'Editar Datos del Usuario';
+      case 'assignCourse': return 'Asignación de Cursos Masiva';
+      case 'resetPassword': return 'Restablecer Contraseña';
+      case 'editCourse': return 'Editar Información del Curso';
+      default: return 'Panel de Gestión';
+    }
   };
 
   const getContentModalTitle = () => {
     switch (contentModalType) {
-      case 'addModule': return 'Agregar Nuevo Módulo';
+      case 'addModule': return 'Crear Nuevo Módulo';
       case 'editModule': return 'Editar Módulo';
-      case 'addContent': return 'Agregar Video o Reto';
-      case 'editContent': return contentFormData.type === 'video' ? 'Editar Video' : 'Editar Reto';
-      default: return '';
-    }
-  };
-
-  const getModalTitle = () => {
-    const roleLabel = formData.role === 'tutor' ? 'Tutor' : formData.role === 'admin' ? 'Administrador' : 'Estudiante';
-    
-    switch (modalType) {
-      case 'addStudent': return `Agregar Nuevo ${roleLabel}`;
-      case 'editStudent': return `Editar ${roleLabel}`;
-      case 'addCourse': return 'Crear Nuevo Curso';
-      case 'editCourse': return 'Editar Curso';
-      case 'editCourseContent': return 'Gestionar Contenido del Curso';
-      case 'assignCourse': return 'Asignar Cursos';
-      case 'resetPassword': return 'Restablecer Contraseña';
-      default: return '';
+      case 'addContent': return 'Agregar Contenido';
+      case 'editContent': return 'Editar Contenido';
+      default: return 'Gestionar Contenido';
     }
   };
 
@@ -128,10 +140,10 @@ export const useAdminModals = (activeTab: Tab) => {
     isModalOpen, setIsModalOpen,
     isContentModalOpen, setIsContentModalOpen,
     modalType, contentModalType,
-    selectedStudent, selectedCourse, selectedModuleId,
+    selectedStudent, selectedCourse,
     formData, setFormData,
     contentFormData, setContentFormData,
     openModal, openContentModal,
     getContentModalTitle, getModalTitle
   };
-};
+}
