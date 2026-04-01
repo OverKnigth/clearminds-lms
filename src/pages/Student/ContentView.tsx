@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import ReactPlayer from 'react-player';
+import ReactPlayerImport from 'react-player';
+const ReactPlayer = ReactPlayerImport as any;
 import { api } from '../../services/api';
 import Footer from '../../components/Footer';
+import Modal from '../../components/Modal';
 
 interface Content {
   id: string;
@@ -43,6 +45,7 @@ export default function ContentView() {
   const [lastSavedProgress, setLastSavedProgress] = useState(0);
   const [blockId, setBlockId] = useState<string | null>(null);
   const [showRateModal, setShowRateModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const progressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -107,8 +110,11 @@ export default function ContentView() {
         setLastSavedProgress(currentPct);
         const res = await api.updateProgress(contentId, currentPct);
         if (res.success && res.data.status === 'completed') {
-          // Recargar para actualizar estado visual de completado
-          loadContent(courseSlug!, contentSlug!);
+          // Actualizar estado local sin recargar todo el contenido
+          setContent(prev => prev ? {
+            ...prev,
+            progress: { ...prev.progress, status: 'completed' }
+          } : null);
         }
       } catch (e) {
         console.error('Error saving video progress:', e);
@@ -120,8 +126,14 @@ export default function ContentView() {
     if (!content) return;
     const contentId = content.id;
     try {
-      await api.updateProgress(contentId, 100);
-      await loadContent(courseSlug!, contentSlug!);
+      const res = await api.updateProgress(contentId, 100);
+      if (res.success) {
+        setLastSavedProgress(100);
+        setContent(prev => prev ? {
+          ...prev,
+          progress: { ...prev.progress, status: 'completed', pctWatched: 100 }
+        } : null);
+      }
     } catch (e: any) { 
       console.error('Error marking as completed:', e);
     }
@@ -152,7 +164,7 @@ export default function ContentView() {
       // Redirect to meetings/tutoring page after successful submission
       // Include blockId in state to preselect it in the meetings page
       navigate('/meetings', { state: { preselectedBlockId: blockId } });
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    } catch (e: any) { setError(e.response?.data?.message || e.message); }
     finally { setSubmitting(false); }
   };
 
@@ -211,7 +223,7 @@ export default function ContentView() {
                   height="100%"
                   controls
                   onProgress={handleVideoProgress}
-                  onError={(e) => console.error('ReactPlayer Error:', e)}
+                  onError={(e: any) => console.error('ReactPlayer Error:', e)}
                   onStart={() => {
                     if (lastSavedProgress === 0) api.updateProgress(content.id, 1);
                   }}
@@ -457,9 +469,32 @@ export default function ContentView() {
             setShowRateModal(false);
             loadContent(courseSlug!, contentSlug!);
           }}
+          setError={setError}
         />
       )}
       <Footer />
+
+      {/* Modal de Error personalizado */}
+      <Modal 
+        isOpen={!!error} 
+        onClose={() => setError(null)} 
+        title="Atención"
+      >
+        <div className="text-center py-4">
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 15c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-slate-300 text-lg mb-6">{error}</p>
+          <button 
+            onClick={() => setError(null)}
+            className="px-8 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all"
+          >
+            Entendido
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -491,10 +526,12 @@ function RateTutorModal({
   sessionId,
   tutorName,
   onSuccess,
+  setError,
 }: {
   sessionId: string;
   tutorName: string;
   onSuccess: () => void;
+  setError: (msg: string) => void;
 }) {
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState('');
@@ -508,7 +545,7 @@ function RateTutorModal({
       await api.rateTutorFromChallenge(sessionId, rating, feedback || undefined);
       onSuccess();
     } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
+      setError(e.response?.data?.message || e.message);
     } finally {
       setSubmitting(false);
     }

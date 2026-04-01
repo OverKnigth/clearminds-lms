@@ -47,7 +47,7 @@ export function TutoringSessionsTab() {
   const loadSessions = async () => {
     setIsLoading(true);
     try {
-      const res = await api.getAdminTutoringSessions();
+      const res = await api.getTutorSessions();
       if (res.success) setSessions(res.data);
     } catch (e) {
       console.error(e);

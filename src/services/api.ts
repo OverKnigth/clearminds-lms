@@ -369,6 +369,11 @@ export const api = {
     return response.data;
   },
 
+  searchStudentsByName: async (query: string) => {
+    const response = await apiClient.get(`/reports/students/search?q=${encodeURIComponent(query)}`);
+    return response.data;
+  },
+
   // ─── Admin - Users ───────────────────────────────────────────────────────────
   // role?: 'student' | 'tutor' | 'admin'
   getAllUsers: async (role?: string, page: number = 1, limit: number = 10) => {
@@ -632,6 +637,31 @@ export const api = {
     return response.data;
   },
 
+  markStudentNotificationRead: async (id: string) => {
+    const response = await apiClient.patch(`/student/notifications/${id}/read`);
+    return response.data;
+  },
+
+  markAllStudentNotificationsRead: async () => {
+    const response = await apiClient.post('/student/notifications/mark-all-read');
+    return response.data;
+  },
+
+  getTutorNotifications: async () => {
+    const response = await apiClient.get('/tutor/notifications');
+    return response.data;
+  },
+
+  markTutorNotificationRead: async (id: string) => {
+    const response = await apiClient.patch(`/tutor/notifications/${id}/read`);
+    return response.data;
+  },
+
+  markAllTutorNotificationsRead: async () => {
+    const response = await apiClient.post('/tutor/notifications/mark-all-read');
+    return response.data;
+  },
+
   // ─── Tutor ───────────────────────────────────────────────────────────────────
   getTutorSessions: async (status?: string) => {
     const params = status ? `?status=${status}` : '';
@@ -782,8 +812,8 @@ export const api = {
     }
   },
 
-  updateParallel: async (parallelId: string, name: string) => {
-    const response = await apiClient.patch(`/admin/parallels/${parallelId}`, { name });
+  updateParallel: async (parallelId: string, name: string, blockIds?: string[]) => {
+    const response = await apiClient.patch(`/admin/parallels/${parallelId}`, { name, blockIds });
     return response.data;
   },
 

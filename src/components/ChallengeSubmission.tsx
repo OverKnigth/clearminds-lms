@@ -49,7 +49,7 @@ export default function ChallengeSubmission({ challenge, onSubmit }: ChallengeSu
       evidenceUrls,
       githubLink: challenge.requiresGithubLink ? githubLink : undefined,
       notes,
-      status: 'scheduled',
+      status: 'submitted',
       tutorMeeting: challenge.requiresTutorReview ? {
         id: `meeting-${Date.now()}`,
         scheduledDate: meetingDate,
@@ -79,7 +79,7 @@ export default function ChallengeSubmission({ challenge, onSubmit }: ChallengeSu
               </svg>
             </div>
           )}
-          {(submission.status === 'pending' || submission.status === 'scheduled') && (
+          {(submission.status === 'pending' || submission.status === 'submitted') && (
             <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -98,7 +98,7 @@ export default function ChallengeSubmission({ challenge, onSubmit }: ChallengeSu
               {submission.status === 'approved' && 'Reto Aprobado'}
               {submission.status === 'needs_correction' && 'Requiere Correcciones'}
               {submission.status === 'pending' && 'Entrega Pendiente de Revisión'}
-              {submission.status === 'scheduled' && 'Reunión Agendada'}
+              {submission.status === 'submitted' && 'Reunión Agendada'}
               {submission.status === 'reviewed' && 'Revisado por el Tutor'}
             </h3>
             <p className="text-sm text-slate-400">
@@ -174,11 +174,11 @@ export default function ChallengeSubmission({ challenge, onSubmit }: ChallengeSu
               <h4 className="font-semibold text-white">Reunión con Tutor</h4>
             </div>
             <p className="text-slate-300 text-sm">
-              {submission.tutorMeeting.scheduledDate} a las {submission.tutorMeeting.scheduledTime}
+              {(submission.tutorMeeting as any).scheduledDate} a las {(submission.tutorMeeting as any).scheduledTime}
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Estado: {submission.tutorMeeting.status === 'scheduled' ? 'Agendada' : 
-                       submission.tutorMeeting.status === 'completed' ? 'Completada' : 'Cancelada'}
+              Estado: {(submission.tutorMeeting as any).status === 'scheduled' ? 'Agendada' : 
+                       (submission.tutorMeeting as any).status === 'completed' ? 'Completada' : 'Cancelada'}
             </p>
           </div>
         )}

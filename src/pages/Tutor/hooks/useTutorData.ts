@@ -33,18 +33,16 @@ export const useTutorData = () => {
     } catch (e) { console.error(e); }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  // Re-fetch when the tab becomes visible again (user switched roles and came back)
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchAll(); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [fetchAll]);
+    fetchAll();
+    // Polling cada 30s para capturar nuevas solicitudes sin recargar la página
+    const id = setInterval(fetchSessions, 30_000);
+    return () => clearInterval(id);
+  }, [fetchAll, fetchSessions]);
 
   const pending = sessions.filter(s => s.status === 'requested');
   const upcoming = sessions.filter(s => s.status === 'confirmed' || s.status === 'rescheduled');
   const completed = sessions.filter(s => s.status === 'executed' || s.status === 'cancelled');
 
-  return { sessions, students, challenges, stats, isLoading, fetchAll, fetchSessions, pending, upcoming, completed };
+  return { sessions, setSessions, students, challenges, stats, isLoading, fetchAll, fetchSessions, pending, upcoming, completed };
 };

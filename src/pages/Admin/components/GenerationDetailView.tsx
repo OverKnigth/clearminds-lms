@@ -97,7 +97,7 @@ export function GenerationDetailView({
     if (!name) return;
     setCreatingParallel(true);
     try {
-      await createParallel(name);
+      await createParallel(name, selectedBlockIds);
       setIsCreateParallelOpen(false);
       setParallelName('');
     } catch (err: any) {
@@ -123,7 +123,7 @@ export function GenerationDetailView({
     setEditingParallel(parallel);
     setEditParallelName(parallel.name);
     setEditParallelError(null);
-    setSelectedBlockIds([]);
+    setSelectedBlockIds(parallel.blockIds || []);
   };
 
   const handleEditParallel = async (e: React.FormEvent) => {
@@ -134,7 +134,7 @@ export function GenerationDetailView({
     setSavingParallel(true);
     setEditParallelError(null);
     try {
-      await (api as any).updateParallel(editingParallel.id, name);
+      await (api as any).updateParallel(editingParallel.id, name, selectedBlockIds);
       setEditingParallel(null);
       refetch();
     } catch (err: any) {

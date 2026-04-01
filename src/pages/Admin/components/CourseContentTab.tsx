@@ -73,7 +73,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     durationMinutes: 0,
     deadline: '',
     allowDownload: false,
-    minProgressToComplete: 90,
+    minProgressToComplete: 90, // Mantenemos internamente pero no se edita manualmente
   });
   const [savingContent, setSavingContent] = useState(false);
   const [fetchingMeta, setFetchingMeta] = useState(false);
@@ -459,7 +459,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
               >
                 <option value="">-- No vincular --</option>
                 {courseBlocks.map(b => (
-                  <option key={b.id} value={b.id}>{b.name} (Meta: {b.expectedProgress}%)</option>
+                  <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>
             </div>
@@ -482,7 +482,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
               {(['video', 'document', 'challenge'] as const).map(t => (
                 <button key={t} type="button" onClick={() => setContentForm(f => ({ ...f, type: t }))}
                   className={`py-2.5 rounded-lg text-sm font-medium border transition-all ${contentForm.type === t ? 'border-red-500 bg-red-500/20 text-red-400' : 'border-slate-600 bg-slate-700 text-slate-400 hover:border-slate-500'}`}>
-                  {t === 'video' ? '🎬 Video' : t === 'document' ? '📄 Documento' : '🏆 Reto'}
+                  {t === 'video' ? 'Video' : t === 'document' ? 'Documento' : 'Reto'}
                 </button>
               ))}
             </div>
@@ -570,22 +570,6 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Duración (min)</label>
                 <input type="number" min={0} className={INPUT_CLS} value={contentForm.durationMinutes}
                   onChange={e => setContentForm(f => ({ ...f, durationMinutes: Number(e.target.value) }))} />
-              </div>
-            )}
-            {contentForm.type === 'video' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                  % Mínimo para completar
-                  <span className="ml-1 text-[10px] text-slate-500 font-normal">(Auto-completar al llegar a este %)</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <input type="range" min={50} max={100} step={5} className="flex-1 accent-red-600"
-                    value={contentForm.minProgressToComplete}
-                    onChange={e => setContentForm(f => ({ ...f, minProgressToComplete: Number(e.target.value) }))} />
-                  <span className="w-12 text-center text-sm font-bold text-red-400 bg-red-500/10 py-1 rounded border border-red-500/20">
-                    {contentForm.minProgressToComplete}%
-                  </span>
-                </div>
               </div>
             )}
             {contentForm.type === 'challenge' && (

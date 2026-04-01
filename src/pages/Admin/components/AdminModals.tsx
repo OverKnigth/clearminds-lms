@@ -131,22 +131,12 @@ export function AdminModals({
                 placeholder="••••••••" />
             </div>
 
-            {/* Rol — editable solo para addStudent, fijo para tutor/admin */}
+            {/* Rol — se muestra fijo como 'Estudiante' por requerimiento */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Rol</label>
-              {modalType === 'addStudent' ? (
-                <select value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'student' | 'tutor' | 'admin' })}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500">
-                  <option value="student">Estudiante</option>
-                  <option value="tutor">Tutor</option>
-                  <option value="admin">Administrador</option>
-                </select>
-              ) : (
-                <div className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 text-sm font-black uppercase tracking-widest">
-                  {modalType === 'addTutor' ? 'Tutor' : 'Administrador'}
-                </div>
-              )}
+              <div className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 text-sm font-black uppercase tracking-widest">
+                {modalType === 'addStudent' ? 'Estudiante' : (modalType === 'addTutor' ? 'Tutor' : 'Administrador')}
+              </div>
             </div>
 
             {/* Generación/Curso/Paralelo — solo para estudiantes */}

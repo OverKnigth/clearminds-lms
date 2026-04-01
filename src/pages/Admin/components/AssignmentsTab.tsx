@@ -56,8 +56,7 @@ export function AssignmentsTab({
                 {courses.map(course => (
                   <th key={course.id} className="px-4 py-4 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider min-w-[180px]">
                     <div className="flex flex-col items-center gap-1">
-                      <span className="text-center">{course.title}</span>
-                      <span className="text-[10px] text-slate-400 font-normal normal-case">{course.category}</span>
+                      <span className="text-center">{course.name}</span>
                     </div>
                   </th>
                 ))}

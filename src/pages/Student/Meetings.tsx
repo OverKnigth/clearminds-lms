@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
 import Footer from '../../components/Footer';
+import Modal from '../../components/Modal';
 
 interface Tutoring {
   id: string;
@@ -40,29 +41,34 @@ export default function Meetings() {
   const [preselectedBlockId, setPreselectedBlockId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [error, setError] = useState<string | null>(null);
+  const [earnedBadge, setEarnedBadge] = useState<any | null>(null);
 
   useEffect(() => {
     loadData();
-    // Check if there's a preselected block in the navigation state
+    // Solo si hay un bloque preseleccionado en el estado de navegación (desde CourseView)
     if (location.state && (location.state as any).preselectedBlockId) {
       setPreselectedBlockId((location.state as any).preselectedBlockId);
       setShowModal(true);
+      // Limpiar el estado para que no se abra de nuevo al recargar
+      window.history.replaceState({}, document.title);
     }
   }, [location]);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const [tr, cr] = await Promise.allSettled([api.getStudentTutoring(), api.getStudentCourses()]);
       if (tr.status === 'fulfilled' && tr.value.success) setTutorings(tr.value.data);
       if (cr.status === 'fulfilled' && cr.value.success) setCourses(cr.value.data);
     } catch (e) { console.error(e); }
-    finally { setIsLoading(false); }
+    finally { if (!silent) setIsLoading(false); }
   };
 
   const pending = tutorings.filter(t => t.status === 'requested');
   const confirmed = tutorings.filter(t => t.status === 'confirmed' || t.status === 'rescheduled');
   const completed = tutorings.filter(t => t.status === 'executed');
+  void pending; void confirmed; void completed; // used in stats only
 
   if (isLoading) return (
     <div className="min-h-screen bg-slate-900 pt-16 flex items-center justify-center">
@@ -133,40 +139,56 @@ export default function Meetings() {
 
         {/* Calendar or List View */}
         {viewMode === 'calendar' ? (
-          <CalendarView tutorings={tutorings} currentDate={currentDate} setCurrentDate={setCurrentDate} onRated={loadData} />
+          <CalendarView tutorings={tutorings} currentDate={currentDate} setCurrentDate={setCurrentDate} />
         ) : (
           <>
-            {/* Sections */}
-            {[
-              { title: 'Pendientes de confirmar', items: pending, color: 'yellow' },
-              { title: 'Próximas', items: confirmed, color: 'blue', showJoin: true },
-              { title: 'Completadas', items: completed, color: 'green', showResults: true },
-            ].map(section => section.items.length > 0 && (
-              <div key={section.title} className="mb-10">
-                <h2 className="text-xl font-bold text-white mb-4">{section.title}</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {section.items.map(t => (
-                    <TutoringCard
-                      key={t.id}
-                      tutoring={t}
-                      allTutorings={tutorings}
-                      showJoin={section.showJoin}
-                      showResults={section.showResults}
-                      onRated={loadData}
-                      onReagend={() => {
-                        setPreselectedBlockId(t.block.id);
-                        setShowModal(true);
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {tutorings.length === 0 && (
+            {tutorings.length === 0 ? (
               <div className="text-center py-16 border-2 border-dashed border-slate-700 rounded-xl">
                 <p className="text-slate-400 mb-2">No tienes tutorías aún</p>
                 <p className="text-slate-500 text-sm">Completa los bloques de tus cursos para solicitar tutorías</p>
+              </div>
+            ) : (
+              <div className="bg-slate-800 border border-slate-700/50 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-700/60">
+                        <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Bloque / Curso</th>
+                        <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
+                        <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Tutor</th>
+                        <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Solicitada</th>
+                        <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Programada</th>
+                        <th className="px-4 py-3 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Nota</th>
+                        <th className="px-4 py-3 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Observaciones</th>
+                        <th className="px-4 py-3 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/30">
+                      {tutorings.map(t => {
+                        const cfg = STATUS_CONFIG[t.status] || STATUS_CONFIG.requested;
+                        const isApproved = t.status === 'executed' && t.grade != null && t.grade >= 7;
+                        const isNotApproved = t.status === 'executed' && t.grade != null && t.grade < 7;
+                        const isCancelled = t.status === 'cancelled';
+                        return (
+                          <TutoringRow
+                            key={t.id}
+                            tutoring={t}
+                            cfg={cfg}
+                            isApproved={isApproved}
+                            isNotApproved={isNotApproved}
+                            isCancelled={isCancelled}
+                            onRated={loadData}
+                            onBadgeEarned={setEarnedBadge}
+                            onReagend={() => {
+                              setPreselectedBlockId(t.block.id);
+                              setShowModal(true);
+                            }}
+                          />
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </>
@@ -178,9 +200,39 @@ export default function Meetings() {
           courses={courses} 
           initialBlockId={preselectedBlockId || ''} 
           onClose={() => setShowModal(false)} 
-          onSuccess={loadData} 
+          onSuccess={() => loadData(true)} 
+          onError={(msg) => setError(msg)}
         />
       )}
+
+      {/* Modal de Error personalizado */}
+      <Modal 
+        isOpen={!!error} 
+        onClose={() => setError(null)} 
+        title="Atención"
+      >
+        <div className="text-center py-4">
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 15c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-slate-300 text-lg mb-6">{error}</p>
+          <button 
+            onClick={() => setError(null)}
+            className="px-8 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all"
+          >
+            Entendido
+          </button>
+        </div>
+      </Modal>
+      {earnedBadge && (
+        <BadgeAwardModal 
+          badge={earnedBadge} 
+          onClose={() => setEarnedBadge(null)} 
+        />
+      )}
+
       <Footer />
     </div>
   );
@@ -191,12 +243,10 @@ function CalendarView({
   tutorings, 
   currentDate, 
   setCurrentDate,
-  onRated 
 }: { 
   tutorings: Tutoring[]; 
   currentDate: Date; 
   setCurrentDate: (d: Date) => void;
-  onRated: () => void;
 }) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -307,7 +357,7 @@ function CalendarView({
   );
 }
 
-function RequestModal({ courses, initialBlockId, onClose, onSuccess }: { courses: Course[]; initialBlockId?: string; onClose: () => void; onSuccess: () => void }) {
+function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: { courses: Course[]; initialBlockId?: string; onClose: () => void; onSuccess: () => void; onError: (msg: string) => void }) {
   const [blockId, setBlockId] = useState(initialBlockId || '');
   const [observations, setObservations] = useState('');
   const [requestDate, setRequestDate] = useState(new Date().toISOString().split('T')[0]);
@@ -334,11 +384,15 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess }: { courses
       await (api as any).requestTutoring(blockId, observations || undefined);
       onSuccess();
       onClose();
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    } catch (e: any) { 
+      const msg = e.response?.data?.message || e.message;
+      onError(msg);
+    }
     finally { setSubmitting(false); }
   };
 
   const today = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  void today; // suppress TS warning
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -410,297 +464,187 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess }: { courses
   );
 }
 
-// ── Star Rating Component ────────────────────────────────────────────────────
-function StarRating({ value, onChange, readonly }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
-  const [hovered, setHovered] = useState(0);
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map(star => (
-        <button
-          key={star}
-          type="button"
-          disabled={readonly}
-          onClick={() => onChange?.(star)}
-          onMouseEnter={() => !readonly && setHovered(star)}
-          onMouseLeave={() => !readonly && setHovered(0)}
-          className={`text-2xl transition-transform ${!readonly ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
-        >
-          <span className={(hovered || value) >= star ? 'text-yellow-400' : 'text-slate-600'}>★</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ── TutoringCard Component ───────────────────────────────────────────────────
-function TutoringCard({
-  tutoring,
-  allTutorings,
-  showJoin,
-  showResults,
-  onRated,
-  onReagend,
+// ── TutoringRow Component (table row) ───────────────────────────────────────
+function TutoringRow({
+  tutoring, cfg, isApproved, isNotApproved, isCancelled, onReagend
 }: {
   tutoring: Tutoring;
-  allTutorings?: Tutoring[];
-  showJoin?: boolean;
-  showResults?: boolean;
+  cfg: { color: string; label: string };
+  isApproved: boolean;
+  isNotApproved: boolean;
+  isCancelled: boolean;
   onRated: () => void;
-  onReagend?: () => void;
+  onBadgeEarned: (badge: any) => void;
+  onReagend: () => void;
 }) {
-  const cfg = STATUS_CONFIG[tutoring.status] || STATUS_CONFIG.requested;
-  const [showRateModal, setShowRateModal] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
 
-  // Get all attempts for this block (history)
-  const blockHistory = (allTutorings || [])
-    .filter(t => t.block.id === tutoring.block.id && t.status === 'executed')
-    .sort((a, b) => a.attempt_number - b.attempt_number);
-
-  const isNotApproved = tutoring.status === 'executed' && tutoring.grade !== null && tutoring.grade !== undefined && tutoring.grade < 7;
-  const isApproved = tutoring.status === 'executed' && tutoring.grade !== null && tutoring.grade !== undefined && tutoring.grade >= 7;
+  const colorMap: Record<string, string> = {
+    yellow: 'bg-yellow-500/20 text-yellow-400',
+    blue:   'bg-blue-500/20 text-blue-400',
+    green:  'bg-green-500/20 text-green-400',
+    red:    'bg-red-500/20 text-red-400',
+  };
+  const badgeCls = colorMap[cfg.color] ?? colorMap.yellow;
 
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-start justify-between p-5 border-b border-slate-700/50">
-        <div>
-          <p className="text-white font-black text-sm uppercase tracking-tighter">{tutoring.block.name}</p>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{tutoring.block.course.name}</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+    <>
+      <tr className="hover:bg-slate-700/20 transition-colors">
+        {/* Bloque / Curso */}
+        <td className="px-4 py-3">
+          <p className="text-xs font-black text-white uppercase tracking-tighter">{tutoring.block.name}</p>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{tutoring.block.course.name}</p>
           {tutoring.attempt_number > 1 && (
-            <span className="text-[9px] font-black text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20">
+            <span className="text-[9px] font-black text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded-full border border-orange-500/20 mt-0.5 inline-block">
               Intento #{tutoring.attempt_number}
             </span>
           )}
-          <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full bg-${cfg.color}-500/20 text-${cfg.color}-400`}>
+        </td>
+
+        {/* Estado */}
+        <td className="px-4 py-3">
+          <span className={`px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-full ${badgeCls}`}>
             {cfg.label}
           </span>
-        </div>
-      </div>
+        </td>
 
-      <div className="p-5 space-y-3">
-        {/* Info */}
-        <div className="space-y-1.5 text-xs">
-          {tutoring.tutor && (
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-bold uppercase tracking-widest">Tutor</span>
-              <span className="text-slate-300 font-bold">{tutoring.tutor.names} {tutoring.tutor.lastNames}</span>
-            </div>
+        {/* Tutor */}
+        <td className="px-4 py-3 text-xs text-slate-300">
+          {tutoring.tutor ? `${tutoring.tutor.names} ${tutoring.tutor.lastNames}` : <span className="text-slate-600">—</span>}
+        </td>
+
+        {/* Solicitada */}
+        <td className="px-4 py-3 text-xs text-slate-400">
+          {new Date(tutoring.requested_at).toLocaleDateString('es-ES')}
+        </td>
+
+        {/* Programada */}
+        <td className="px-4 py-3 text-xs text-slate-400">
+          {tutoring.scheduled_at
+            ? new Date(tutoring.scheduled_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
+            : <span className="text-slate-600">—</span>}
+        </td>
+
+        {/* Nota */}
+        <td className="px-4 py-3 text-center">
+          {tutoring.grade != null ? (
+            <span className={`text-sm font-black ${isApproved ? 'text-green-400' : 'text-red-400'}`}>
+              {tutoring.grade}/10
+            </span>
+          ) : (
+            <span className="text-slate-600 text-xs">—</span>
           )}
-          <div className="flex justify-between">
-            <span className="text-slate-500 font-bold uppercase tracking-widest">Solicitada</span>
-            <span className="text-slate-300">{new Date(tutoring.requested_at).toLocaleDateString('es-ES')}</span>
-          </div>
-          {tutoring.scheduled_at && (
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-bold uppercase tracking-widest">Programada</span>
-              <span className="text-slate-300">{new Date(tutoring.scheduled_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</span>
-            </div>
-          )}
+        </td>
+
+        {/* Observaciones / Motivo de cancelación */}
+        <td className="px-4 py-3 text-xs max-w-[200px]">
           {tutoring.cancellation_reason && (
-            <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <p className="text-[10px] text-red-400 font-black uppercase tracking-widest mb-0.5">Cancelada</p>
-              <p className="text-xs text-slate-400">{tutoring.cancellation_reason}</p>
-            </div>
+            <span className="text-red-400 italic">{tutoring.cancellation_reason}</span>
           )}
-        </div>
+          {tutoring.observations && !tutoring.cancellation_reason && (
+            <span className="text-slate-400 italic">{tutoring.observations}</span>
+          )}
+          {!tutoring.cancellation_reason && !tutoring.observations && (
+            <span className="text-slate-600">—</span>
+          )}
+        </td>
 
-        {/* Results */}
-        {showResults && tutoring.grade !== undefined && tutoring.grade !== null && (
-          <div className={`p-3 rounded-lg border ${isApproved ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resultado</span>
-              <div className="flex items-center gap-2">
-                <span className={`text-xl font-black ${isApproved ? 'text-green-400' : 'text-red-400'}`}>{tutoring.grade}/10</span>
-                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isApproved ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                  {isApproved ? '✓ Aprobado' : '✗ No aprobado'}
-                </span>
-              </div>
-            </div>
-            {tutoring.observations && (
-              <p className="text-xs text-slate-400 mt-1 italic border-t border-slate-700/50 pt-1">"{tutoring.observations}"</p>
+        {/* Acciones */}
+        <td className="px-4 py-3">
+          <div className="flex flex-col gap-1.5 min-w-[140px]">
+            {/* Unirse a la reunión */}
+            {(tutoring.status === 'confirmed' || tutoring.status === 'rescheduled') && tutoring.meeting_link && (
+              <a href={tutoring.meeting_link} target="_blank" rel="noopener noreferrer"
+                className="text-center py-1.5 px-3 bg-blue-600 hover:bg-blue-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg transition-all">
+                Unirse
+              </a>
             )}
+
+            {/* Ver grabación */}
             {tutoring.recording_link && (
               <a href={tutoring.recording_link} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1 text-purple-400 hover:text-purple-300 text-[10px] font-black uppercase tracking-widest mt-2 transition-colors">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                className="text-center py-1.5 px-3 bg-purple-600/20 border border-purple-500/30 hover:bg-purple-600/40 text-purple-400 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all">
                 Ver grabación
               </a>
             )}
-          </div>
-        )}
 
-        {/* Tutor rating */}
-        {showResults && tutoring.grade !== undefined && tutoring.grade !== null && (
-          <div className="border-t border-slate-700/50 pt-3">
-            {tutoring.tutor_rating ? (
-              <div>
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Tu calificación al tutor</p>
-                <StarRating value={tutoring.tutor_rating} readonly />
+            {/* Rating ya dado */}
+            {tutoring.tutor_rating && (
+              <div className="flex items-center gap-1">
+                {'★'.repeat(tutoring.tutor_rating).split('').map((s, i) => (
+                  <span key={i} className="text-yellow-400 text-xs">{s}</span>
+                ))}
               </div>
-            ) : (
-              <button onClick={() => setShowRateModal(true)}
-                className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 hover:border-yellow-500/60 rounded-lg transition-colors flex items-center justify-center gap-1">
-                ★ Calificar al tutor
+            )}
+
+            {/* Reagendar (no aprobado) */}
+            {isNotApproved && (
+              <button onClick={onReagend}
+                className="py-1.5 px-3 bg-red-600 hover:bg-red-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg transition-all">
+                Reagendar
               </button>
             )}
+
+            {/* Volver a solicitar (cancelada) */}
+            {isCancelled && (
+              <button onClick={onReagend}
+                className="py-1.5 px-3 bg-orange-600 hover:bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg transition-all">
+                Volver a solicitar
+              </button>
+            )}
+
+            {/* Aprobado */}
+            {isApproved && !tutoring.tutor_rating && (
+              <span className="text-[9px] font-black text-green-400 uppercase tracking-widest">Aprobado</span>
+            )}
           </div>
-        )}
-
-        {/* Reagendar button — only when not approved */}
-        {isNotApproved && onReagend && (
-          <button onClick={onReagend}
-            className="w-full py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Reagendar Tutoría
-          </button>
-        )}
-
-        {/* Join button */}
-        {showJoin && tutoring.meeting_link && (
-          <a href={tutoring.meeting_link} target="_blank" rel="noopener noreferrer"
-            className="block text-center py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-lg transition-all">
-            Unirse a la reunión
-          </a>
-        )}
-
-        {/* History toggle */}
-        {blockHistory.length > 1 && (
-          <button onClick={() => setShowHistory(!showHistory)}
-            className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center gap-1">
-            {showHistory ? '▲' : '▼'} Historial de intentos ({blockHistory.length})
-          </button>
-        )}
-
-        {/* History table */}
-        {showHistory && blockHistory.length > 0 && (
-          <div className="border border-slate-700 rounded-lg overflow-hidden">
-            <table className="w-full text-xs">
-              <thead className="bg-slate-700/50">
-                <tr>
-                  <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">#</th>
-                  <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Fecha</th>
-                  <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Nota</th>
-                  <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700/50">
-                {blockHistory.map(h => (
-                  <tr key={h.id} className="hover:bg-slate-700/20">
-                    <td className="px-3 py-2 text-slate-400 font-bold">{h.attempt_number}</td>
-                    <td className="px-3 py-2 text-slate-400">{h.executed_at ? new Date(h.executed_at).toLocaleDateString('es-ES') : '—'}</td>
-                    <td className="px-3 py-2 text-center">
-                      <span className={`font-black ${h.grade !== null && h.grade !== undefined ? (h.grade >= 7 ? 'text-green-400' : 'text-red-400') : 'text-slate-500'}`}>
-                        {h.grade !== null && h.grade !== undefined ? `${h.grade}/10` : '—'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${h.grade !== null && h.grade !== undefined ? (h.grade >= 7 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400') : 'bg-slate-700 text-slate-500'}`}>
-                        {h.grade !== null && h.grade !== undefined ? (h.grade >= 7 ? 'Aprobado' : 'No aprobado') : 'Pendiente'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {showRateModal && (
-        <RateTutorModal
-          sessionId={tutoring.id}
-          tutorName={tutoring.tutor ? `${tutoring.tutor.names} ${tutoring.tutor.lastNames}` : 'Tutor'}
-          onClose={() => setShowRateModal(false)}
-          onSuccess={() => { setShowRateModal(false); onRated(); }}
-        />
-      )}
-    </div>
+        </td>
+      </tr>
+    </>
   );
 }
 
-// ── Rate Tutor Modal ─────────────────────────────────────────────────────────
-function RateTutorModal({
-  sessionId,
-  tutorName,
-  onClose,
-  onSuccess,
-}: {
-  sessionId: string;
-  tutorName: string;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [rating, setRating] = useState(0);
-  const [feedback, setFeedback] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rating) return;
-    setSubmitting(true);
-    try {
-      await api.rateTutoring(sessionId, rating, feedback || undefined);
-      onSuccess();
-    } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
+// ── Badge Award Modal ────────────────────────────────────────────────────────
+function BadgeAwardModal({ badge, onClose }: { badge: any; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl max-w-sm w-full border border-slate-700 p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-white">Calificar a {tutorName}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="text-center">
-            <p className="text-slate-400 text-sm mb-3">¿Cómo fue tu experiencia con el tutor?</p>
-            <StarRating value={rating} onChange={setRating} />
-            {rating > 0 && (
-              <p className="text-xs text-slate-400 mt-2">
-                {['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'][rating]}
-              </p>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[60] p-4">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(20)].map((_, i) => (
+          <div key={i} 
+            className="absolute animate-bounce opacity-20 text-yellow-400 text-2xl"
+            style={{ 
+              left: `${Math.random() * 100}%`, 
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 2}s`,
+              animationDuration: `${2 + Math.random() * 2}s`
+            }}>★</div>
+        ))}
+      </div>
+
+      <div className="bg-slate-800 rounded-3xl max-w-sm w-full border border-yellow-500/30 p-8 shadow-[0_0_50px_rgba(234,179,8,0.2)] text-center relative">
+        <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-b from-yellow-400 to-yellow-600 rounded-2xl p-0.5 shadow-lg shadow-yellow-500/20">
+          <div className="w-full h-full bg-slate-800 rounded-[14px] flex items-center justify-center overflow-hidden">
+            {badge.imageUrl ? (
+              <img src={badge.imageUrl} alt={badge.name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-5xl">🏆</span>
             )}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Comentario (opcional)</label>
-            <textarea
-              rows={3}
-              value={feedback}
-              onChange={e => setFeedback(e.target.value)}
-              placeholder="Comparte tu experiencia..."
-              className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-            />
-          </div>
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={!rating || submitting}
-              className="flex-1 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-all disabled:opacity-50"
-            >
-              {submitting ? 'Enviando...' : 'Enviar calificación'}
-            </button>
-            <button type="button" onClick={onClose}
-              className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
-              Cancelar
-            </button>
-          </div>
-        </form>
+        </div>
+        
+        <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">¡Felicidades!</h2>
+        <p className="text-slate-400 text-sm mb-6">
+          Has obtenido una nueva insignia por tu excelente desempeño:
+        </p>
+        
+        <div className="bg-slate-700/30 rounded-2xl p-4 mb-8 border border-white/5">
+          <p className="text-xl font-black text-yellow-400 uppercase tracking-tighter mb-1">{badge.name}</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{badge.description}</p>
+        </div>
+
+        <button onClick={onClose}
+          className="w-full py-4 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-yellow-500/20 active:scale-95">
+          Continuar
+        </button>
       </div>
     </div>
   );

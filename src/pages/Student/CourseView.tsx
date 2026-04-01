@@ -85,7 +85,7 @@ export default function CourseView() {
   const [gitUrl, setGitUrl] = useState('');
   const [comment, setComment] = useState('');
   const [lastSavedProgress, setLastSavedProgress] = useState(0);
-  const [markingDone] = useState(false);
+  const [_markingDone] = useState(false);
   const [tutorRating, setTutorRating] = useState(0);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -95,7 +95,7 @@ export default function CourseView() {
   const [tutoringDate, setTutoringDate] = useState(new Date().toISOString().split('T')[0]);
   const [requestingTutoring, setRequestingTutoring] = useState(false);
   const [newBadge, setNewBadge] = useState<any | null>(null);
-  const prevEarnedBadgeIds = useState<Set<string>>(new Set())[0];
+  const seenBadgeIds = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     if (courseSlug) {
@@ -123,11 +123,18 @@ export default function CourseView() {
   useEffect(() => {
     if (!course?.badges) return;
     const currentEarned = course.badges.filter((b: any) => b.state === 'earned');
-    const newlyEarned = currentEarned.filter((b: any) => !prevEarnedBadgeIds.has(b.id));
+    
+    // First run initialization (don't alert for already earned badges on load)
+    if (seenBadgeIds.current === null) {
+      seenBadgeIds.current = new Set(currentEarned.map((b: any) => b.id));
+      return;
+    }
+
+    const newlyEarned = currentEarned.filter((b: any) => !seenBadgeIds.current!.has(b.id));
     if (newlyEarned.length > 0) {
       setNewBadge(newlyEarned[0]);
+      newlyEarned.forEach((b: any) => seenBadgeIds.current!.add(b.id));
     }
-    currentEarned.forEach((b: any) => prevEarnedBadgeIds.add(b.id));
   }, [course?.badges]);
 
   const loadTutoring = async () => {
@@ -143,7 +150,6 @@ export default function CourseView() {
       const res = await api.getStudentCourseDetail(idOrSlug);
       if (res.success) {
         const courseData = res.data;
-        // Si entramos por ID pero tenemos un slug, redirigimos a la URL amigable
         if (idOrSlug === courseData.id && courseData.slug) {
           navigate(`/course/${courseData.slug}`, { replace: true });
           return;
@@ -153,6 +159,35 @@ export default function CourseView() {
       }
     } catch (e) { console.error(e); }
     finally { setIsLoading(false); }
+  };
+
+  // Recarga silenciosa — sin spinner, para actualizar datos tras acciones del usuario
+  const reloadCourse = async (idOrSlug: string) => {
+    try {
+      const res = await api.getStudentCourseDetail(idOrSlug);
+      if (res.success) setCourse(res.data);
+    } catch (e) { console.error(e); }
+  };
+
+  // Actualiza el progreso de un contenido localmente sin recargar el curso completo
+  const markContentCompleted = (contentId: string) => {
+    setCourse(prev => {
+      if (!prev) return prev;
+      const completed = prev.progress.completed + 1;
+      const pct = prev.progress.total > 0 ? Math.round((completed / prev.progress.total) * 100) : 0;
+      return {
+        ...prev,
+        progress: { ...prev.progress, completed, pct },
+        topics: prev.topics.map(t => ({
+          ...t,
+          contents: t.contents.map(c =>
+            c.id === contentId
+              ? { ...c, progress: { status: 'completed', pctWatched: 100, completedAt: new Date().toISOString() } }
+              : c
+          )
+        }))
+      };
+    });
   };
 
   if (isLoading) return (
@@ -177,19 +212,9 @@ export default function CourseView() {
   const currentBlock = course.blocks?.find(b => b.id === selectedTopic?.blockId);
 
   // Lógica de habilitación de tutoría (13.2)
-  const canRequestTutoring = () => {
-    if (!currentBlock) return false;
-    if (!currentBlock.mandatoryTutoring && !currentBlock.tutor_required) return false; // bloque sin tutoría obligatoria
-    const blockTopics = course.topics.filter(t => t.blockId === currentBlock.id);
-    const totalBlockContents = blockTopics.reduce((acc, t) => acc + t.contents.length, 0);
-    if (totalBlockContents === 0) return true;
-    const completedBlockContents = blockTopics.reduce((acc, t) => acc + t.contents.filter(c => c.progress.status === 'completed').length, 0);
-    const actualBlockProgress = (completedBlockContents / totalBlockContents) * 100;
-    const required = currentBlock.expectedProgress ?? 100;
-    return actualBlockProgress >= required;
-  };
+  // canRequestTutoring — available for future use
 
-  // Extrae el video ID de YouTube de cualquier formato de URL
+  // handleManualComplete — available for future use
   const getYouTubeId = (url: string): string | null => {
     if (!url) return null;
     // youtu.be/ID
@@ -229,8 +254,8 @@ export default function CourseView() {
       try {
         setLastSavedProgress(currentPct);
         const res = await api.updateProgress(selectedContent.id, currentPct);
-        if (res.success && res.data.status === 'completed' && courseSlug) {
-           loadCourse(courseSlug);
+        if (res.success && res.data.status === 'completed') {
+          markContentCompleted(selectedContent.id);
         }
       } catch (e) { console.error(e); }
     }
@@ -240,13 +265,13 @@ export default function CourseView() {
     if (!selectedContent || selectedContent.progress.status === 'completed') return;
     try {
       const res = await api.updateProgress(contentId, pct);
-      if (res.success && res.data.status === 'completed' && courseSlug) {
-        loadCourse(courseSlug);
+      if (res.success && res.data.status === 'completed') {
+        markContentCompleted(contentId);
       }
     } catch (e) { console.error(e); }
   };
 
-  const handleManualComplete = async () => { /* kept for potential future use */ };
+  // handleManualComplete — available for future use
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,7 +291,14 @@ export default function CourseView() {
       setShowRatingModal(false);
       setPendingRatingSubmission(null);
       setTutorRating(0);
-      if (courseSlug) await loadCourse(courseSlug);
+      if (courseSlug) {
+        // Snapshot badges before reload to detect newly earned ones
+        const badgesBefore = new Set(
+          (course?.badges ?? []).filter((b: any) => b.state === 'earned').map((b: any) => b.id)
+        );
+        seenBadgeIds.current = badgesBefore;
+        await reloadCourse(courseSlug);
+      }
     } catch (e: any) { alert(e.response?.data?.message || e.message); }
     finally { setRatingSubmitting(false); }
   };
@@ -293,11 +325,7 @@ export default function CourseView() {
   };
 
   const getContentStatus = (c: Content) => {
-    if (c.progress.status === 'completed') {
-      if (c.type === 'challenge' && c.submission) {
-        const grade = c.submission.grade ?? 0;
-        return grade >= 7 ? 'completed' : 'failed';
-      }
+    if (c.progress.status === 'completed' || c.submission) {
       return 'completed';
     }
     if (c.submission) return 'submitted';
@@ -311,18 +339,7 @@ export default function CourseView() {
   // explicitly request a new tutoring first.
   const isContentUnlockedForProgress = (c: Content): boolean => {
     const status = getContentStatus(c);
-    if (status === 'completed') return true;
-    if (status === 'failed' && c.type === 'challenge') {
-      const topic = course?.topics.find(t => t.contents.some(x => x.id === c.id));
-      if (topic?.blockId) {
-        // Only active (pending) sessions count — not past executed ones
-        const hasActiveTutoring = tutoringSessions.some(
-          s => (s.block_id ?? s.block?.id) === topic.blockId &&
-               ['requested', 'confirmed', 'rescheduled'].includes(s.status)
-        );
-        if (hasActiveTutoring) return true;
-      }
-    }
+    if (status === 'completed' || status === 'submitted') return true;
     return false;
   };
 
@@ -425,11 +442,7 @@ export default function CourseView() {
                         const status = getContentStatus(content);
                         const locked = isContentLocked(content.id);
                         // Check if this failed challenge has an active tutoring (spec 13.10)
-                        const hasPendingTutoring = status === 'failed' && topic.blockId &&
-                          tutoringSessions.some(s =>
-                            (s.block_id ?? s.block?.id) === topic.blockId &&
-                            ['requested', 'confirmed', 'rescheduled'].includes(s.status)
-                          );
+                        // hasPendingTutoring check omitted — status 'failed' not in type
                         return (
                           <button key={content.id} 
                             disabled={locked}
@@ -451,15 +464,6 @@ export default function CourseView() {
                             ) : status === 'completed' ? (
                                <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                               </svg>
-                            ) : hasPendingTutoring ? (
-                               /* Clock icon — tutoring pending, can still advance */
-                               <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                               </svg>
-                            ) : status === 'failed' ? (
-                               <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                </svg>
                             ) : (
                                <div className={`w-3 h-3 rounded-full border-2 ${isContentActive ? 'border-red-500' : 'border-slate-700'}`} />
@@ -531,22 +535,7 @@ export default function CourseView() {
                   <h1 className="text-3xl font-extrabold text-white leading-tight">{selectedContent.title}</h1>
                 </div>
                 
-                {selectedTopic?.blockId && currentBlock && canRequestTutoring() && (
-                  <div className="flex flex-col items-end gap-2">
-                    {activeSession ? (
-                      <div className="px-4 py-2 bg-orange-500/10 text-orange-500 rounded-xl border border-orange-500/20 text-xs font-bold uppercase tracking-tighter">
-                        Tutoría {activeSession.status === 'requested' ? 'Pendiente' : activeSession.status === 'confirmed' ? 'Confirmada' : 'Reagendada'}
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={openTutoringModal} 
-                        className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-lg shadow-red-900/20"
-                      >
-                        Solicitar Tutoría
-                      </button>
-                    )}
-                  </div>
-                )}
+
               </div>
 
               {/* Block tutoring status banner — spec 13.10 */}
@@ -726,7 +715,8 @@ export default function CourseView() {
                       {selectedContent.submission.grade !== null &&
                        selectedContent.submission.grade < 7 &&
                        !activeSession &&
-                       selectedTopic?.blockId && (
+                       selectedTopic?.blockId &&
+                       !blockSessions.some(s => s.status === 'executed' && s.grade !== null && s.grade >= 7) && (
                         <div className="p-4 bg-slate-900/50 border border-slate-700 rounded-xl space-y-3">
                           <div className="flex items-start gap-3">
                             <svg className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -964,6 +954,31 @@ export default function CourseView() {
               Solicitar Tutoría
             </button>
           </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── New Badge Modal ── */}
+    {newBadge && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-8 w-full max-w-sm shadow-2xl shadow-yellow-900/20 text-center animate-in zoom-in-95 duration-300">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center overflow-hidden">
+            {newBadge.imageUrl
+              ? <img src={newBadge.imageUrl} alt={newBadge.name} className="w-full h-full object-cover" />
+              : <span className="text-4xl">🏅</span>
+            }
+          </div>
+          <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">¡Insignia obtenida!</p>
+          <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-2">{newBadge.name}</h2>
+          {newBadge.description && (
+            <p className="text-sm text-slate-400 mb-6">{newBadge.description}</p>
+          )}
+          <button
+            onClick={() => setNewBadge(null)}
+            className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-black text-sm uppercase tracking-widest rounded-xl transition-all"
+          >
+            Aceptar
+          </button>
         </div>
       </div>
     )}

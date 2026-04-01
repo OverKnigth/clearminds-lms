@@ -81,7 +81,6 @@ export function GroupsTab({ students, courses }: GroupsTabProps) {
     try {
       const res = await api.enrollStudents(selectedGroup.id, {
         userIds: enrollForm.studentIds,
-        courseId: enrollForm.courseId
       });
       if (res.success) {
         setIsEnrollModalOpen(false);

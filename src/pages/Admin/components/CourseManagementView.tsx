@@ -271,7 +271,7 @@ export function CourseManagementView({ course, onBack, hideParallelsTab }: Cours
                     <div className="space-y-2 pt-3 border-t border-slate-700/50 bg-slate-900/20 -mx-6 px-6 -mb-6 pb-5 rounded-b-2xl">
                       <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
                         <span className="text-slate-500">Meta:</span>
-                        <span className="text-white">{block.expectedProgress}%</span>
+                        <span className="text-white">Automática</span>
                       </div>
                       <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
                         <span className="text-slate-500">Aprobación:</span>
@@ -377,11 +377,7 @@ export function CourseManagementView({ course, onBack, hideParallelsTab }: Cours
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Meta de Progreso (%)</label>
-              <input type="number" max={100} min={10} className={INPUT_CLS} value={blockForm.expectedProgress} onChange={e => setBlockForm(f => ({ ...f, expectedProgress: Number(e.target.value) }))} />
-            </div>
+          <div className="flex flex-col gap-4">
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nota Mín. Aprobación</label>
               <input type="number" step="0.1" className={INPUT_CLS} value={blockForm.minPassGrade} onChange={e => setBlockForm(f => ({ ...f, minPassGrade: Number(e.target.value) }))} />
@@ -482,7 +478,7 @@ export function CourseManagementView({ course, onBack, hideParallelsTab }: Cours
                       <div className="flex-1 min-w-0">
                         <p className={`text-[10px] font-black uppercase tracking-tighter truncate transition-colors ${selected ? 'text-white' : 'text-slate-300'}`}>{block.name}</p>
                         <p className="text-[9px] text-slate-500 uppercase font-bold">
-                          Meta: {block.expectedProgress}% · Aprobación: {block.minPassGrade}/10 · Tutoría: {block.mandatoryTutoring ? 'Obligatoria' : 'Opcional'}
+                          Aprobación: {block.minPassGrade}/10 · Tutoría: {block.mandatoryTutoring ? 'Obligatoria' : 'Opcional'}
                         </p>
                       </div>
                     </button>

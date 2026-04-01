@@ -28,10 +28,11 @@ export default function Admin() {
   const activeTab = (searchParams.get('tab') as Tab) || 'dashboard';
 
   const {
-    students, tutors, admins, courses, groups, stats, badges,
+    students, tutors, admins, courses, groups, stats,
     studentsPage, setStudentsPage, tutorsPage, setTutorsPage, adminsPage, setAdminsPage,
     studentsTotal, tutorsTotal, adminsTotal,
-    isLoading, fetchData, fetchByRole, limit
+    isLoading, fetchByRole, limit,
+    setStudents, setCourses,
   } = useAdminData();
 
   const {
@@ -61,7 +62,7 @@ export default function Admin() {
     setSelectedCourseForBlocks(null);
   }, [activeTab]);
 
-  const [saving, setSaving] = useState(false);
+  const [_saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null!);
 
   const handleSubmitStudent = async (e: React.FormEvent) => {
@@ -121,14 +122,22 @@ export default function Admin() {
         if (formData.courseTutorIds?.length && res.data?.id) {
           await (api as any).assignTutorsToCourse(res.data.id, formData.courseTutorIds);
         }
+        // Actualización local — agregar el nuevo curso sin recargar todo
+        if (res.data) {
+          const newCourse = { ...res.data, tutors: [] };
+          setCourses((prev: any[]) => [newCourse, ...prev]);
+        }
       } else if (modalType === 'editCourse' && selectedCourse) {
         await api.updateCourse(selectedCourse.id, payload);
         if (formData.courseTutorIds !== undefined) {
           await (api as any).assignTutorsToCourse(selectedCourse.id, formData.courseTutorIds);
         }
+        // Actualización local — reemplazar el curso editado
+        setCourses((prev: any[]) => prev.map((c: any) =>
+          c.id === selectedCourse.id ? { ...c, ...payload } : c
+        ));
       }
       
-      await fetchData();
       setIsModalOpen(false);
     } catch (e: any) {
       showAlert(e.response?.data?.message || e.message);
@@ -174,7 +183,15 @@ export default function Admin() {
         await (api as any).enrollStudents(offeringId, { userIds: [selectedStudent.id] });
       }
 
-      await fetchData();
+      // Actualización local del estudiante con los nuevos cursos
+      const newCourseIds = [...new Set([
+        ...(selectedStudent.assignedCourses || []),
+        ...formData.selectedCourses
+      ])];
+      setStudents((prev: any[]) => prev.map((s: any) =>
+        s.id === selectedStudent.id ? { ...s, assignedCourses: newCourseIds } : s
+      ));
+
       setIsModalOpen(false);
       showAlert('Cursos e Instancias asignados correctamente.', 'Éxito');
     } catch (e: any) { 
@@ -182,27 +199,16 @@ export default function Admin() {
     } finally { setSaving(false); }
   };
 
-  const [assignmentFilter, setAssignmentFilter] = useState({ name: '', generation: 'all' });
-  const filteredStudentsForAssignments = students.filter(s => {
-    const matchName = s.fullName.toLowerCase().includes(assignmentFilter.name.toLowerCase()) || 
-                      s.email.toLowerCase().includes(assignmentFilter.name.toLowerCase());
-    const matchGen = assignmentFilter.generation === 'all' || s.generation === assignmentFilter.generation;
+  const [_assignmentFilter, _setAssignmentFilter] = useState({ name: '', generation: 'all' });
+  const _filteredStudentsForAssignments = students.filter(s => {
+    const matchName = s.fullName.toLowerCase().includes(_assignmentFilter.name.toLowerCase()) || 
+                      s.email.toLowerCase().includes(_assignmentFilter.name.toLowerCase());
+    const matchGen = _assignmentFilter.generation === 'all' || s.generation === _assignmentFilter.generation;
     return matchName && matchGen;
   });
+  void _filteredStudentsForAssignments;
 
-  const toggleCourseForStudent = async (studentId: string, courseId: string) => {
-    try {
-      const student = students.find(s => s.id === studentId);
-      if (!student) return;
-      const isAssigned = student.assignedCourses.includes(courseId);
-      const newCourses = isAssigned 
-        ? student.assignedCourses.filter(id => id !== courseId)
-        : [...student.assignedCourses, courseId];
-      
-      await api.assignCoursesToUser(studentId, newCourses);
-      await fetchData();
-    } catch (e: any) { showAlert(e.message); }
-  };
+  // toggleCourseForStudent — available for future use
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col font-sans">
@@ -460,14 +466,22 @@ export default function Admin() {
                 onToggleStatus={async (course) => {
                   const ns = course.status === 'active' ? 'inactive' : 'active';
                   showConfirm('¿Cambiar el estado de este curso?', async () => {
-                    try { await api.updateCourse(course.id, { status: ns }); await fetchData(); } catch (e: any) { showAlert(e.message); }
+                    try {
+                      await api.updateCourse(course.id, { status: ns });
+                      setCourses((prev: any[]) => prev.map((c: any) =>
+                        c.id === course.id ? { ...c, status: ns } : c
+                      ));
+                    } catch (e: any) { showAlert(e.message); }
                   }, { title: 'Cambiar Estado', confirmLabel: 'Cambiar' });
                 }}
                 onManageContent={setManagingContentCourse}
                 onManageBlocks={setManagingContentCourse}
                 onDelete={async (course) => {
                   showConfirm(`¿Eliminar el curso "${course.name}"? Esta acción no se puede deshacer.`, async () => {
-                    try { await api.deleteCourse(course.id); await fetchData(); } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
+                    try {
+                      await api.deleteCourse(course.id);
+                      setCourses((prev: any[]) => prev.filter((c: any) => c.id !== course.id));
+                    } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
                   }, { title: 'Eliminar Curso', confirmLabel: 'Eliminar', danger: true });
                 }}
                 title="Cursos"

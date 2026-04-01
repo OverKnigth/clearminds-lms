@@ -36,19 +36,7 @@ export function StudentsTab({
 }: StudentsTabProps) {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
-  const getParallelNames = (student: Student): string => {
-    const map = student.courseParallelMap;
-    if (!map || Object.keys(map).length === 0) return 'Sin Paralelo';
-    const assignedIds = Object.values(map).filter(Boolean);
-    const names = groups
-      .filter(g => {
-        if (assignedIds.includes(g.id)) return true;
-        return g.offerings?.some((off: any) => assignedIds.includes(off.id));
-      })
-      .map(g => g.name);
-    return names.length > 0 ? names.join(', ') : 'Sin Paralelo';
-  };
-
+  // getParallelNames — available for future use
   const getGenerationName = (student: Student): string => {
     // Use generationName from backend if available
     if ((student as any).generationName) return (student as any).generationName;

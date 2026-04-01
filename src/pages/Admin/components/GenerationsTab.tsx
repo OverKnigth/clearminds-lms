@@ -26,7 +26,8 @@ const INITIAL_FORM = {
 
 export function GenerationsTab({ onSelectGeneration, courses: propCourses }: GenerationsTabProps) {
   const { generations, isLoading, createGeneration, updateGeneration, deleteGeneration } = useGenerations();
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingId, _setDeletingId] = useState<string | null>(null);
+  void deletingId;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
@@ -139,9 +140,9 @@ export function GenerationsTab({ onSelectGeneration, courses: propCourses }: Gen
               onUpdate={updateGeneration}
               onDelete={async (id) => {
                 if (!confirm(`¿Eliminar la generación "${generation.name}"? Esta acción eliminará todos sus paralelos y no se puede deshacer.`)) return;
-                setDeletingId(id);
+                _setDeletingId(id);
                 try { await deleteGeneration(id); } catch (e: any) { alert(e.message); }
-                finally { setDeletingId(null); }
+                finally { _setDeletingId(null); }
               }}
             />
           ))}

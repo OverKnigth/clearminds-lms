@@ -36,6 +36,7 @@ export interface ChallengeSubmission {
   observations: string | null;
   student: { id: string; names: string; lastNames: string; email: string };
   content: { id: string; title: string; course?: { id: string; name: string } };
+  group?: { id: string; name: string; cohort?: string } | null;
 }
 
 export type TutorTab = 'dashboard' | 'pending' | 'upcoming' | 'completed' | 'students' | 'challenges';

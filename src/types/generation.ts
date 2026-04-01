@@ -29,6 +29,7 @@ export interface Parallel {
   status: string;
   studentCount: number;
   cohortId: string;
+  blockIds?: string[];
 }
 
 export interface ParallelDetail extends Parallel {
@@ -73,6 +74,7 @@ export interface AddCoursesPayload {
 
 export interface CreateParallelPayload {
   name: string;
+  blockIds?: string[];
 }
 
 export interface EnrollStudentsPayload {

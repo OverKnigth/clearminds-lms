@@ -76,7 +76,7 @@ export interface ChallengeSubmission {
   githubLink?: string;
   notes?: string;
   status: 'pending' | 'submitted' | 'late' | 'reviewed' | 'approved' | 'needs_correction';
-  tutorMeeting?: TutorMeeting;
+  tutorMeeting?: Record<string, unknown>;
   grade?: number;
   feedback?: string;
   submittedOnTime: boolean;

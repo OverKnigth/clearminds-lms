@@ -6,7 +6,7 @@ interface UseGenerationDetailReturn {
   detail: GenerationDetail | null;
   isLoading: boolean;
   addCourses: (courseIds: string[]) => Promise<void>;
-  createParallel: (name: string) => Promise<Parallel>;
+  createParallel: (name: string, blockIds?: string[]) => Promise<Parallel>;
   refetch: () => void;
 }
 
@@ -36,8 +36,8 @@ export function useGenerationDetail(generationId: string): UseGenerationDetailRe
     await fetchDetail();
   }, [generationId, fetchDetail]);
 
-  const createParallel = useCallback(async (name: string): Promise<Parallel> => {
-    const parallel = await api.createParallel(generationId, { name });
+  const createParallel = useCallback(async (name: string, blockIds?: string[]): Promise<Parallel> => {
+    const parallel = await api.createParallel(generationId, { name, blockIds });
     await fetchDetail();
     return parallel;
   }, [generationId, fetchDetail]);

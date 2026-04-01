@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Tab, Student, CourseData, FormData, ContentFormData } from '../types';
 
-export function useAdminModals(activeTab: Tab) {
+export function useAdminModals(_activeTab: Tab) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
   const [modalType, setModalType] = useState<string>('');
@@ -105,7 +105,7 @@ export function useAdminModals(activeTab: Tab) {
     setIsModalOpen(true);
   };
 
-  const openContentModal = (type: string, moduleId?: string) => {
+  const openContentModal = (type: string, _moduleId?: string) => {
     setContentModalType(type);
     if (type === 'addModule') {
       setContentFormData({

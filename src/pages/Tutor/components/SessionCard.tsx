@@ -15,11 +15,21 @@ const INPUT = 'w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-l
 interface SessionCardProps {
   session: TutoringSession;
   onRefresh: () => void;
+  onUpdate?: (updated: TutoringSession) => void;
 }
 
-export function SessionCard({ session, onRefresh }: SessionCardProps) {
+export function SessionCard({ session, onRefresh, onUpdate }: SessionCardProps) {
   const [modal, setModal] = useState<'confirm' | 'reschedule' | 'cancel' | 'execute' | null>(null);
   const cfg = STATUS_LABELS[session.status] || STATUS_LABELS.requested;
+
+  const handleSuccess = (updated?: TutoringSession) => {
+    setModal(null);
+    if (updated && onUpdate) {
+      onUpdate(updated);
+    } else {
+      onRefresh();
+    }
+  };
 
   return (
     <div className="bg-slate-800 rounded-xl p-5 border border-slate-700">
@@ -71,7 +81,7 @@ export function SessionCard({ session, onRefresh }: SessionCardProps) {
       )}
 
       {/* Actions */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2">
         {session.status === 'requested' && (
           <>
             <button onClick={() => setModal('confirm')} className="flex-1 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">Confirmar</button>
@@ -89,16 +99,16 @@ export function SessionCard({ session, onRefresh }: SessionCardProps) {
       </div>
 
       {/* Modals */}
-      {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={() => { setModal(null); onRefresh(); }} />}
-      {modal === 'reschedule' && <RescheduleModal session={session} onClose={() => setModal(null)} onSuccess={() => { setModal(null); onRefresh(); }} />}
-      {modal === 'cancel' && <CancelModal session={session} onClose={() => setModal(null)} onSuccess={() => { setModal(null); onRefresh(); }} />}
-      {modal === 'execute' && <ExecuteModal session={session} onClose={() => setModal(null)} onSuccess={() => { setModal(null); onRefresh(); }} />}
+      {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
+      {modal === 'reschedule' && <RescheduleModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
+      {modal === 'cancel' && <CancelModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
+      {modal === 'execute' && <ExecuteModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
     </div>
   );
 }
 
 // ── Confirm Modal ────────────────────────────────────────────────────────────
-function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: () => void }) {
+function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void }) {
   const [scheduledAt, setScheduledAt] = useState('');
   const [meetingLink, setMeetingLink] = useState('');
   const [saving, setSaving] = useState(false);
@@ -107,8 +117,8 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
     e.preventDefault();
     setSaving(true);
     try {
-      await api.confirmTutoringSession(session.id, { scheduledAt, meetingLink: meetingLink || undefined });
-      onSuccess();
+      const res = await api.confirmTutoringSession(session.id, { scheduledAt, meetingLink: meetingLink || undefined });
+      onSuccess(res.data);
     } catch (e: any) { alert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
   };
@@ -117,7 +127,7 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
     <ModalWrapper title="Confirmar Tutoría" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Fecha y hora *</label>
+          <label className="block text-sm font-medium text-slate-300 mb-1.5">Fecha y hora programada</label>
           <input type="datetime-local" required className={INPUT} value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
         </div>
         <div>
@@ -131,7 +141,7 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
 }
 
 // ── Reschedule Modal ─────────────────────────────────────────────────────────
-function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: () => void }) {
+function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void }) {
   const [scheduledAt, setScheduledAt] = useState('');
   const [meetingLink, setMeetingLink] = useState(session.meetingLink || '');
   const [saving, setSaving] = useState(false);
@@ -140,8 +150,8 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
     e.preventDefault();
     setSaving(true);
     try {
-      await api.rescheduleTutoringSession(session.id, { scheduledAt, meetingLink: meetingLink || undefined });
-      onSuccess();
+      const res = await api.rescheduleTutoringSession(session.id, { scheduledAt, meetingLink: meetingLink || undefined });
+      onSuccess(res.data);
     } catch (e: any) { alert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
   };
@@ -150,7 +160,7 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
     <ModalWrapper title="Reagendar Tutoría" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Nueva fecha y hora *</label>
+          <label className="block text-sm font-medium text-slate-300 mb-1.5">Nueva fecha y hora</label>
           <input type="datetime-local" required className={INPUT} value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
         </div>
         <div>
@@ -164,7 +174,7 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
 }
 
 // ── Cancel Modal ─────────────────────────────────────────────────────────────
-function CancelModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: () => void }) {
+function CancelModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void }) {
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -172,8 +182,8 @@ function CancelModal({ session, onClose, onSuccess }: { session: TutoringSession
     e.preventDefault();
     setSaving(true);
     try {
-      await api.cancelTutoringSession(session.id, { reason });
-      onSuccess();
+      const res = await api.cancelTutoringSession(session.id, { reason });
+      onSuccess(res.data);
     } catch (e: any) { alert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
   };
@@ -192,7 +202,7 @@ function CancelModal({ session, onClose, onSuccess }: { session: TutoringSession
 }
 
 // ── Execute Modal ────────────────────────────────────────────────────────────
-function ExecuteModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: () => void }) {
+function ExecuteModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void }) {
   const [grade, setGrade] = useState(session.block.minPassGrade);
   const [observations, setObservations] = useState('');
   const [recordingLink, setRecordingLink] = useState('');
@@ -203,8 +213,8 @@ function ExecuteModal({ session, onClose, onSuccess }: { session: TutoringSessio
     e.preventDefault();
     setSaving(true);
     try {
-      await api.executeTutoringSession(session.id, { grade, observations: observations || undefined, recordingLink: recordingLink || undefined });
-      onSuccess();
+      const res = await api.executeTutoringSession(session.id, { grade, observations: observations || undefined, recordingLink: recordingLink || undefined });
+      onSuccess(res.data);
     } catch (e: any) { alert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
   };

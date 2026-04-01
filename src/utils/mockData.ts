@@ -57,6 +57,7 @@ export const mockBadges: Badge[] = [
 export const mockCourses: Course[] = [
   {
     id: '1',
+    slug: 'desarrollo-web-full-stack',
     title: 'Desarrollo Web Full Stack',
     description: 'Domina el desarrollo web moderno desde frontend hasta backend',
     image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&q=80',
@@ -274,6 +275,7 @@ export const mockCourses: Course[] = [
   },
   {
     id: '2',
+    slug: 'aws-cloud-practitioner',
     title: 'Certificación AWS Cloud Practitioner',
     description: 'Prepárate para la certificación AWS y trabaja con nosotros',
     image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80',
@@ -287,6 +289,7 @@ export const mockCourses: Course[] = [
   },
   {
     id: '3',
+    slug: 'python-data-science',
     title: 'Python para Data Science',
     description: 'Análisis de datos y machine learning con Python',
     image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&q=80',
