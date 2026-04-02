@@ -39,7 +39,7 @@ export function AdminModals({
   contentFormData, setContentFormData,
   selectedStudent, selectedCourse,
   handleSubmitStudent, handleAssignCourses, handleSubmitContent, handleSubmitCourse,
-  toggleCourseSelection, openContentModal, courses,
+  toggleCourseSelection, openContentModal, courses, groups,
   submitting = false
 }: AdminModalsProps) {
   // ── Cascading group → course → parallel selection ──────────────────────
@@ -50,12 +50,14 @@ export function AdminModals({
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Filter for assignCourse modal
+  const [assignGroupFilter, setAssignGroupFilter] = useState('');
   const formDataRef = React.useRef(formData);
   formDataRef.current = formData;
 
-  // Load groups when modal opens for addStudent
+  // Load groups when modal opens for addStudent or assignCourse
   useEffect(() => {
-    if (isModalOpen && (modalType === 'addStudent' || modalType === 'addTutor' || modalType === 'addAdmin' || modalType === 'editStudent')) {
+    if (isModalOpen && (modalType === 'addStudent' || modalType === 'addTutor' || modalType === 'addAdmin' || modalType === 'editStudent' || modalType === 'assignCourse')) {
       setLoadingGroups(true);
       api.getGroups()
         .then(res => setGroupsList(Array.isArray(res) ? res : (res?.data ?? [])))
@@ -63,6 +65,7 @@ export function AdminModals({
         .finally(() => setLoadingGroups(false));
     }
     if (!isModalOpen) {
+      setAssignGroupFilter('');
       setSelectedGroupId('');
       setSelectedCourseId('');
       setGroupDetail(null);
@@ -199,37 +202,65 @@ export function AdminModals({
               Asignando a <span className="text-white">{selectedStudent.fullName}</span>
             </p>
 
+            {/* Filtro de grupo (opcional) */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                Filtrar por Grupo <span className="text-slate-600 normal-case font-normal">(opcional)</span>
+              </label>
+              <select
+                value={assignGroupFilter}
+                onChange={(e) => setAssignGroupFilter(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-500"
+                disabled={loadingGroups}
+              >
+                <option value="">— Todos los cursos —</option>
+                {groupsList.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="space-y-2">
-              {courses.map(course => {
-                const isSelected = formData.selectedCourses.includes(course.id);
-                return (
-                  <div key={course.id}
-                    className={`rounded-lg border transition-all ${isSelected ? 'border-slate-500 bg-slate-800' : 'border-slate-700/50 bg-slate-800/40'}`}>
-                    <label className="flex items-center gap-3 px-4 py-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleCourseSelection(course.id)}
-                        className="w-4 h-4 rounded border-slate-600 text-red-600 bg-slate-700 focus:ring-red-500 focus:ring-offset-0 flex-shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-black text-white uppercase tracking-tighter">{course.name}</p>
-                        {course.description && (
-                          <p className="text-[10px] text-slate-500 truncate mt-0.5">{course.description}</p>
-                        )}
-                      </div>
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded flex-shrink-0 ${course.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-slate-600/30 text-slate-500'}`}>
-                        {course.status === 'active' ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </label>
-                  </div>
-                );
-              })}
+              {courses
+                .filter(course => {
+                  if (!assignGroupFilter) return true;
+                  // Filtrar cursos que pertenecen al grupo seleccionado
+                  const group = groups.find((g: any) => g.id === assignGroupFilter);
+                  if (!group) return true;
+                  return group.offerings?.some((off: any) => off.course_id === course.id)
+                    || group.courses?.some((c: any) => c.course?.id === course.id || c.id === course.id);
+                })
+                .map(course => {
+                  const isSelected = formData.selectedCourses.includes(course.id);
+                  return (
+                    <div key={course.id}
+                      className={`rounded-lg border transition-all ${isSelected ? 'border-slate-500 bg-slate-800' : 'border-slate-700/50 bg-slate-800/40'}`}>
+                      <label className="flex items-center gap-3 px-4 py-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleCourseSelection(course.id)}
+                          className="w-4 h-4 rounded border-slate-600 text-red-600 bg-slate-700 focus:ring-red-500 focus:ring-offset-0 flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-black text-white uppercase tracking-tighter">{course.name}</p>
+                          {course.description && (
+                            <p className="text-[10px] text-slate-500 truncate mt-0.5">{course.description}</p>
+                          )}
+                        </div>
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded flex-shrink-0 ${course.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-slate-600/30 text-slate-500'}`}>
+                          {course.status === 'active' ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </label>
+                    </div>
+                  );
+                })}
             </div>
 
             <div className="flex gap-3 pt-2">
               <button type="submit"
-                className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-all">
+                className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-all disabled:opacity-50"
+                disabled={formData.selectedCourses.length === 0}>
                 Asignar ({formData.selectedCourses.length})
               </button>
               <button type="button" onClick={() => setIsModalOpen(false)}

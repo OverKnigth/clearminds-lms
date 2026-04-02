@@ -171,22 +171,15 @@ export default function Admin() {
     if (!selectedStudent) return;
     setSaving(true);
     try {
-      const selectedOfferings = Object.values(formData.courseParallelMap || {}).filter(id => id);
-      
-      if (selectedOfferings.length > 0) {
-        // Hay offerings disponibles — inscribir por offering
-        for (const offeringId of selectedOfferings) {
-          await (api as any).enrollStudents(offeringId, { userIds: [selectedStudent.id] });
-        }
-      } else if (formData.selectedCourses.length > 0) {
-        // Sin offerings — asignar cursos directamente al usuario
-        await api.assignCoursesToUser(selectedStudent.id, formData.selectedCourses);
-      } else {
+      if (formData.selectedCourses.length === 0) {
         showAlert('Selecciona al menos un curso para asignar.');
         return;
       }
 
-      // Actualización local del estudiante con los nuevos cursos
+      // Asignar cursos directamente al usuario (crea groupEnrollments)
+      await api.assignCoursesToUser(selectedStudent.id, formData.selectedCourses);
+
+      // Actualización local
       const newCourseIds = [...new Set([
         ...(selectedStudent.assignedCourses || []),
         ...formData.selectedCourses
