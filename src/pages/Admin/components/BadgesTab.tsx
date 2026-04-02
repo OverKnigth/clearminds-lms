@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
 import Modal from '../../../components/Modal';
+import { useDialog } from '../../../hooks/useDialog';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 
 interface Badge {
   id: string;
@@ -35,6 +37,8 @@ export function BadgesTab() {
     category: 'academic',
   });
 
+  const { dialog, close: closeDialog, showAlert, showConfirm } = useDialog();
+
   useEffect(() => {
     loadInitialData();
   }, []);
@@ -67,7 +71,6 @@ export function BadgesTab() {
     setCourseBlocks([]);
     if (!courseId) return;
     try {
-      // Load blocks for the course
       const courseRes = await api.getCourseDetail(courseId);
       if (courseRes.success) {
         const rawBlocks = courseRes.data.blocks || [];
@@ -106,27 +109,39 @@ export function BadgesTab() {
     setSaving(true);
     try {
       if (editingBadge) {
-        await api.updateBadge(editingBadge.id, form);
+        const res = await api.updateBadge(editingBadge.id, form);
+        if (res.success) showAlert('Insignia actualizada correctamente.', 'Éxito');
       } else {
-        await api.createBadge(form);
-      }      setIsModalOpen(false);
+        const res = await api.createBadge(form);
+        if (res.success) showAlert('Insignia creada correctamente.', 'Éxito');
+      }
+      setIsModalOpen(false);
       loadInitialData();
     } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
+      showAlert(e.response?.data?.message || e.message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Estás seguro de eliminar esta insignia?')) {
-      try {
-        await api.deleteBadge(id);
-        loadInitialData();
-      } catch (e: any) {
-        alert(e.message);
+    showConfirm({
+      title: 'Eliminar Insignia',
+      message: '¿Estás seguro de eliminar esta insignia? Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          const res = await api.deleteBadge(id);
+          if (res.success) {
+            showAlert('Insignia eliminada correctamente.', 'Éxito');
+            loadInitialData();
+          }
+        } catch (e: any) {
+          showAlert(e.message);
+        }
       }
-    }
+    });
   };
 
   return (
@@ -164,7 +179,6 @@ export function BadgesTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {badges.map(badge => (
             <div key={badge.id} className="bg-slate-800 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-all overflow-hidden">
-              {/* Image */}
               <div className="w-full h-40 bg-slate-700/30 flex items-center justify-center overflow-hidden">
                 {badge.imageUrl ? (
                   <img src={badge.imageUrl} alt={badge.name} className="w-full h-full object-cover" />
@@ -173,7 +187,6 @@ export function BadgesTab() {
                 )}
               </div>
 
-              {/* Info */}
               <div className="p-4">
                 <h3 className="text-sm font-black text-white uppercase tracking-tighter mb-1">{badge.name}</h3>
                 {badge.description && (
@@ -186,7 +199,6 @@ export function BadgesTab() {
                 )}
               </div>
 
-              {/* Actions */}
               <div className="flex border-t border-slate-700/50">
                 <button
                   onClick={() => handleOpenModal(badge)}
@@ -307,6 +319,16 @@ export function BadgesTab() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={dialog.isOpen}
+        title={dialog.title}
+        message={dialog.message}
+        confirmLabel={dialog.confirmLabel}
+        danger={dialog.danger}
+        onConfirm={dialog.onConfirm}
+        onCancel={closeDialog}
+      />
     </div>
   );
 }

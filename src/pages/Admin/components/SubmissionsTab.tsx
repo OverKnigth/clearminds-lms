@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
 import Modal from '../../../components/Modal';
+import { useDialog } from '../../../hooks/useDialog';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 
 interface Course {
   id: string;
@@ -47,6 +49,8 @@ export function SubmissionsTab() {
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [reviewForm, setReviewForm] = useState({ grade: 0, observations: '' });
   const [isSaving, setIsSaving] = useState(false);
+
+  const { dialog, close: closeDialog, showAlert } = useDialog();
 
   useEffect(() => {
     loadCourses();
@@ -126,9 +130,10 @@ export function SubmissionsTab() {
       if (res.success) {
         setIsReviewModalOpen(false);
         handleChallengeChange(selectedChallengeId); // Refresh list
+        showAlert('Calificación registrada correctamente.', 'Éxito');
       }
     } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
+      showAlert(e.response?.data?.message || e.message);
     } finally {
       setIsSaving(false);
     }
@@ -306,6 +311,16 @@ export function SubmissionsTab() {
           </form>
         )}
       </Modal>
+
+      <ConfirmDialog
+        isOpen={dialog.isOpen}
+        title={dialog.title}
+        message={dialog.message}
+        confirmLabel={dialog.confirmLabel}
+        danger={dialog.danger}
+        onConfirm={dialog.onConfirm}
+        onCancel={closeDialog}
+      />
     </div>
   );
 }

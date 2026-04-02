@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGroups } from '../../../hooks/useGroups';
 import { api } from '../../../services/api';
-import type { Group } from '../../../types/generation';
+import type { Group } from '../../../types/group';
 import type { CourseData } from '../types';
 import Modal from '../../../components/Modal';
 import { GroupCard } from './GroupCard';

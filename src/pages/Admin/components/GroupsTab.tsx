@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
-import { useToast } from '../../../context/ToastContext';
 import type { Student, CourseData } from '../types';
 import Modal from '../../../components/Modal';
+import { useDialog } from '../../../hooks/useDialog';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import type { Group } from '../../../types/group';
 
 interface GroupsTabProps {
@@ -16,16 +17,16 @@ const BTN_PRIMARY = 'px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:fr
 const BTN_GHOST = 'px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors';
 
 export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) {
-  const toast = useToast();
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [saving, setSaving] = useState(false);
+  const { dialog, showAlert, close: closeDialog } = useDialog();
 
   // Form for creating group
-  const [groupForm, setGroupForm] = useState({ name: '', cohort: 'Gen 2026-A' });
+  const [groupForm, setGroupForm] = useState({ name: '', courseIds: [] as string[] });
 
   // Form for enrollment
   const [enrollForm, setEnrollForm] = useState({ courseId: '', studentIds: [] as string[] });
@@ -53,12 +54,11 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
     setSaving(true);
     try {
       await api.createGroup(groupForm);
-      toast.success('Grupo creado exitosamente');
       setIsModalOpen(false);
-      setGroupForm({ name: '', cohort: 'Gen 2026-A' });
+      setGroupForm({ name: '', courseIds: [] });
       await loadGroups();
     } catch (e: any) {
-      toast.error(e.response?.data?.message || 'Error al crear el grupo');
+      showAlert(e.response?.data?.message || 'Error al crear el grupo');
     } finally {
       setSaving(false);
     }
@@ -68,7 +68,7 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
     e.preventDefault();
     if (!selectedGroup) return;
     if (!enrollForm.courseId || enrollForm.studentIds.length === 0) {
-      toast.warning('Selecciona un curso y al menos un estudiante');
+      showAlert('Selecciona un curso y al menos un estudiante');
       return;
     }
 
@@ -80,9 +80,9 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
       setIsEnrollModalOpen(false);
       setEnrollForm({ courseId: '', studentIds: [] });
       await loadGroups();
-      toast.success('Estudiantes matriculados con éxito');
+      showAlert('Estudiantes matriculados con éxito', 'Éxito');
     } catch (e: any) {
-      toast.error(e.response?.data?.message || 'Error al matricular estudiantes');
+      showAlert(e.response?.data?.message || 'Error al matricular estudiantes');
     } finally {
       setSaving(false);
     }
@@ -121,40 +121,35 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {groups.map(group => (
             <div
               key={group.id}
               onClick={() => onSelectGroup && onSelectGroup(group)}
-              className={`bg-slate-800 border border-slate-700/50 rounded-xl p-5 transition-all ${onSelectGroup ? 'cursor-pointer hover:border-red-500/40 hover:bg-slate-800/80' : ''}`}
+              className={`bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-red-500/50 transition-all group relative ${onSelectGroup ? 'cursor-pointer' : ''}`}
             >
-              {/* Header */}
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-black text-white uppercase tracking-tighter">{group.name}</p>
-                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${group.status === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-slate-700 text-slate-500'}`}>
-                  {group.status === 'active' ? 'Activo' : 'Inactivo'}
+              <div className="flex justify-between items-start mb-4">
+                <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-widest ${group.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
+                  {group.status}
                 </span>
               </div>
-
-              {/* Date range */}
-              {(group.startDate || group.endDate) && (
-                <p className="text-[10px] text-slate-500 mb-3">{group.startDate || '—'} — {group.endDate || 'Presente'}</p>
-              )}
-
-              {/* Courses count */}
-              <div className="flex items-center justify-between py-2 border-t border-slate-700/40 mb-4">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cursos</span>
-                <span className="text-sm font-black text-white">{group.courseCount}</span>
+              <h3 className="text-lg font-bold text-white mb-1 group-hover:text-red-400 transition-colors uppercase">{group.name}</h3>
+              <p className="text-xs text-slate-500 font-mono mb-4">{group.startDate} - {group.endDate || 'Presente'}</p>
+              
+              <div className="bg-slate-900/50 p-4 rounded-xl mb-6">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">Cursos:</span>
+                  <span className="text-white font-bold">{group.courseCount}</span>
+                </div>
               </div>
 
-              {/* Action */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedGroup(group);
                   setIsEnrollModalOpen(true);
                 }}
-                className="w-full py-2 bg-slate-700/60 hover:bg-slate-700 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors"
+                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
               >
                 Inscribir Estudiantes
               </button>
@@ -171,8 +166,29 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
             <input required className={INPUT_CLS} value={groupForm.name} onChange={e => setGroupForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Grupo A" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Generación / Cohorte</label>
-            <input required className={INPUT_CLS} value={groupForm.cohort} onChange={e => setGroupForm(f => ({ ...f, cohort: e.target.value }))} placeholder="Ej: Gen 2026-A" />
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Cursos Disponibles</label>
+            <div className="max-h-48 overflow-y-auto bg-slate-700 border border-slate-600 rounded-lg p-2 space-y-1 custom-scrollbar">
+              {courses.length === 0 ? (
+                <p className="text-center py-3 text-slate-500 text-xs italic">No hay cursos disponibles</p>
+              ) : (
+                courses.map(c => (
+                  <label key={c.id} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-600 cursor-pointer transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={groupForm.courseIds.includes(c.id)}
+                      onChange={() => setGroupForm(f => ({
+                        ...f,
+                        courseIds: f.courseIds.includes(c.id)
+                          ? f.courseIds.filter(id => id !== c.id)
+                          : [...f.courseIds, c.id]
+                      }))}
+                      className="accent-red-500 w-4 h-4"
+                    />
+                    <span className="text-sm text-white">{c.name}</span>
+                  </label>
+                ))
+              )}
+            </div>
           </div>
           <div className="flex gap-3 pt-4">
             <button type="submit" disabled={saving} className={`flex-1 py-3 ${BTN_PRIMARY} uppercase tracking-widest text-xs font-black shadow-xl shadow-red-900/20`}>
@@ -254,6 +270,15 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={dialog.isOpen}
+        title={dialog.title}
+        message={dialog.message}
+        confirmLabel={dialog.confirmLabel}
+        onConfirm={dialog.onConfirm}
+        onCancel={closeDialog}
+      />
     </div>
   );
 }

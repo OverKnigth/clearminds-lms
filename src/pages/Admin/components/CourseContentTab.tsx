@@ -49,6 +49,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
+  const [activeTab, setActiveTab] = useState<'topics' | 'blocks'>('topics');
   const [topics, setTopics] = useState<Topic[]>([]);
   const [contentsByTopic, setContentsByTopic] = useState<Record<string, Content[]>>({});
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
@@ -59,6 +60,11 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
   const [topicForm, setTopicForm] = useState({ title: '', description: '', order: 1, blockId: '' });
   const [savingTopic, setSavingTopic] = useState(false);
   const [courseBlocks, setCourseBlocks] = useState<any[]>([]);
+
+  // Block modal
+  const [blockModal, setBlockModal] = useState<{ open: boolean; editing: any | null }>({ open: false, editing: null });
+  const [blockForm, setBlockForm] = useState({ name: '', order: 1, minPassGrade: 7, mandatoryTutoring: true, selectedTopicIds: [] as string[] });
+  const [savingBlock, setSavingBlock] = useState(false);
 
   // Content modal
   const [contentModal, setContentModal] = useState<{ open: boolean; topicId: string; editing: Content | null }>({ open: false, topicId: '', editing: null });
@@ -114,6 +120,61 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     } catch (e) {
       console.error('[loadBlocks] error:', e);
     }
+  };
+
+  // ── Block handlers ──────────────────────────────────────────────────────────
+  const openAddBlock = () => {
+    setBlockForm({ name: '', order: courseBlocks.length + 1, minPassGrade: 7, mandatoryTutoring: true, selectedTopicIds: [] });
+    setBlockModal({ open: true, editing: null });
+  };
+
+  const openEditBlock = (b: any) => {
+    setBlockForm({
+      name: b.name, order: b.order, minPassGrade: b.minPassGrade,
+      mandatoryTutoring: b.mandatoryTutoring,
+      selectedTopicIds: topics.filter(t => t.blockId === b.id).map(t => t.id),
+    });
+    setBlockModal({ open: true, editing: b });
+  };
+
+  const saveBlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingBlock(true);
+    try {
+      const payload = { name: blockForm.name, order: blockForm.order, expectedProgress: 100, mandatoryTutoring: blockForm.mandatoryTutoring, minPassGrade: blockForm.minPassGrade };
+      let blockId: string;
+      if (blockModal.editing) {
+        await api.updateBlock(blockModal.editing.id, payload);
+        blockId = blockModal.editing.id;
+      } else {
+        const res = await api.createBlock(course.id, payload);
+        if (!res.success) throw new Error(res.message || 'Error al crear bloque');
+        blockId = res.data?.id || res.data?.block?.id;
+        if (!blockId) throw new Error('No se recibió ID del bloque');
+      }
+      // Sync topic links
+      const oldTopics = topics.filter(t => t.blockId === (blockModal.editing?.id ?? blockId));
+      for (const t of oldTopics) {
+        if (!blockForm.selectedTopicIds.includes(t.id)) await api.unlinkTopicFromBlock(t.id);
+      }
+      for (const id of blockForm.selectedTopicIds) {
+        const topic = topics.find(t => t.id === id);
+        if (!topic || topic.blockId !== blockId) await api.linkTopicToBlock(id, blockId);
+      }
+      setBlockModal({ open: false, editing: null });
+      await Promise.all([loadBlocks(), loadTopics()]);
+    } catch (e: any) {
+      alert(e.response?.data?.message || e.message);
+    } finally { setSavingBlock(false); }
+  };
+
+  const deleteBlock = async (id: string) => {
+    if (!confirm('¿Eliminar este bloque y desvincular sus temas?')) return;
+    try {
+      for (const t of topics.filter(t => t.blockId === id)) await api.unlinkTopicFromBlock(t.id);
+      await api.deleteBlock(id);
+      await Promise.all([loadBlocks(), loadTopics()]);
+    } catch (e: any) { alert(e.response?.data?.message || e.message); }
   };
 
   // ── Topic handlers ──────────────────────────────────────────────────────────
@@ -320,17 +381,41 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
           <h2 className="text-xl font-semibold text-white">{course.name}</h2>
           <p className="text-sm text-slate-400">Gestión de temas y contenidos</p>
         </div>
-        <button onClick={openAddTopic} className={BTN_PRIMARY}>
-          <span className="flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Nuevo Tema
-          </span>
+        {activeTab === 'topics' ? (
+          <button onClick={openAddTopic} className={BTN_PRIMARY}>
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Nuevo Tema
+            </span>
+          </button>
+        ) : (
+          <button onClick={openAddBlock} className={BTN_PRIMARY}>
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Nuevo Bloque
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 p-1 bg-slate-800 rounded-xl w-fit border border-slate-700 mb-6">
+        <button onClick={() => setActiveTab('topics')}
+          className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'topics' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
+          Temas
+        </button>
+        <button onClick={() => setActiveTab('blocks')}
+          className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'blocks' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
+          Bloques {courseBlocks.length > 0 && <span className="ml-1 opacity-70">({courseBlocks.length})</span>}
         </button>
       </div>
 
-      {isLoading ? (
+      {/* ── TOPICS TAB ── */}
+      {activeTab === 'topics' && (isLoading ? (
         <div className="flex justify-center py-16">
           <div className="w-8 h-8 border-4 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
         </div>
@@ -432,6 +517,47 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
             );
           })}
         </div>
+      ))}
+
+      {/* ── BLOCKS TAB ── */}
+      {activeTab === 'blocks' && (
+        courseBlocks.length === 0 ? (
+          <div className="text-center py-16 border-2 border-dashed border-slate-700 rounded-xl">
+            <p className="text-slate-400 mb-4">Este curso no tiene bloques aún</p>
+            <button onClick={openAddBlock} className={BTN_PRIMARY}>Crear primer bloque</button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {courseBlocks.sort((a, b) => a.order - b.order).map(block => {
+              const blockTopics = topics.filter(t => t.blockId === block.id);
+              return (
+                <div key={block.id} className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-red-500/50 transition-all group relative">
+                  <div className="absolute -top-3 -right-3 w-8 h-8 bg-slate-900 border border-slate-700 rounded-full flex items-center justify-center text-[10px] font-black text-red-500 shadow-xl z-10">
+                    {block.order}
+                  </div>
+                  <h3 className="text-white font-black text-base mb-3 uppercase tracking-tighter group-hover:text-red-400 transition-colors pt-2">{block.name}</h3>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1">Temas ({blockTopics.length})</p>
+                  <div className="space-y-1 max-h-20 overflow-y-auto mb-4">
+                    {blockTopics.length > 0 ? blockTopics.sort((a, b) => a.order - b.order).map(t => (
+                      <div key={t.id} className="flex items-center gap-2 text-[10px] text-slate-300 bg-slate-900/40 px-2 py-1 rounded-lg">
+                        <span className="text-red-500 font-bold">{t.order}</span>
+                        <span className="truncate font-medium uppercase tracking-tighter">{t.title}</span>
+                      </div>
+                    )) : <p className="text-[9px] text-slate-600 italic uppercase">Sin temas asignados</p>}
+                  </div>
+                  <div className="space-y-1 pt-3 border-t border-slate-700/50 text-[10px] font-black uppercase tracking-widest mb-4">
+                    <div className="flex justify-between"><span className="text-slate-500">Aprobación:</span><span className="text-white">{block.minPassGrade}/10</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">Tutoría:</span><span className={block.mandatoryTutoring ? 'text-green-500' : 'text-slate-500'}>{block.mandatoryTutoring ? 'Obligatoria' : 'Opcional'}</span></div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => openEditBlock(block)} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-[9px] font-black text-white uppercase tracking-widest transition-all">Editar</button>
+                    <button onClick={() => deleteBlock(block.id)} className="px-3 py-2 bg-red-900/10 hover:bg-red-500/20 rounded-lg text-[9px] font-black text-red-500 uppercase tracking-widest border border-red-500/20 transition-all">Eliminar</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {/* Topic Modal */}
@@ -469,6 +595,59 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
               {savingTopic ? 'Guardando...' : topicModal.editing ? 'Guardar cambios' : 'Crear tema'}
             </button>
             <button type="button" onClick={() => setTopicModal({ open: false, editing: null })} className={BTN_GHOST}>Cancelar</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Block Modal */}
+      <Modal isOpen={blockModal.open} onClose={() => setBlockModal({ open: false, editing: null })} title={blockModal.editing ? 'Editar Bloque' : 'Nuevo Bloque'}>
+        <form onSubmit={saveBlock} className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Nombre *</label>
+              <input required className={INPUT_CLS} value={blockForm.name} onChange={e => setBlockForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Unidad 1: Fundamentos" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Orden *</label>
+              <input type="number" required className={INPUT_CLS} value={blockForm.order} onChange={e => setBlockForm(f => ({ ...f, order: Number(e.target.value) }))} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Temas a incluir</label>
+            <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 max-h-44 overflow-y-auto space-y-1">
+              {topics.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4 italic">No hay temas creados en este curso</p>
+              ) : topics.sort((a, b) => a.order - b.order).map(t => (
+                <label key={t.id} className="flex items-center gap-3 p-2 bg-slate-800/50 hover:bg-slate-800 rounded-lg cursor-pointer transition-colors">
+                  <input type="checkbox" className="w-4 h-4 accent-red-500"
+                    checked={blockForm.selectedTopicIds.includes(t.id)}
+                    onChange={e => {
+                      const ids = e.target.checked ? [...blockForm.selectedTopicIds, t.id] : blockForm.selectedTopicIds.filter(id => id !== t.id);
+                      setBlockForm(f => ({ ...f, selectedTopicIds: ids }));
+                    }} />
+                  <span className="text-xs font-medium text-white uppercase truncate">{t.order}. {t.title}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Nota Mín. Aprobación</label>
+              <input type="number" step="0.1" className={INPUT_CLS} value={blockForm.minPassGrade} onChange={e => setBlockForm(f => ({ ...f, minPassGrade: Number(e.target.value) }))} />
+            </div>
+            <div className="flex items-center justify-between p-3 bg-slate-900/50 border border-slate-700 rounded-xl mt-auto">
+              <p className="text-xs font-medium text-white">Tutoría Obligatoria</p>
+              <button type="button" onClick={() => setBlockForm(f => ({ ...f, mandatoryTutoring: !f.mandatoryTutoring }))}
+                className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${blockForm.mandatoryTutoring ? 'bg-green-600' : 'bg-slate-600'}`}>
+                <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${blockForm.mandatoryTutoring ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="submit" disabled={savingBlock} className={`flex-1 py-2.5 ${BTN_PRIMARY} disabled:opacity-50`}>
+              {savingBlock ? 'Guardando...' : blockModal.editing ? 'Guardar cambios' : 'Crear bloque'}
+            </button>
+            <button type="button" onClick={() => setBlockModal({ open: false, editing: null })} className={BTN_GHOST}>Cancelar</button>
           </div>
         </form>
       </Modal>

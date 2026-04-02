@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
-import type { Group, CreateGroupPayload, UpdateGroupPayload } from '../types/generation';
+import type { Group, CreateGroupPayload, UpdateGroupPayload } from '../types/group';
 
 interface UseGroupsReturn {
   groups: Group[];

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
+import { useDialog } from '../../../hooks/useDialog';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import type { Student } from '../types';
 
 interface TutorsTabProps {
@@ -16,6 +18,7 @@ interface TutorsTabProps {
 export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPerPage, onPageChange, onToggleStatus, onDelete }: TutorsTabProps) {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const [subTab, setSubTab] = useState<'list' | 'rules'>('list');
+  const { dialog, showAlert, close: closeDialog } = useDialog();
 
   // ── Global message ────────────────────────────────────────────────────────
   const [globalMessage, setGlobalMessage] = useState('');
@@ -44,7 +47,7 @@ export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPer
       setMsgSaved(true);
       setMsgEditing(false);
       setTimeout(() => setMsgSaved(false), 2500);
-    } catch (e: any) { alert(e.response?.data?.message || 'Error al guardar'); }
+    } catch (e: any) { showAlert(e.response?.data?.message || 'Error al guardar'); }
     finally { setMsgSaving(false); }
   };
 
@@ -229,6 +232,16 @@ export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPer
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={dialog.isOpen}
+        title={dialog.title}
+        message={dialog.message}
+        confirmLabel={dialog.confirmLabel}
+        danger={dialog.danger}
+        onConfirm={dialog.onConfirm}
+        onCancel={closeDialog}
+      />
     </div>
   );
 }

@@ -16,9 +16,8 @@ export function useAdminModals(_activeTab: Tab) {
     password: '',
     role: 'student',
     status: 'active',
-    generationId: '',
-    generation: '',
     groupId: '',
+    courseId: '',
     selectedCourses: [],
     courseParallelMap: {},
   });
@@ -46,9 +45,8 @@ export function useAdminModals(_activeTab: Tab) {
         password: '',
         role: data.role,
         status: data.status,
-        generationId: data.generationId || '',
-        generation: data.generation || '',
         groupId: data.groupId || '',
+        courseId: '',
         selectedCourses: data.assignedCourses || [],
         courseParallelMap: data.courseParallelMap || {},
       });
@@ -57,7 +55,7 @@ export function useAdminModals(_activeTab: Tab) {
       setFormData({
         firstName: '', lastName: '', email: '', password: '',
         role: 'student', status: 'active',
-        generationId: '', generation: '', groupId: '',
+        groupId: '', courseId: '',
         selectedCourses: [], courseParallelMap: {},
       });
     } else if (type === 'addTutor') {
@@ -65,7 +63,7 @@ export function useAdminModals(_activeTab: Tab) {
       setFormData({
         firstName: '', lastName: '', email: '', password: '',
         role: 'tutor', status: 'active',
-        generationId: '', generation: '', groupId: '',
+        groupId: '', courseId: '',
         selectedCourses: [], courseParallelMap: {},
       });
     } else if (type === 'addAdmin') {
@@ -73,7 +71,7 @@ export function useAdminModals(_activeTab: Tab) {
       setFormData({
         firstName: '', lastName: '', email: '', password: '',
         role: 'admin', status: 'active',
-        generationId: '', generation: '', groupId: '',
+        groupId: '', courseId: '',
         selectedCourses: [], courseParallelMap: {},
       });
     } else if (type === 'assignCourse' && data) {

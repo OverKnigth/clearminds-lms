@@ -218,6 +218,7 @@ export function ProgressTab() {
                       <thead>
                         <tr className="bg-slate-800/70">
                           <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Estudiante</th>
+                          <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Curso</th>
                           <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Progreso</th>
                           <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Bloques</th>
                           <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Tutorías</th>
@@ -231,6 +232,9 @@ export function ProgressTab() {
                             <td className="px-6 py-4">
                               <div className="font-bold text-white group-hover:text-red-400 transition-colors">{row.studentName}</div>
                               <div className="text-[9px] text-slate-500 uppercase font-black tracking-tighter mt-1">{row.studentId.substring(0,8)}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-xs text-slate-300 font-medium">{row.courseName || '-'}</div>
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex flex-col items-center gap-2">

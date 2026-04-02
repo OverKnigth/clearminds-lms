@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Group, UpdateGroupPayload } from '../../../types/generation';
+import type { Group, UpdateGroupPayload } from '../../../types/group';
 import Modal from '../../../components/Modal';
 
 interface GroupCardProps {
@@ -131,7 +131,7 @@ export function GroupCard({ group, onClick, onUpdate, onDelete }: GroupCardProps
               required
               className={INPUT_CLS}
               value={form.name ?? ''}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              onChange={(e) => setForm((f: UpdateGroupPayload) => ({ ...f, name: e.target.value }))}
               placeholder="Ej: Grupo 2026-A"
             />
           </div>
@@ -145,7 +145,7 @@ export function GroupCard({ group, onClick, onUpdate, onDelete }: GroupCardProps
               rows={2}
               className={INPUT_CLS + ' resize-none'}
               value={form.description ?? ''}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              onChange={(e) => setForm((f: UpdateGroupPayload) => ({ ...f, description: e.target.value }))}
               placeholder="Descripción opcional del grupo"
             />
           </div>
@@ -159,7 +159,7 @@ export function GroupCard({ group, onClick, onUpdate, onDelete }: GroupCardProps
               className={INPUT_CLS}
               value={form.status}
               onChange={(e) =>
-                setForm((f) => ({ ...f, status: e.target.value as 'active' | 'inactive' }))
+                setForm((f: UpdateGroupPayload) => ({ ...f, status: e.target.value as 'active' | 'inactive' }))
               }
             >
               <option value="active">Activa</option>

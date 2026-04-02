@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParallelDetail } from '../../../hooks/useParallelDetail';
 import { api } from '../../../services/api';
-import type { Parallel } from '../../../types/generation';
+import type { Parallel } from '../../../types/group';
 
 interface ParallelDetailViewProps {
   parallel: Parallel;

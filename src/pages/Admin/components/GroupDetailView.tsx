@@ -68,7 +68,7 @@ export function GroupDetailView({
 
   // ── Enrollment Modal ───────────────────────────────────────────────────────
   const [isEnrollOpen, setIsEnrollOpen] = useState(false);
-  const [enrollingCourse, setEnrollingCourse] = useState<CourseData | null>(null);
+  const [_enrollingCourse, setEnrollingCourse] = useState<CourseData | null>(null);
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [enrollSearch, setEnrollSearch] = useState('');
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -235,12 +235,6 @@ export function GroupDetailView({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
                         Matricular estudiantes
-                      </button>
-                      <button
-                        onClick={() => onManageBlocks(course)}
-                        className="w-full px-4 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors border border-red-600/20"
-                      >
-                        Gestionar bloques
                       </button>
                     </div>
                   </div>

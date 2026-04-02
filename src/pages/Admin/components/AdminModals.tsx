@@ -39,7 +39,7 @@ export function AdminModals({
   contentFormData, setContentFormData,
   selectedStudent, selectedCourse,
   handleSubmitStudent, handleAssignCourses, handleSubmitContent, handleSubmitCourse,
-  toggleCourseSelection, openContentModal, courses, groups,
+  toggleCourseSelection, openContentModal, courses,
   submitting = false
 }: AdminModalsProps) {
   // ── Cascading group → course → parallel selection ──────────────────────
