@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
 import Modal from '../../../components/Modal';
+import { useDialog } from '../../../hooks/useDialog';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 
 interface TutoringSession {
   id: string;
@@ -28,6 +30,7 @@ export function TutoringSessionsTab() {
   const [sessions, setSessions] = useState<TutoringSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const { dialog, showAlert, close: closeDialog } = useDialog();
 
   // Modals state
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; session: TutoringSession | null }>({ open: false, session: null });
@@ -67,7 +70,7 @@ export function TutoringSessionsTab() {
         loadSessions();
       }
     } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
+      showAlert(e.response?.data?.message || e.message);
     } finally {
       setIsSaving(false);
     }
@@ -84,7 +87,7 @@ export function TutoringSessionsTab() {
         loadSessions();
       }
     } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
+      showAlert(e.response?.data?.message || e.message);
     } finally {
       setIsSaving(false);
     }
@@ -101,7 +104,7 @@ export function TutoringSessionsTab() {
         loadSessions();
       }
     } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
+      showAlert(e.response?.data?.message || e.message);
     } finally {
       setIsSaving(false);
     }
@@ -355,6 +358,14 @@ export function TutoringSessionsTab() {
           </button>
         </form>
       </Modal>
+      <ConfirmDialog
+        isOpen={dialog.isOpen}
+        title={dialog.title}
+        message={dialog.message}
+        confirmLabel={dialog.confirmLabel}
+        onConfirm={dialog.onConfirm}
+        onCancel={closeDialog}
+      />
     </div>
   );
 }

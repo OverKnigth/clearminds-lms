@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { TutoringSession } from '../types';
 import { api } from '../../../services/api';
+import { useDialog } from '../../../hooks/useDialog';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   requested:   { label: 'Pendiente',   color: 'yellow' },
@@ -112,6 +114,7 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
   const [scheduledAt, setScheduledAt] = useState('');
   const [meetingLink, setMeetingLink] = useState('');
   const [saving, setSaving] = useState(false);
+  const { dialog, showAlert, close: closeDialog } = useDialog();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,7 +122,7 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
     try {
       const res = await api.confirmTutoringSession(session.id, { scheduledAt, meetingLink: meetingLink || undefined });
       onSuccess(res.data);
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
   };
 
@@ -136,6 +139,7 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
         </div>
         <ModalActions saving={saving} label="Confirmar" onClose={onClose} />
       </form>
+      <ConfirmDialog isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} confirmLabel={dialog.confirmLabel} onConfirm={dialog.onConfirm} onCancel={closeDialog} />
     </ModalWrapper>
   );
 }
@@ -145,6 +149,7 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
   const [scheduledAt, setScheduledAt] = useState('');
   const [meetingLink, setMeetingLink] = useState(session.meetingLink || '');
   const [saving, setSaving] = useState(false);
+  const { dialog, showAlert, close: closeDialog } = useDialog();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +157,7 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
     try {
       const res = await api.rescheduleTutoringSession(session.id, { scheduledAt, meetingLink: meetingLink || undefined });
       onSuccess(res.data);
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
   };
 
@@ -169,6 +174,7 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
         </div>
         <ModalActions saving={saving} label="Reagendar" onClose={onClose} />
       </form>
+      <ConfirmDialog isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} confirmLabel={dialog.confirmLabel} onConfirm={dialog.onConfirm} onCancel={closeDialog} />
     </ModalWrapper>
   );
 }
@@ -177,6 +183,7 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
 function CancelModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void }) {
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const { dialog, showAlert, close: closeDialog } = useDialog();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,7 +191,7 @@ function CancelModal({ session, onClose, onSuccess }: { session: TutoringSession
     try {
       const res = await api.cancelTutoringSession(session.id, { reason });
       onSuccess(res.data);
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
   };
 
@@ -197,6 +204,7 @@ function CancelModal({ session, onClose, onSuccess }: { session: TutoringSession
         </div>
         <ModalActions saving={saving} label="Cancelar tutoría" onClose={onClose} danger />
       </form>
+      <ConfirmDialog isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} confirmLabel={dialog.confirmLabel} onConfirm={dialog.onConfirm} onCancel={closeDialog} />
     </ModalWrapper>
   );
 }
@@ -207,6 +215,7 @@ function ExecuteModal({ session, onClose, onSuccess }: { session: TutoringSessio
   const [observations, setObservations] = useState('');
   const [recordingLink, setRecordingLink] = useState('');
   const [saving, setSaving] = useState(false);
+  const { dialog, showAlert, close: closeDialog } = useDialog();
   const approved = grade >= session.block.minPassGrade;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -215,7 +224,7 @@ function ExecuteModal({ session, onClose, onSuccess }: { session: TutoringSessio
     try {
       const res = await api.executeTutoringSession(session.id, { grade, observations: observations || undefined, recordingLink: recordingLink || undefined });
       onSuccess(res.data);
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
   };
 
@@ -244,6 +253,7 @@ function ExecuteModal({ session, onClose, onSuccess }: { session: TutoringSessio
         </div>
         <ModalActions saving={saving} label="Guardar resultados" onClose={onClose} />
       </form>
+      <ConfirmDialog isOpen={dialog.isOpen} title={dialog.title} message={dialog.message} confirmLabel={dialog.confirmLabel} onConfirm={dialog.onConfirm} onCancel={closeDialog} />
     </ModalWrapper>
   );
 }

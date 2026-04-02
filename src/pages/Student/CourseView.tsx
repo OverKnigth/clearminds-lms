@@ -5,6 +5,8 @@ const ReactPlayer = ReactPlayerImport as any;
 import { api } from '../../services/api';
 import Footer from '../../components/Footer';
 import { StudentBadges } from './components';
+import { useDialog } from '../../hooks/useDialog';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 
 interface Content {
   id: string;
@@ -96,6 +98,7 @@ export default function CourseView() {
   const [requestingTutoring, setRequestingTutoring] = useState(false);
   const [newBadge, setNewBadge] = useState<any | null>(null);
   const seenBadgeIds = useRef<Set<string> | null>(null);
+  const { dialog, showAlert, close: closeDialog } = useDialog();
 
   useEffect(() => {
     if (courseSlug) {
@@ -280,7 +283,7 @@ export default function CourseView() {
     try {
       await api.submitChallenge(selectedContent.id, { gitUrl, comment });
       navigate('/meetings', { state: { preselectedBlockId: selectedTopic?.blockId } });
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSubmittingChallenge(false); }
   };
 
@@ -299,7 +302,7 @@ export default function CourseView() {
         seenBadgeIds.current = badgesBefore;
         await reloadCourse(courseSlug);
       }
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setRatingSubmitting(false); }
   };
 
@@ -312,7 +315,7 @@ export default function CourseView() {
       setTutoringObservation('');
       loadTutoring();
     } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
+      showAlert(e.response?.data?.message || e.message);
     } finally {
       setRequestingTutoring(false);
     }
@@ -1029,6 +1032,14 @@ export default function CourseView() {
         </div>
       </div>
     )}
+    <ConfirmDialog
+      isOpen={dialog.isOpen}
+      title={dialog.title}
+      message={dialog.message}
+      confirmLabel={dialog.confirmLabel}
+      onConfirm={dialog.onConfirm}
+      onCancel={closeDialog}
+    />
     </>
   );
 }

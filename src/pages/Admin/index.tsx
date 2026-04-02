@@ -426,10 +426,6 @@ export default function Admin() {
                   <GroupDetailView
                     group={selectedGroup}
                     onBack={() => setCoursesView('list')}
-                    onManageBlocks={(course) => {
-                      setSelectedCourseForBlocks(course);
-                      setCoursesView('blockManagement');
-                    }}
                   />
                 )}
                 {coursesView === 'blockManagement' && selectedCourseForBlocks && (

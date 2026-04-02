@@ -52,6 +52,7 @@ export function CourseManagementView({ course, onBack }: CourseManagementViewPro
     message: string;
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [blockError, setBlockError] = useState<string | null>(null);
 
   useEffect(() => { loadBlocks(); }, [course.id]);
 
@@ -114,8 +115,7 @@ export function CourseManagementView({ course, onBack }: CourseManagementViewPro
       await loadBlocks();
     } catch (e: any) {
       setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} });
-      // show inline — re-open modal with error is complex, use a simple toast-style approach
-      alert(e.response?.data?.message || e.message);
+      setBlockError(e.response?.data?.message || e.message || 'Error al guardar bloque');
     } finally { setSavingBlock(false); }
   };
 
@@ -130,7 +130,7 @@ export function CourseManagementView({ course, onBack }: CourseManagementViewPro
           for (const t of topics.filter(t => t.blockId === id)) await api.unlinkTopicFromBlock(t.id);
           await api.deleteBlock(id);
           await loadBlocks();
-        } catch (e: any) { alert(e.response?.data?.message || e.message); }
+        } catch (e: any) { setBlockError(e.response?.data?.message || e.message || 'Error al eliminar bloque'); }
       },
     });
   };
@@ -230,7 +230,13 @@ export function CourseManagementView({ course, onBack }: CourseManagementViewPro
 
 
       {/* ── BLOCK MODAL ── */}
-      <Modal isOpen={isBlockModalOpen} onClose={() => setIsBlockModalOpen(false)} title={editingBlock ? 'Editar Bloque' : 'Nuevo Bloque'}>
+      {blockError && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+          <p className="text-xs text-red-400 font-bold">{blockError}</p>
+          <button onClick={() => setBlockError(null)} className="text-[9px] text-red-500 font-black uppercase tracking-widest mt-1 hover:underline">Cerrar</button>
+        </div>
+      )}
+      <Modal isOpen={isBlockModalOpen} onClose={() => { setIsBlockModalOpen(false); setBlockError(null); }} title={editingBlock ? 'Editar Bloque' : 'Nuevo Bloque'}>
         <form onSubmit={handleBlockSubmit} className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2">

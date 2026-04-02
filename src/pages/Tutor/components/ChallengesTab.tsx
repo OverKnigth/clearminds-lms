@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { ChallengeSubmission } from '../types';
 import { api } from '../../../services/api';
+import { useDialog } from '../../../hooks/useDialog';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 
 interface ChallengesTabProps {
   challenges: ChallengeSubmission[];
@@ -148,6 +150,7 @@ function ReviewModal({ submission, onClose, onSuccess }: {
   const [grade, setGrade] = useState<number>(submission.grade ?? 7);
   const [observations, setObservations] = useState(submission.observations ?? '');
   const [saving, setSaving] = useState(false);
+  const { dialog, showAlert, close: closeDialog } = useDialog();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,7 +158,9 @@ function ReviewModal({ submission, onClose, onSuccess }: {
     try {
       await api.reviewSubmission(submission.id, { grade, observations: observations || undefined });
       onSuccess();
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    } catch (e: any) {
+      showAlert(e.response?.data?.message || e.message);
+    }
     finally { setSaving(false); }
   };
 
@@ -213,6 +218,14 @@ function ReviewModal({ submission, onClose, onSuccess }: {
           </div>
         </form>
       </div>
+      <ConfirmDialog
+        isOpen={dialog.isOpen}
+        title={dialog.title}
+        message={dialog.message}
+        confirmLabel={dialog.confirmLabel}
+        onConfirm={dialog.onConfirm}
+        onCancel={closeDialog}
+      />
     </div>
   );
 }

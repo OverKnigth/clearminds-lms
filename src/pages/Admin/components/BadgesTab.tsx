@@ -125,12 +125,9 @@ export function BadgesTab() {
   };
 
   const handleDelete = async (id: string) => {
-    showConfirm({
-      title: 'Eliminar Insignia',
-      message: '¿Estás seguro de eliminar esta insignia? Esta acción no se puede deshacer.',
-      confirmLabel: 'Eliminar',
-      danger: true,
-      onConfirm: async () => {
+    showConfirm(
+      '¿Estás seguro de eliminar esta insignia? Esta acción no se puede deshacer.',
+      async () => {
         try {
           const res = await api.deleteBadge(id);
           if (res.success) {
@@ -140,8 +137,9 @@ export function BadgesTab() {
         } catch (e: any) {
           showAlert(e.message);
         }
-      }
-    });
+      },
+      { title: 'Eliminar Insignia', confirmLabel: 'Eliminar', danger: true }
+    );
   };
 
   return (

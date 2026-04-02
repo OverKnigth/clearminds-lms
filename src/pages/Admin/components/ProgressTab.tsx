@@ -231,7 +231,6 @@ export function ProgressTab() {
                           <tr key={i} className="hover:bg-slate-800/30 transition-colors group">
                             <td className="px-6 py-4">
                               <div className="font-bold text-white group-hover:text-red-400 transition-colors">{row.studentName}</div>
-                              <div className="text-[9px] text-slate-500 uppercase font-black tracking-tighter mt-1">{row.studentId.substring(0,8)}</div>
                             </td>
                             <td className="px-6 py-4">
                               <div className="text-xs text-slate-300 font-medium">{row.courseName || '-'}</div>
@@ -246,11 +245,12 @@ export function ProgressTab() {
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex flex-wrap justify-center gap-1">
-                                {row.blocks.map((b: any, bi: number) => (
-                                  <span key={bi} className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter ${b.approved ? 'bg-green-500/10 text-green-400 border border-green-500/30' : 'bg-slate-700/30 text-slate-500 border border-slate-700/30'}`}>
-                                    {b.name}
+                                {row.blocks && row.blocks.length > 0 ? row.blocks.map((b: any, bi: number) => (
+                                  <span key={bi} className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-tighter flex flex-col items-center gap-0.5 ${b.approved ? 'bg-green-500/10 text-green-400 border border-green-500/30' : 'bg-slate-700/30 text-slate-500 border border-slate-700/30'}`}>
+                                    <span>{b.name}</span>
+                                    <span className={`text-[7px] ${b.approved ? 'text-green-500' : 'text-slate-600'}`}>{b.approved ? 'Aprobado' : 'Pendiente'}</span>
                                   </span>
-                                ))}
+                                )) : <span className="text-slate-600 text-xs">-</span>}
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">

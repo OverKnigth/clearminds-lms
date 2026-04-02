@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
 import type { CourseData } from '../types';
 import Modal from '../../../components/Modal';
+import { useDialog } from '../../../hooks/useDialog';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
 
 interface Topic {
   id: string;
@@ -65,6 +67,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
   const [blockModal, setBlockModal] = useState<{ open: boolean; editing: any | null }>({ open: false, editing: null });
   const [blockForm, setBlockForm] = useState({ name: '', order: 1, minPassGrade: 7, mandatoryTutoring: true, selectedTopicIds: [] as string[] });
   const [savingBlock, setSavingBlock] = useState(false);
+  const { dialog, showAlert, showConfirm, close: closeDialog } = useDialog();
 
   // Content modal
   const [contentModal, setContentModal] = useState<{ open: boolean; topicId: string; editing: Content | null }>({ open: false, topicId: '', editing: null });
@@ -164,17 +167,18 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       setBlockModal({ open: false, editing: null });
       await Promise.all([loadBlocks(), loadTopics()]);
     } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
+      showAlert(e.response?.data?.message || e.message);
     } finally { setSavingBlock(false); }
   };
 
   const deleteBlock = async (id: string) => {
-    if (!confirm('¿Eliminar este bloque y desvincular sus temas?')) return;
-    try {
-      for (const t of topics.filter(t => t.blockId === id)) await api.unlinkTopicFromBlock(t.id);
-      await api.deleteBlock(id);
-      await Promise.all([loadBlocks(), loadTopics()]);
-    } catch (e: any) { alert(e.response?.data?.message || e.message); }
+    showConfirm('¿Eliminar este bloque y desvincular sus temas?', async () => {
+      try {
+        for (const t of topics.filter(t => t.blockId === id)) await api.unlinkTopicFromBlock(t.id);
+        await api.deleteBlock(id);
+        await Promise.all([loadBlocks(), loadTopics()]);
+      } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
+    }, { title: 'Eliminar bloque', confirmLabel: 'Eliminar', danger: true });
   };
 
   // ── Topic handlers ──────────────────────────────────────────────────────────
@@ -207,20 +211,21 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       setTopicModal({ open: false, editing: null });
       await loadTopics();
     } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
+      showAlert(e.response?.data?.message || e.message);
     } finally {
       setSavingTopic(false);
     }
   };
 
   const deleteTopic = async (t: Topic) => {
-    if (!confirm(`¿Eliminar el tema "${t.title}"? Se eliminarán todos sus contenidos.`)) return;
-    try {
-      await api.deleteTopic(t.id);
-      await loadTopics();
-    } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
-    }
+    showConfirm(`¿Eliminar el tema "${t.title}"? Se eliminarán todos sus contenidos.`, async () => {
+      try {
+        await api.deleteTopic(t.id);
+        await loadTopics();
+      } catch (e: any) {
+        showAlert(e.response?.data?.message || e.message);
+      }
+    }, { title: 'Eliminar tema', confirmLabel: 'Eliminar', danger: true });
   };
 
   // ── Video metadata detection ────────────────────────────────────────────────
@@ -344,20 +349,21 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       await loadTopics();
     } catch (e: any) {
       console.error('[saveContent] error:', e.response?.data || e.message);
-      alert(e.response?.data?.message || e.message);
+      showAlert(e.response?.data?.message || e.message);
     } finally {
       setSavingContent(false);
     }
   };
 
   const deleteContent = async (c: Content) => {
-    if (!confirm(`¿Eliminar "${c.title}"?`)) return;
-    try {
-      await api.deleteContent(c.id);
-      await loadTopics();
-    } catch (e: any) {
-      alert(e.response?.data?.message || e.message);
-    }
+    showConfirm(`¿Eliminar "${c.title}"?`, async () => {
+      try {
+        await api.deleteContent(c.id);
+        await loadTopics();
+      } catch (e: any) {
+        showAlert(e.response?.data?.message || e.message);
+      }
+    }, { title: 'Eliminar contenido', confirmLabel: 'Eliminar', danger: true });
   };
 
   const toggleTopic = (id: string) => {
@@ -779,6 +785,15 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
           </div>
         </form>
       </Modal>
+      <ConfirmDialog
+        isOpen={dialog.isOpen}
+        title={dialog.title}
+        message={dialog.message}
+        confirmLabel={dialog.confirmLabel}
+        danger={dialog.danger}
+        onConfirm={dialog.onConfirm}
+        onCancel={closeDialog}
+      />
     </div>
   );
 }

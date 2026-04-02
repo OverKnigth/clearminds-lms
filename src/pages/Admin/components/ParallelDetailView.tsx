@@ -5,7 +5,7 @@ import type { Parallel } from '../../../types/group';
 
 interface ParallelDetailViewProps {
   parallel: Parallel;
-  generationId: string;
+  groupId: string;
   onBack: () => void;
 }
 

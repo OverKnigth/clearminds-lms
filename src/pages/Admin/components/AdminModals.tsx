@@ -49,6 +49,7 @@ export function AdminModals({
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const formDataRef = React.useRef(formData);
   formDataRef.current = formData;
 
@@ -287,13 +288,14 @@ export function AdminModals({
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          setUploadError(null);
                           try {
                             const res = await api.uploadCourseImage(file, formData.courseName);
                             if (res.success) {
                               setFormData({ ...formData, courseImageUrl: res.data.imageUrl });
                             }
                           } catch (err: any) {
-                            alert('Error al subir imagen: ' + err.message);
+                            setUploadError('Error al subir imagen: ' + err.message);
                           }
                         }
                       }}
@@ -313,6 +315,11 @@ export function AdminModals({
                 </select>
               </div>
             </div>
+            {uploadError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <p className="text-xs text-red-400 font-bold">{uploadError}</p>
+              </div>
+            )}
             <TutorSelector
               selectedIds={formData.courseTutorIds || []}
               onChange={(ids) => setFormData({ ...formData, courseTutorIds: ids })}
@@ -573,13 +580,14 @@ export function AdminModals({
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (file) {
+                        setUploadError(null);
                         try {
                           const res = await api.uploadCourseImage(file, formData.courseName);
                           if (res.success) {
                             setFormData({ ...formData, courseImageUrl: res.data.imageUrl });
                           }
                         } catch (err: any) {
-                          alert('Error al subir imagen: ' + err.message);
+                          setUploadError('Error al subir imagen: ' + err.message);
                         }
                       }
                     }}
