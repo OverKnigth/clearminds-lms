@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../../../components/Modal';
 import { api } from '../../../services/api';
 import type { Student, CourseData, FormData, ContentFormData } from '../types';
-import type { Generation, GenerationDetail } from '../../../types/generation';
+import type { Group, GroupDetail } from '../../../types/group';
 
 interface AdminModalsProps {
   isModalOpen: boolean;
@@ -42,56 +42,48 @@ export function AdminModals({
   toggleCourseSelection, openContentModal, courses, groups,
   submitting = false
 }: AdminModalsProps) {
-  // ── Cascading generation → course → parallel selection ──────────────────────
-  const [generations, setGenerations] = useState<Generation[]>([]);
-  const [generationDetail, setGenerationDetail] = useState<GenerationDetail | null>(null);
-  const [selectedGenerationId, setSelectedGenerationId] = useState('');
+  // ── Cascading group → course → parallel selection ──────────────────────
+  const [groupsList, setGroupsList] = useState<Group[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [groupDetail, setGroupDetail] = useState<GroupDetail | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState('');
-  const [loadingGenerations, setLoadingGenerations] = useState(false);
+  const [loadingGroups, setLoadingGroups] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const formDataRef = React.useRef(formData);
   formDataRef.current = formData;
 
-  // Load generations when modal opens for addStudent
+  // Load groups when modal opens for addStudent
   useEffect(() => {
     if (isModalOpen && (modalType === 'addStudent' || modalType === 'addTutor' || modalType === 'addAdmin' || modalType === 'editStudent')) {
-      setLoadingGenerations(true);
-      api.getGenerations()
-        .then(setGenerations)
-        .catch(() => setGenerations([]))
-        .finally(() => setLoadingGenerations(false));
+      setLoadingGroups(true);
+      api.getGroups()
+        .then(setGroupsList)
+        .catch(() => setGroupsList([]))
+        .finally(() => setLoadingGroups(false));
     }
     if (!isModalOpen) {
-      setSelectedGenerationId('');
+      setSelectedGroupId('');
       setSelectedCourseId('');
-      setGenerationDetail(null);
+      setGroupDetail(null);
     }
   }, [isModalOpen, modalType]);
 
-  // Load generation detail when a generation is selected
+  // Load group detail when a group is selected
   useEffect(() => {
-    if (!selectedGenerationId) {
-      setGenerationDetail(null);
+    if (!selectedGroupId) {
+      setGroupDetail(null);
       setSelectedCourseId('');
-      setFormData({ ...formDataRef.current, generationId: '', generation: '', groupId: '' });
+      setFormData({ ...formDataRef.current, groupId: '' });
       return;
     }
     setLoadingDetail(true);
     setSelectedCourseId('');
-    setFormData({ ...formDataRef.current, generationId: selectedGenerationId, generation: '', groupId: '' });
-    api.getGenerationDetail(selectedGenerationId)
-      .then(setGenerationDetail)
-      .catch(() => setGenerationDetail(null))
+    setFormData({ ...formDataRef.current, groupId: selectedGroupId });
+    api.getGroupDetail(selectedGroupId)
+      .then(setGroupDetail)
+      .catch(() => setGroupDetail(null))
       .finally(() => setLoadingDetail(false));
-  }, [selectedGenerationId]);
-
-  // Filter parallels that have an offering for the selected course
-  const availableParallels = generationDetail
-    ? generationDetail.parallels.filter(() =>
-        !selectedCourseId ||
-        generationDetail.courses.some(c => c.course.id === selectedCourseId)
-      )
-    : [];
+  }, [selectedGroupId]);
 
   return (
     <>
@@ -143,35 +135,32 @@ export function AdminModals({
             {formData.role === 'student' && modalType === 'addStudent' && (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-2">Generación (Opcional)</label>
-                  <select value={selectedGenerationId} onChange={(e) => setSelectedGenerationId(e.target.value)}
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-2">Grupo</label>
+                  <select value={selectedGroupId} onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedGroupId(val);
+                      setFormData({ ...formData, groupId: val });
+                    }}
                     className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 font-bold uppercase tracking-tighter text-xs"
-                    disabled={loadingGenerations}>
-                    <option value="">-- No Asignar Generación --</option>
-                    {generations.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    disabled={loadingGroups}>
+                    <option value="">-- No Asignar Grupo --</option>
+                    {groupsList.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
                 </div>
-                {selectedGenerationId && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-2">Curso (Opcional)</label>
-                      <select value={selectedCourseId}
-                        onChange={(e) => { setSelectedCourseId(e.target.value); setFormData({ ...formData, generationId: selectedGenerationId, generation: e.target.value, groupId: '' }); }}
-                        className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 font-bold uppercase tracking-tighter text-xs"
-                        disabled={loadingDetail}>
-                        <option value="">-- Sin curso --</option>
-                        {generationDetail?.courses.map((c: any) => <option key={c.course.id} value={c.course.id}>{c.course.name}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-2">Paralelo (Opcional)</label>
-                      <select value={formData.groupId} onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 font-bold uppercase tracking-tighter text-xs"
-                        disabled={loadingDetail || availableParallels.length === 0}>
-                        <option value="">-- Sin paralelo --</option>
-                        {availableParallels.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                    </div>
+                {selectedGroupId && (
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-300 mb-2">Curso (Opcional)</label>
+                    <select value={selectedCourseId}
+                      onChange={(e) => { 
+                        const val = e.target.value;
+                        setSelectedCourseId(val); 
+                        setFormData({ ...formData, courseId: val }); 
+                      }}
+                      className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 font-bold uppercase tracking-tighter text-xs"
+                      disabled={loadingDetail}>
+                      <option value="">-- Todos los cursos del grupo --</option>
+                      {groupDetail?.courses.map((c: any) => <option key={c.course.id} value={c.course.id}>{c.course.name}</option>)}
+                    </select>
                   </div>
                 )}
               </div>
@@ -180,7 +169,7 @@ export function AdminModals({
             <div className="flex gap-3 pt-4">
               <button type="submit" disabled={submitting}
                 className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all disabled:opacity-70 flex items-center justify-center gap-2">
-                {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
+                {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>}
                 {submitting ? 'Guardando...' : 'Crear Usuario'}
               </button>
               <button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting}
@@ -232,9 +221,8 @@ export function AdminModals({
                           <p className="text-[10px] text-slate-500 truncate mt-0.5">{course.description}</p>
                         )}
                       </div>
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded flex-shrink-0 ${
-                        course.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-slate-600/30 text-slate-500'
-                      }`}>
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded flex-shrink-0 ${course.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-slate-600/30 text-slate-500'
+                        }`}>
                         {course.status === 'active' ? 'Activo' : 'Inactivo'}
                       </span>
                     </label>
@@ -364,7 +352,7 @@ export function AdminModals({
               <button type="submit" disabled={submitting}
                 className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black uppercase tracking-widest rounded-lg transition-all disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
+                {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>}
                 {submitting ? 'Guardando...' : 'Guardar Cambios'}
               </button>
               <button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting}
@@ -638,7 +626,7 @@ export function AdminModals({
               <button type="submit" disabled={submitting}
                 className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black uppercase tracking-widest rounded-lg transition-all shadow-lg disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
+                {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>}
                 {submitting ? 'Guardando...' : 'Crear Curso'}
               </button>
               <button type="button" onClick={() => setIsModalOpen(false)} disabled={submitting}
@@ -852,7 +840,7 @@ export function AdminModals({
   );
 }
 
-// ── EditStudentForm — uses Generation → Course → Parallel flow ───────────────
+// ── EditStudentForm — uses Group → Course → Parallel flow ───────────────
 function EditStudentForm({
   formData,
   setFormData,
@@ -868,45 +856,44 @@ function EditStudentForm({
   userRole?: string;
   submitting?: boolean;
 }) {
-  const [generations, setGenerations] = useState<Generation[]>([]);
-  const [generationDetail, setGenerationDetail] = useState<any | null>(null);
-  const [selectedGenerationId, setSelectedGenerationId] = useState('');
+  const [groupsList, setGroupsList] = useState<Group[]>([]);
+  const [groupDetail, setGroupDetail] = useState<any | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState('');
   const [selectedCourseId, setSelectedCourseId] = useState('');
-  const [loadingGenerations, setLoadingGenerations] = useState(false);
+  const [loadingGroups, setLoadingGroups] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  // Track if user has actively changed the generation (to avoid clearing on mount)
-  const [generationChanged, setGenerationChanged] = useState(false);
+  // Track if user has actively changed the group (to avoid clearing on mount)
+  const [groupChanged, setGroupChanged] = useState(false);
   const formDataRef = React.useRef(formData);
   formDataRef.current = formData;
 
-  // Load generations on mount
+  // Load groups on mount
   useEffect(() => {
-    setLoadingGenerations(true);
-    api.getGenerations()
-      .then(setGenerations)
-      .catch(() => {})
-      .finally(() => setLoadingGenerations(false));
+    setLoadingGroups(true);
+    api.getGroups()
+      .then(setGroupsList)
+      .catch(() => { })
+      .finally(() => setLoadingGroups(false));
   }, []);
 
-  // Load generation detail when user actively selects a generation
+  // Load group detail when user actively selects a group
   useEffect(() => {
-    if (!generationChanged) return;
-    if (!selectedGenerationId) {
-      setGenerationDetail(null);
+    if (!groupChanged) return;
+    if (!selectedGroupId) {
+      setGroupDetail(null);
       setSelectedCourseId('');
-      setFormData({ ...formDataRef.current, generationId: '', generation: '', groupId: '' });
+      setFormData({ ...formDataRef.current, groupId: '' });
       return;
     }
     setLoadingDetail(true);
     setSelectedCourseId('');
-    setFormData({ ...formDataRef.current, generationId: selectedGenerationId, generation: '', groupId: '' });
-    api.getGenerationDetail(selectedGenerationId)
-      .then(setGenerationDetail)
-      .catch(() => setGenerationDetail(null))
+    setFormData({ ...formDataRef.current, groupId: selectedGroupId });
+    api.getGroupDetail(selectedGroupId)
+      .then(setGroupDetail)
+      .catch(() => setGroupDetail(null))
       .finally(() => setLoadingDetail(false));
-  }, [selectedGenerationId, generationChanged]);
+  }, [selectedGroupId, groupChanged]);
 
-  const availableParallels = generationDetail ? generationDetail.parallels : [];
 
   const INPUT = 'w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500';
   const LABEL = 'block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5';
@@ -940,69 +927,55 @@ function EditStudentForm({
         </select>
       </div>
 
-      {/* Generation selector — only for students */}
+      {/* Group selector — only for students */}
       {userRole === 'student' && (
         <div>
-          <label className={LABEL}>Cambiar Generación (Opcional)</label>
+          <label className={LABEL}>Cambiar Grupo</label>
           <select
             className={INPUT + ' font-bold uppercase tracking-tighter text-xs'}
-            value={selectedGenerationId}
-            onChange={(e) => { setGenerationChanged(true); setSelectedGenerationId(e.target.value); }}
-            disabled={loadingGenerations}
+            value={selectedGroupId}
+            onChange={(e) => {
+              const val = e.target.value;
+              setGroupChanged(true);
+              setSelectedGroupId(val);
+              setFormData({ ...formData, groupId: val });
+            }}
+            disabled={loadingGroups}
           >
-            <option value="">{loadingGenerations ? 'Cargando...' : '-- Mantener asignación actual --'}</option>
-            {generations.map((g) => (
+            <option value="">{loadingGroups ? 'Cargando...' : '-- Mantener asignación actual --'}</option>
+            {groupsList.map((g) => (
               <option key={g.id} value={g.id}>{g.name}</option>
             ))}
           </select>
         </div>
       )}
 
-      {/* Course + Parallel selectors — only shown when user actively picks a generation */}
-      {userRole === 'student' && selectedGenerationId && generationChanged && (
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={LABEL}>Curso</label>
-            <select
-              className={INPUT + ' font-bold uppercase tracking-tighter text-xs'}
-              value={selectedCourseId}
-              onChange={(e) => {
-                setSelectedCourseId(e.target.value);
-                setFormData({ ...formDataRef.current, generationId: selectedGenerationId, generation: e.target.value, groupId: '' });
-              }}
-              disabled={loadingDetail}
-            >
-              <option value="">-- Sin curso --</option>
-              {generationDetail?.courses.map((c: any) => (
-                <option key={c.course.id} value={c.course.id}>{c.course.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={LABEL}>Paralelo</label>
-            <select
-              className={INPUT + ' font-bold uppercase tracking-tighter text-xs'}
-              value={formData.groupId}
-              onChange={(e) => setFormData({ ...formDataRef.current, groupId: e.target.value })}
-              disabled={loadingDetail || availableParallels.length === 0}
-            >
-              <option value="">
-                {loadingDetail ? 'Cargando...' : '-- Sin paralelo --'}
-              </option>
-              {availableParallels.map((p: any) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.studentCount} estudiante{p.studentCount !== 1 ? 's' : ''})
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* Course selector — optional */}
+      {userRole === 'student' && selectedGroupId && (
+        <div>
+          <label className={LABEL}>Curso (Opcional)</label>
+          <select
+            className={INPUT + ' font-bold uppercase tracking-tighter text-xs'}
+            value={selectedCourseId}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSelectedCourseId(val);
+              setFormData({ ...formData, courseId: val });
+            }}
+            disabled={loadingDetail}
+          >
+            <option value="">-- Todos los cursos del grupo --</option>
+            {groupDetail?.courses.map((c: any) => (
+              <option key={c.course.id} value={c.course.id}>{c.course.name}</option>
+            ))}
+          </select>
         </div>
       )}
 
       <div className="flex gap-3 pt-4">
         <button type="submit" disabled={submitting}
           className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-lg transition-all disabled:opacity-70 flex items-center justify-center gap-2">
-          {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>}
+          {submitting && <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>}
           {submitting ? 'Guardando...' : 'Guardar Cambios'}
         </button>
         <button type="button" onClick={onCancel} disabled={submitting}
@@ -1077,7 +1050,7 @@ function TutorSelector({ selectedIds, onChange }: { selectedIds: string[]; onCha
   useEffect(() => {
     api.getAllUsers('tutor', 1, 100)
       .then(res => { if (res.success) setTutors(res.rows || res.data || []); })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
 

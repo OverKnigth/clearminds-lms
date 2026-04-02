@@ -15,15 +15,15 @@ interface CoursesTabProps {
   hideBlocksAction?: boolean;
 }
 
-export function CoursesTab({ 
-  courses, 
-  isLoading, 
-  openModal, 
-  onToggleStatus, 
-  onManageContent, 
+export function CoursesTab({
+  courses,
+  isLoading,
+  openModal,
+  onToggleStatus,
+  onManageContent,
   onManageBlocks,
   onDelete,
-  title = "Gestión de Cursos",
+  title = "Gestión de Grupos",
   subtitle = "Administra cursos y asigna tutores",
   hideAddButton = false,
   onlyShowBlocksAction = false,
@@ -62,7 +62,7 @@ export function CoursesTab({
           {courses.map((course) => (
             <div key={course.id} className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:border-red-500/50 transition-all">
               {course.imageUrl && (
-                <img 
+                <img
                   src={course.imageUrl}
                   alt={course.name}
                   className="w-full h-40 object-cover rounded-lg mb-4"
@@ -75,11 +75,10 @@ export function CoursesTab({
                 <h3 className="text-lg font-semibold text-white">{course.name}</h3>
                 <button
                   onClick={() => onToggleStatus(course)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
-                    course.status === 'active'
+                  className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${course.status === 'active'
                       ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
                       : 'bg-slate-500/20 text-slate-400 hover:bg-slate-500/30'
-                  }`}
+                    }`}
                 >
                   {course.status === 'active' ? 'Activo' : 'Inactivo'}
                 </button>
@@ -101,7 +100,7 @@ export function CoursesTab({
               <div className="flex gap-2 pt-4 border-t border-slate-700">
                 {!onlyShowBlocksAction && (
                   <>
-                    <button 
+                    <button
                       onClick={() => openModal('editCourse', course)}
                       className="flex-1 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-medium transition-colors"
                     >

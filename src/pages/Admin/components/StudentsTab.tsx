@@ -37,7 +37,7 @@ export function StudentsTab({
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   // getParallelNames — available for future use
-  const getGenerationName = (student: Student): string => {
+  const getGroupName = (student: Student): string => {
     // Use generationName from backend if available
     if ((student as any).generationName) return (student as any).generationName;
     // Fallback: search in groups
@@ -141,7 +141,7 @@ export function StudentsTab({
             <tr>
               <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Estudiante</th>
               <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Correo</th>
-              <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Generación</th>
+              <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Grupo</th>
               <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Cursos</th>
               <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Progreso</th>
               <th className="px-6 py-4 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
@@ -162,7 +162,7 @@ export function StudentsTab({
                 <td className="px-6 py-4 text-xs text-slate-400 font-mono">{student.email}</td>
                 <td className="px-6 py-4">
                   <span className="text-xs font-bold text-slate-300 uppercase tracking-tighter">
-                    {getGenerationName(student)}
+                    {getGroupName(student)}
                   </span>
                 </td>
                 <td className="px-6 py-4">

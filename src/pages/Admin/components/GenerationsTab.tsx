@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { useGenerations } from '../../../hooks/useGenerations';
+import { useGroups } from '../../../hooks/useGroups';
 import { api } from '../../../services/api';
-import type { Generation } from '../../../types/generation';
+import type { Group } from '../../../types/generation';
 import type { CourseData } from '../types';
 import Modal from '../../../components/Modal';
-import { GenerationCard } from './GenerationCard';
+import { GroupCard } from './GroupCard';
 
-interface GenerationsTabProps {
-  onSelectGeneration: (generation: Generation) => void;
+interface GroupsTabProps {
+  onSelectGroup: (group: Group) => void;
   courses?: CourseData[];
 }
 
@@ -24,8 +24,8 @@ const INITIAL_FORM = {
   courseIds: [] as string[],
 };
 
-export function GenerationsTab({ onSelectGeneration, courses: propCourses }: GenerationsTabProps) {
-  const { generations, isLoading, createGeneration, updateGeneration, deleteGeneration } = useGenerations();
+export function GroupsTab({ onSelectGroup, courses: propCourses }: GroupsTabProps) {
+  const { groups: groupsList, isLoading, createGroup, updateGroup, deleteGroup } = useGroups();
   const [deletingId, _setDeletingId] = useState<string | null>(null);
   void deletingId;
 
@@ -71,7 +71,7 @@ export function GenerationsTab({ onSelectGeneration, courses: propCourses }: Gen
 
     setSaving(true);
     try {
-      await createGeneration({
+      await createGroup({
         name: form.name.trim(),
         description: form.description.trim() || undefined,
         courseIds: form.courseIds.length > 0 ? form.courseIds : undefined,
@@ -80,11 +80,11 @@ export function GenerationsTab({ onSelectGeneration, courses: propCourses }: Gen
     } catch (err: any) {
       const status = err?.status;
       if (status === 409) {
-        setFormError('Ya existe una generación con ese nombre.');
+        setFormError('Ya existe un grupo con ese nombre.');
       } else if (status === 400) {
         setFormError(err?.message ?? 'Datos inválidos. Revisa los campos.');
       } else {
-        setFormError('Error al crear la generación. Intenta de nuevo.');
+        setFormError('Error al crear el grupo. Intenta de nuevo.');
       }
     } finally {
       setSaving(false);
@@ -97,14 +97,14 @@ export function GenerationsTab({ onSelectGeneration, courses: propCourses }: Gen
       <div className="flex justify-between items-center mb-8 bg-slate-800 border border-slate-700/50 rounded-2xl px-6 py-4">
         <div>
           <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
-            Gestión de Cursos
+            Gestión de Grupos
           </h2>
           <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-0.5">
-            Generaciones y cohortes académicas
+            Crea grupos y asigna cursos directamente
           </p>
         </div>
         <button onClick={openModal} className={BTN_PRIMARY}>
-          + Nueva Generación
+          + Nuevo Grupo
         </button>
       </div>
 
@@ -113,35 +113,39 @@ export function GenerationsTab({ onSelectGeneration, courses: propCourses }: Gen
         <div className="flex justify-center py-20">
           <div className="w-10 h-10 border-4 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
         </div>
-      ) : generations.length === 0 ? (
+      ) : groupsList.length === 0 ? (
         /* Empty state */
         <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed border-slate-700 rounded-2xl text-center">
-          <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-3xl mb-4 border border-slate-700">
-            🎓
+          <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 mb-4 border border-slate-700">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M12 14l9-5-9-5-9 5 9 5z" />
+              <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+            </svg>
           </div>
           <p className="text-white font-black text-lg uppercase tracking-tighter mb-1">
-            Sin generaciones
+            Sin grupos
           </p>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-6">
-            Crea la primera generación para organizar tus cohortes
+            Crea el primer grupo para organizar tus cursos
           </p>
           <button onClick={openModal} className={BTN_PRIMARY}>
-            Crear generación
+            Crear grupo
           </button>
         </div>
       ) : (
-        /* Generation list — GenerationCard will be rendered here (task 8) */
+        /* Group list — GroupCard will be rendered here */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {generations.map((generation) => (
-            <GenerationCard
-              key={generation.id}
-              generation={generation}
-              onClick={() => onSelectGeneration(generation)}
-              onUpdate={updateGeneration}
+          {groupsList.map((group) => (
+            <GroupCard
+              key={group.id}
+              group={group}
+              onClick={() => onSelectGroup(group)}
+              onUpdate={updateGroup}
               onDelete={async (id) => {
-                if (!confirm(`¿Eliminar la generación "${generation.name}"? Esta acción eliminará todos sus paralelos y no se puede deshacer.`)) return;
+                if (!confirm(`¿Eliminar el grupo "${group.name}"? Esta acción eliminará todos sus paralelos y no se puede deshacer.`)) return;
                 _setDeletingId(id);
-                try { await deleteGeneration(id); } catch (e: any) { alert(e.message); }
+                try { await deleteGroup(id); } catch (e: any) { alert(e.message); }
                 finally { _setDeletingId(null); }
               }}
             />
@@ -153,7 +157,7 @@ export function GenerationsTab({ onSelectGeneration, courses: propCourses }: Gen
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Nueva Generación"
+        title="Nuevo Grupo"
       >
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Name */}
@@ -268,7 +272,7 @@ export function GenerationsTab({ onSelectGeneration, courses: propCourses }: Gen
                   Guardando...
                 </>
               ) : (
-                'Crear Generación'
+                'Crear Grupo'
               )}
             </button>
           </div>

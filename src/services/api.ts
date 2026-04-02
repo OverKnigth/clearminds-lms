@@ -1,15 +1,15 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios';
 import type {
-  Generation,
-  GenerationDetail,
+  Group,
+  GroupDetail,
   Parallel,
   EnrolledStudent,
-  CreateGenerationPayload,
-  UpdateGenerationPayload,
+  CreateGroupPayload,
+  UpdateGroupPayload,
   AddCoursesPayload,
   CreateParallelPayload,
   EnrollStudentsPayload,
-} from '../types/generation';
+} from '../types/group';
 
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
@@ -104,8 +104,6 @@ export const API_ENDPOINTS = {
   UPLOAD_USERS_BULK: '/users/bulk',
 
   // Admin - Groups & Academic Structure
-  GET_GROUPS: '/users/groups',
-  CREATE_GROUP: '/users/groups',
   GET_COHORTS: '/admin/cohorts',
   CREATE_COHORT: '/admin/cohorts',
   CREATE_OFFERING: '/admin/offerings',
@@ -146,18 +144,19 @@ export const API_ENDPOINTS = {
   // Challenges - Student
   SUBMIT_CHALLENGE: (contentId: string) => `/challenges/content/${contentId}/submit`,
   GET_MY_SUBMISSIONS: '/challenges/me',
-  
+
   // Challenges - Tutor
   GET_SUBMISSIONS_BY_CONTENT: (contentId: string) => `/challenges/content/${contentId}`,
   REVIEW_SUBMISSION: (submissionId: string) => `/challenges/submissions/${submissionId}/review`,
 
-  // Admin - Generations
-  GET_GENERATIONS: '/admin/generations',
-  CREATE_GENERATION: '/admin/generations',
-  UPDATE_GENERATION: (id: string) => `/admin/generations/${id}`,
-  GET_GENERATION_DETAIL: (id: string) => `/admin/generations/${id}`,
-  ADD_COURSES_TO_GENERATION: (id: string) => `/admin/generations/${id}/courses`,
-  CREATE_PARALLEL: (generationId: string) => `/admin/generations/${generationId}/parallels`,
+  // Admin - Groups
+  GET_GROUPS: '/admin/groups',
+  CREATE_GROUP: '/admin/groups',
+  UPDATE_GROUP: (id: string) => `/admin/groups/${id}`,
+  GET_GROUP_DETAIL: (id: string) => `/admin/groups/${id}`,
+  ADD_COURSES_TO_GROUP: (id: string) => `/admin/groups/${id}/courses`,
+  ENROLL_STUDENTS_IN_GROUP: (id: string) => `/admin/groups/${id}/enroll`,
+  CREATE_PARALLEL: (groupId: string) => `/admin/groups/${groupId}/parallels`,
   GET_PARALLEL_STUDENTS: (parallelId: string) => `/admin/parallels/${parallelId}/students`,
   ENROLL_STUDENTS_IN_PARALLEL: (parallelId: string) => `/admin/parallels/${parallelId}/enroll`,
 };
@@ -418,7 +417,7 @@ export const api = {
   uploadUsersBulk: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     // Uses a different instance or overrides header for multipart/form-data
     const token = localStorage.getItem('authToken');
     const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_USERS_BULK}`, formData, {
@@ -431,15 +430,6 @@ export const api = {
   },
 
   // ─── Admin - Groups ──────────────────────────────────────────────────────────
-  getAllGroups: async () => {
-    const response = await apiClient.get(API_ENDPOINTS.GET_GROUPS);
-    return response.data;
-  },
-
-  createGroup: async (data: any) => {
-    const response = await apiClient.post(API_ENDPOINTS.CREATE_GROUP, data);
-    return response.data;
-  },
 
   getAllCohorts: async () => {
     const response = await apiClient.get(API_ENDPOINTS.GET_COHORTS);
@@ -503,7 +493,7 @@ export const api = {
     if (courseName) {
       formData.append('courseName', courseName);
     }
-    
+
     const token = localStorage.getItem('authToken');
     const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_COURSE_IMAGE}`, formData, {
       headers: {
@@ -704,61 +694,62 @@ export const api = {
     return response.data;
   },
 
-  // ─── Admin - Generations ─────────────────────────────────────────────────────
-  getGenerations: async (): Promise<Generation[]> => {
+  // ─── Admin - Groups ─────────────────────────────────────────────────────
+  getGroups: async (): Promise<Group[]> => {
     try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_GENERATIONS);
+      const response = await apiClient.get(API_ENDPOINTS.GET_GROUPS);
       return response.data.data ?? response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
-      const message = axiosError.response?.data?.message ?? 'Error al obtener generaciones';
+      const message = axiosError.response?.data?.message ?? 'Error al obtener grupos';
       if (status === 404) throw Object.assign(new Error(message), { status });
       throw error;
     }
   },
 
-  createGeneration: async (data: CreateGenerationPayload): Promise<Generation> => {
+  createGroup: async (data: CreateGroupPayload): Promise<Group> => {
     try {
-      const response = await apiClient.post(API_ENDPOINTS.CREATE_GENERATION, data);
+      const response = await apiClient.post(API_ENDPOINTS.CREATE_GROUP, data);
       return response.data.data ?? response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
-      const message = axiosError.response?.data?.message ?? 'Error al crear generación';
+      const message = axiosError.response?.data?.message ?? 'Error al crear el grupo';
       if (status === 400 || status === 409) throw Object.assign(new Error(message), { status });
       throw error;
     }
   },
 
-  updateGeneration: async (id: string, data: UpdateGenerationPayload): Promise<Generation> => {    try {
-      const response = await apiClient.patch(API_ENDPOINTS.UPDATE_GENERATION(id), data);
+  updateGroup: async (id: string, data: UpdateGroupPayload): Promise<Group> => {
+    try {
+      const response = await apiClient.patch(API_ENDPOINTS.UPDATE_GROUP(id), data);
       return response.data.data ?? response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
-      const message = axiosError.response?.data?.message ?? 'Error al actualizar generación';
+      const message = axiosError.response?.data?.message ?? 'Error al actualizar el grupo';
       if (status === 400 || status === 404 || status === 409) throw Object.assign(new Error(message), { status });
       throw error;
     }
   },
 
-  getGenerationDetail: async (id: string): Promise<GenerationDetail> => {
+  getGroupDetail: async (id: string): Promise<GroupDetail> => {
     try {
-      const response = await apiClient.get(API_ENDPOINTS.GET_GENERATION_DETAIL(id));
+      const response = await apiClient.get(API_ENDPOINTS.GET_GROUP_DETAIL(id));
       return response.data.data ?? response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
-      const message = axiosError.response?.data?.message ?? 'Generación no encontrada';
+      const message = axiosError.response?.data?.message ?? 'Grupo no encontrado';
       if (status === 404) throw Object.assign(new Error(message), { status });
       throw error;
     }
   },
 
-  addCoursesToGeneration: async (id: string, data: AddCoursesPayload): Promise<void> => {
+  addCoursesToGroup: async (id: string, data: AddCoursesPayload): Promise<void> => {
     try {
-      await apiClient.post(API_ENDPOINTS.ADD_COURSES_TO_GENERATION(id), data);
+      await apiClient.post(API_ENDPOINTS.ADD_COURSES_TO_GROUP(id), data);
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
@@ -768,14 +759,26 @@ export const api = {
     }
   },
 
-  deleteGeneration: async (id: string): Promise<void> => {
-    const response = await apiClient.delete(`/admin/generations/${id}`);
+  enrollStudentsInGroup: async (id: string, data: EnrollStudentsPayload): Promise<void> => {
+    try {
+      await apiClient.post(API_ENDPOINTS.ENROLL_STUDENTS_IN_GROUP(id), data);
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message ?? 'Error al matricular estudiantes';
+      if (status === 400 || status === 404 || status === 409) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  deleteGroup: async (id: string): Promise<void> => {
+    const response = await apiClient.delete(`/admin/groups/${id}`);
     return response.data;
   },
 
-  createParallel: async (generationId: string, data: CreateParallelPayload): Promise<Parallel> => {
+  createParallel: async (groupId: string, data: CreateParallelPayload): Promise<Parallel> => {
     try {
-      const response = await apiClient.post(API_ENDPOINTS.CREATE_PARALLEL(generationId), data);
+      const response = await apiClient.post(API_ENDPOINTS.CREATE_PARALLEL(groupId), data);
       return response.data.data ?? response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;

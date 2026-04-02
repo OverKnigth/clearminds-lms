@@ -2,7 +2,7 @@ import type { CourseData } from '../pages/Admin/types';
 
 // ── Domain types ──────────────────────────────────────────────────────────────
 
-export interface Generation {
+export interface Group {
   id: string;
   name: string;
   description?: string;
@@ -13,12 +13,12 @@ export interface Generation {
   parallelCount: number;
 }
 
-export interface GenerationDetail extends Generation {
-  courses: CourseInGeneration[];
+export interface GroupDetail extends Group {
+  courses: CourseInGroup[];
   parallels: Parallel[];
 }
 
-export interface CourseInGeneration {
+export interface CourseInGroup {
   offeringId: string;
   course: CourseData;
 }
@@ -52,7 +52,7 @@ export interface OfferingInParallel {
 
 // ── Payload types ─────────────────────────────────────────────────────────────
 
-export interface CreateGenerationPayload {
+export interface CreateGroupPayload {
   name: string;
   description?: string;
   startDate?: string;
@@ -60,7 +60,7 @@ export interface CreateGenerationPayload {
   courseIds?: string[];
 }
 
-export interface UpdateGenerationPayload {
+export interface UpdateGroupPayload {
   name?: string;
   description?: string;
   startDate?: string;

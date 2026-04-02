@@ -17,11 +17,10 @@ import {
   ProgressTab,
   BadgesTab,
   CourseManagementView,
-  GenerationsTab,
+  GroupsTab,
 } from './components';
-import { GenerationDetailView } from './components/GenerationDetailView';
-import { ParallelDetailView } from './components/ParallelDetailView';
-import type { Generation, Parallel } from '../../types/generation';
+import { GroupDetailView } from './components/GroupDetailView';
+import type { Group } from '../../types/group';
 
 export default function Admin() {
   const [searchParams] = useSearchParams();
@@ -48,17 +47,15 @@ export default function Admin() {
   const [managingContentCourse, setManagingContentCourse] = useState<any | null>(null);
 
   // ── Courses tab navigation state ──────────────────────────────────────────
-  type CoursesView = 'list' | 'generationDetail' | 'parallelDetail' | 'blockManagement';
+  type CoursesView = 'list' | 'groupDetail' | 'parallelDetail' | 'blockManagement';
   const [coursesView, setCoursesView] = useState<CoursesView>('list');
-  const [selectedGeneration, setSelectedGeneration] = useState<Generation | null>(null);
-  const [selectedParallel, setSelectedParallel] = useState<Parallel | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedCourseForBlocks, setSelectedCourseForBlocks] = useState<any | null>(null);
 
   useEffect(() => {
     setManagingContentCourse(null);
     setCoursesView('list');
-    setSelectedGeneration(null);
-    setSelectedParallel(null);
+    setSelectedGroup(null);
     setSelectedCourseForBlocks(null);
   }, [activeTab]);
 
@@ -77,8 +74,8 @@ export default function Admin() {
           password: formData.password,
           role: formData.role,
           status: formData.status,
-          generation: formData.generation,
-          groupId: formData.groupId
+          groupId: formData.groupId,
+          courseId: formData.courseId
         };
         await api.createUser(payload);
         await fetchByRole(formData.role as 'student' | 'tutor' | 'admin');
@@ -199,11 +196,11 @@ export default function Admin() {
     } finally { setSaving(false); }
   };
 
-  const [_assignmentFilter, _setAssignmentFilter] = useState({ name: '', generation: 'all' });
+  const [_assignmentFilter, _setAssignmentFilter] = useState({ name: '', groupId: 'all' });
   const _filteredStudentsForAssignments = students.filter(s => {
     const matchName = s.fullName.toLowerCase().includes(_assignmentFilter.name.toLowerCase()) || 
                       s.email.toLowerCase().includes(_assignmentFilter.name.toLowerCase());
-    const matchGen = _assignmentFilter.generation === 'all' || s.generation === _assignmentFilter.generation;
+    const matchGen = _assignmentFilter.groupId === 'all' || (s as any).groupId === _assignmentFilter.groupId;
     return matchName && matchGen;
   });
   void _filteredStudentsForAssignments;
@@ -416,40 +413,28 @@ export default function Admin() {
             {activeTab === 'courses' && !managingContentCourse && (
               <>
                 {coursesView === 'list' && (
-                  <GenerationsTab
+                  <GroupsTab
                     courses={courses}
-                    onSelectGeneration={(generation) => {
-                      setSelectedGeneration(generation);
-                      setCoursesView('generationDetail');
+                    onSelectGroup={(group) => {
+                      setSelectedGroup(group);
+                      setCoursesView('groupDetail');
                     }}
                   />
                 )}
-                {coursesView === 'generationDetail' && selectedGeneration && (
-                  <GenerationDetailView
-                    generation={selectedGeneration}
+                {coursesView === 'groupDetail' && selectedGroup && (
+                  <GroupDetailView
+                    group={selectedGroup}
                     onBack={() => setCoursesView('list')}
                     onManageBlocks={(course) => {
                       setSelectedCourseForBlocks(course);
                       setCoursesView('blockManagement');
                     }}
-                    onSelectParallel={(parallel) => {
-                      setSelectedParallel(parallel);
-                      setCoursesView('parallelDetail');
-                    }}
-                  />
-                )}
-                {coursesView === 'parallelDetail' && selectedParallel && selectedGeneration && (
-                  <ParallelDetailView
-                    parallel={selectedParallel}
-                    generationId={selectedGeneration.id}
-                    onBack={() => setCoursesView('generationDetail')}
                   />
                 )}
                 {coursesView === 'blockManagement' && selectedCourseForBlocks && (
                   <CourseManagementView
                     course={selectedCourseForBlocks}
-                    onBack={() => setCoursesView('generationDetail')}
-                    hideParallelsTab={true}
+                    onBack={() => setCoursesView('groupDetail')}
                   />
                 )}
               </>

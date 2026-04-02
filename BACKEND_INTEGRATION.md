@@ -23,7 +23,7 @@ cp .env.example .env
 Edita `.env` con la configuración de tu backend:
 
 ```env
-VITE_API_BASE_URL=http://localhost:3000/api
+VITE_API_BASE_URL=https://backend-aula-virtual.onrender.com/api
 VITE_GOOGLE_CLIENT_ID=tu-google-client-id-aqui
 VITE_ENV=development
 ```

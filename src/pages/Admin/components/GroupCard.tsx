@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import type { Generation, UpdateGenerationPayload } from '../../../types/generation';
+import type { Group, UpdateGroupPayload } from '../../../types/generation';
 import Modal from '../../../components/Modal';
 
-interface GenerationCardProps {
-  generation: Generation;
+interface GroupCardProps {
+  group: Group;
   onClick: () => void;
-  onUpdate: (id: string, data: UpdateGenerationPayload) => Promise<Generation>;
+  onUpdate: (id: string, data: UpdateGroupPayload) => Promise<Group>;
   onDelete: (id: string) => void;
 }
 
@@ -16,27 +16,27 @@ const BTN_PRIMARY =
 const BTN_GHOST =
   'px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-black uppercase tracking-widest rounded-lg transition-colors';
 
-export function GenerationCard({ generation, onClick, onUpdate, onDelete }: GenerationCardProps) {
+export function GroupCard({ group, onClick, onUpdate, onDelete }: GroupCardProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [form, setForm] = useState<UpdateGenerationPayload>({
-    name: generation.name,
-    description: generation.description ?? '',
-    status: generation.status,
+  const [form, setForm] = useState<UpdateGroupPayload>({
+    name: group.name,
+    description: group.description ?? '',
+    status: group.status,
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const statusColor =
-    generation.status === 'active'
+    group.status === 'active'
       ? 'bg-green-500/20 text-green-400'
       : 'bg-slate-700 text-slate-400';
 
   const openEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     setForm({
-      name: generation.name,
-      description: generation.description ?? '',
-      status: generation.status,
+      name: group.name,
+      description: group.description ?? '',
+      status: group.status,
     });
     setFormError(null);
     setIsEditOpen(true);
@@ -48,7 +48,7 @@ export function GenerationCard({ generation, onClick, onUpdate, onDelete }: Gene
 
     setSaving(true);
     try {
-      await onUpdate(generation.id, {
+      await onUpdate(group.id, {
         name: form.name?.trim(),
         description: form.description?.trim() || undefined,
         status: form.status,
@@ -57,11 +57,11 @@ export function GenerationCard({ generation, onClick, onUpdate, onDelete }: Gene
     } catch (err: any) {
       const status = err?.status;
       if (status === 409) {
-        setFormError('Ya existe una generación con ese nombre.');
+        setFormError('Ya existe un grupo con ese nombre.');
       } else if (status === 400) {
         setFormError(err?.message ?? 'Datos inválidos. Revisa los campos.');
       } else {
-        setFormError('Error al actualizar la generación. Intenta de nuevo.');
+        setFormError('Error al actualizar el grupo. Intenta de nuevo.');
       }
     } finally {
       setSaving(false);
@@ -77,29 +77,24 @@ export function GenerationCard({ generation, onClick, onUpdate, onDelete }: Gene
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-base font-black text-white uppercase tracking-tighter group-hover:text-red-400 transition-colors truncate pr-2">
-            {generation.name}
+            {group.name}
           </h3>
           <span
             className={`px-2 py-1 text-[10px] font-black rounded-md uppercase tracking-widest shrink-0 ${statusColor}`}
           >
-            {generation.status === 'active' ? 'Activa' : 'Inactiva'}
+            {group.status === 'active' ? 'Activa' : 'Inactiva'}
           </span>
         </div>
 
         {/* Description */}
-        {generation.description && (
-          <p className="text-xs text-slate-400 mb-4 line-clamp-2">{generation.description}</p>
+        {group.description && (
+          <p className="text-xs text-slate-400 mb-4 line-clamp-2">{group.description}</p>
         )}
 
-        {/* Stats */}
         <div className="space-y-1.5 pt-3 border-t border-slate-700/50 text-[10px] font-black uppercase tracking-widest">
           <div className="flex justify-between">
             <span className="text-slate-500">Cursos:</span>
-            <span className="text-white">{generation.courseCount}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Paralelos:</span>
-            <span className="text-white">{generation.parallelCount}</span>
+            <span className="text-white">{group.courseCount}</span>
           </div>
         </div>
 
@@ -112,7 +107,7 @@ export function GenerationCard({ generation, onClick, onUpdate, onDelete }: Gene
             Editar
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); onDelete(generation.id); }}
+            onClick={(e) => { e.stopPropagation(); onDelete(group.id); }}
             className="px-3 py-1.5 bg-red-900/10 hover:bg-red-900/30 text-[10px] font-black uppercase tracking-widest text-red-500 rounded-lg transition-colors border border-red-900/20"
           >
             Eliminar
@@ -124,7 +119,7 @@ export function GenerationCard({ generation, onClick, onUpdate, onDelete }: Gene
       <Modal
         isOpen={isEditOpen}
         onClose={() => setIsEditOpen(false)}
-        title="Editar Generación"
+        title="Editar Grupo"
       >
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Name */}
@@ -137,7 +132,7 @@ export function GenerationCard({ generation, onClick, onUpdate, onDelete }: Gene
               className={INPUT_CLS}
               value={form.name ?? ''}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Ej: Generación 2026-A"
+              placeholder="Ej: Grupo 2026-A"
             />
           </div>
 
@@ -151,7 +146,7 @@ export function GenerationCard({ generation, onClick, onUpdate, onDelete }: Gene
               className={INPUT_CLS + ' resize-none'}
               value={form.description ?? ''}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="Descripción opcional de la generación"
+              placeholder="Descripción opcional del grupo"
             />
           </div>
 

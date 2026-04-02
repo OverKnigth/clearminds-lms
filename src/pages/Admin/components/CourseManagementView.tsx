@@ -21,32 +21,17 @@ interface Topic {
   blockId: string | null;
 }
 
-interface Offering {
-  id: string;
-  group: { id: string; name: string };
-  tutor?: { names: string; lastNames: string };
-  status: string;
-}
-
 interface CourseManagementViewProps {
   course: CourseData;
   onBack: () => void;
-  hideParallelsTab?: boolean;
 }
 
 const INPUT_CLS = 'w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500';
 const BTN_PRIMARY = 'px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-sm font-black uppercase tracking-widest rounded-lg transition-all';
 const BTN_GHOST = 'px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-black uppercase tracking-widest rounded-lg transition-colors';
 
-export function CourseManagementView({ course, onBack, hideParallelsTab }: CourseManagementViewProps) {
-  const [subTab, setSubTab] = useState<'blocks' | 'parallels'>('blocks');
-
-  // If parallels tab is hidden and currently active, switch to blocks
-  useEffect(() => {
-    if (hideParallelsTab && subTab === 'parallels') {
-      setSubTab('blocks');
-    }
-  }, [hideParallelsTab, subTab]);
+export function CourseManagementView({ course, onBack }: CourseManagementViewProps) {
+  const [subTab, setSubTab] = useState<'blocks'>('blocks');
 
   // ── Blocks state ──────────────────────────────────────────────────────────
   const [blocks, setBlocks] = useState<AcademicBlock[]>([]);
@@ -60,14 +45,6 @@ export function CourseManagementView({ course, onBack, hideParallelsTab }: Cours
     mandatoryTutoring: true, minPassGrade: 7, selectedTopicIds: [] as string[]
   });
 
-  // ── Parallels state ───────────────────────────────────────────────────────
-  const [offerings, setOfferings] = useState<Offering[]>([]);
-  const [allGroups, setAllGroups] = useState<{ id: string; name: string }[]>([]);
-  const [parallelsLoading, setParallelsLoading] = useState(true);
-  const [isParallelModalOpen, setIsParallelModalOpen] = useState(false);
-  const [savingParallel, setSavingParallel] = useState(false);
-  const [parallelForm, setParallelForm] = useState({ groupId: '', newGroupName: '', cohort: '', mode: 'existing' as 'existing' | 'new', selectedBlockIds: [] as string[] });
-
   // ── Confirm dialog state ──────────────────────────────────────────────────
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -77,7 +54,6 @@ export function CourseManagementView({ course, onBack, hideParallelsTab }: Cours
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
   useEffect(() => { loadBlocks(); }, [course.id]);
-  useEffect(() => { if (subTab === 'parallels') loadParallels(); }, [subTab, course.id]);
 
   // ── Blocks logic ──────────────────────────────────────────────────────────
   const loadBlocks = async () => {
@@ -159,41 +135,6 @@ export function CourseManagementView({ course, onBack, hideParallelsTab }: Cours
     });
   };
 
-  // ── Parallels logic ───────────────────────────────────────────────────────
-  const loadParallels = async () => {
-    setParallelsLoading(true);
-    try {
-      const [offeringsRes, groupsRes] = await Promise.all([
-        api.getCourseOfferings(course.id),
-        api.getAllGroups()
-      ]);
-      if (offeringsRes.success) setOfferings(offeringsRes.data || []);
-      if (groupsRes.success) setAllGroups(groupsRes.data || []);
-    } catch (e) { console.error(e); }
-    finally { setParallelsLoading(false); }
-  };
-
-  const handleParallelSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingParallel(true);
-    try {
-      let groupId = parallelForm.groupId;
-      if (parallelForm.mode === 'new') {
-        const res = await api.createGroup({ name: parallelForm.newGroupName, cohort: parallelForm.cohort });
-        if (!res.success) throw new Error(res.message || 'Error al crear paralelo');
-        groupId = res.data.id;
-      }
-      await api.createOffering({ courseId: course.id, groupId });
-      setIsParallelModalOpen(false);
-      setParallelForm({ groupId: '', newGroupName: '', cohort: '', mode: 'existing', selectedBlockIds: [] });
-      await loadParallels();
-    } catch (e: any) { alert(e.response?.data?.message || 'Error al crear paralelo'); }
-    finally { setSavingParallel(false); }
-  };
-
-  // Groups not yet linked to this course
-  const linkedGroupIds = offerings.map(o => o.group?.id);
-  const availableGroups = allGroups.filter(g => !linkedGroupIds.includes(g.id));
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -218,14 +159,6 @@ export function CourseManagementView({ course, onBack, hideParallelsTab }: Cours
         >
           Bloques
         </button>
-        {!hideParallelsTab && (
-          <button
-            onClick={() => setSubTab('parallels')}
-            className={`px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${subTab === 'parallels' ? 'bg-red-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-          >
-            Paralelos
-          </button>
-        )}
       </div>
 
       {/* ── BLOCKS TAB ── */}
@@ -294,49 +227,7 @@ export function CourseManagementView({ course, onBack, hideParallelsTab }: Cours
         </div>
       )}
 
-      {/* ── PARALLELS TAB ── */}
-      {subTab === 'parallels' && (
-        <div>
-          <div className="mb-6 p-5 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 text-xl">👥</div>
-              <div>
-                <p className="text-xs font-black text-blue-300 uppercase tracking-widest">Paralelos del Curso</p>
-                <p className="text-[10px] text-slate-400">Grupos de estudiantes asignados a este curso</p>
-              </div>
-            </div>
-            <button onClick={() => setIsParallelModalOpen(true)} className={BTN_PRIMARY}>+ Nuevo Paralelo</button>
-          </div>
 
-          {parallelsLoading ? (
-            <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-red-500/20 border-t-red-600 rounded-full animate-spin" /></div>
-          ) : offerings.length === 0 ? (
-            <div className="text-center py-16 border-2 border-dashed border-slate-700 rounded-2xl">
-              <p className="text-slate-500 text-sm font-black uppercase tracking-widest">Sin paralelos asignados</p>
-              <button onClick={() => setIsParallelModalOpen(true)} className="text-red-500 text-xs mt-2 uppercase font-black hover:underline tracking-widest">Asignar el primer paralelo</button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {offerings.map(offering => (
-                <div key={offering.id} className="bg-slate-800 p-6 rounded-2xl border border-slate-700 hover:border-blue-500/50 transition-all group">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-400 text-xl font-black">
-                      {offering.group?.name?.charAt(0) || 'P'}
-                    </div>
-                    <span className={`px-2 py-1 text-[10px] font-black rounded-md uppercase tracking-widest ${offering.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
-                      {offering.status === 'active' ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-black text-white uppercase tracking-tighter group-hover:text-blue-400 transition-colors">{offering.group?.name || 'Sin nombre'}</h3>
-                  {offering.tutor && (
-                    <p className="text-xs text-slate-400 mt-1">Tutor: {offering.tutor.names} {offering.tutor.lastNames}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── BLOCK MODAL ── */}
       <Modal isOpen={isBlockModalOpen} onClose={() => setIsBlockModalOpen(false)} title={editingBlock ? 'Editar Bloque' : 'Nuevo Bloque'}>
@@ -404,98 +295,7 @@ export function CourseManagementView({ course, onBack, hideParallelsTab }: Cours
         </form>
       </Modal>
 
-      {/* ── PARALLEL MODAL ── */}
-      <Modal isOpen={isParallelModalOpen} onClose={() => setIsParallelModalOpen(false)} title="Asignar Paralelo al Curso">        <form onSubmit={handleParallelSubmit} className="space-y-4">
-          <div className="flex gap-2 p-1 bg-slate-900 rounded-xl border border-slate-700">
-            <button type="button" onClick={() => setParallelForm(f => ({ ...f, mode: 'existing' }))}
-              className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${parallelForm.mode === 'existing' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-              Paralelo Existente
-            </button>
-            <button type="button" onClick={() => setParallelForm(f => ({ ...f, mode: 'new' }))}
-              className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${parallelForm.mode === 'new' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-              Crear Nuevo
-            </button>
-          </div>
 
-          {parallelForm.mode === 'existing' ? (
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Seleccionar Paralelo</label>
-              <select required className={INPUT_CLS} value={parallelForm.groupId} onChange={e => setParallelForm(f => ({ ...f, groupId: e.target.value }))}>
-                <option value="">-- Selecciona un paralelo --</option>
-                {availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
-              {availableGroups.length === 0 && (
-                <p className="text-[10px] text-slate-500 mt-1 italic">Todos los paralelos ya están asignados a este curso</p>
-              )}
-            </div>
-          ) : (
-            <>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nombre del Paralelo *</label>
-                <input required className={INPUT_CLS} value={parallelForm.newGroupName} onChange={e => setParallelForm(f => ({ ...f, newGroupName: e.target.value }))} placeholder="Ej: Paralelo A" />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Generación / Cohorte</label>
-                <input required className={INPUT_CLS} value={parallelForm.cohort} onChange={e => setParallelForm(f => ({ ...f, cohort: e.target.value }))} placeholder="Ej: Gen 2026-A" />
-              </div>
-            </>
-          )}
-
-          {/* Bloques del curso — seleccionables */}
-          <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-              Bloques del Curso <span className="text-slate-600 normal-case font-medium">(selecciona los que aplican a este paralelo)</span>
-            </label>
-            {blocks.length === 0 ? (
-              <div className="p-4 bg-slate-900/60 border border-dashed border-slate-700 rounded-xl text-center">
-                <p className="text-[10px] text-slate-500 uppercase font-black">Este curso aún no tiene bloques definidos</p>
-              </div>
-            ) : (
-              <div className="bg-slate-900/60 border border-slate-700 rounded-xl p-3 space-y-2 max-h-52 overflow-y-auto">
-                {blocks.sort((a, b) => a.order - b.order).map(block => {
-                  const selected = parallelForm.selectedBlockIds.includes(block.id);
-                  return (
-                    <button
-                      key={block.id}
-                      type="button"
-                      onClick={() => {
-                        const ids = selected
-                          ? parallelForm.selectedBlockIds.filter(id => id !== block.id)
-                          : [...parallelForm.selectedBlockIds, block.id];
-                        setParallelForm(f => ({ ...f, selectedBlockIds: ids }));
-                      }}
-                      className={`w-full flex items-center gap-3 p-2.5 rounded-lg border transition-all text-left ${
-                        selected
-                          ? 'bg-red-600/15 border-red-500/50'
-                          : 'bg-slate-800 border-slate-700/50 hover:border-slate-600'
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 transition-colors ${
-                        selected ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-400'
-                      }`}>
-                        {selected ? '✓' : block.order}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-[10px] font-black uppercase tracking-tighter truncate transition-colors ${selected ? 'text-white' : 'text-slate-300'}`}>{block.name}</p>
-                        <p className="text-[9px] text-slate-500 uppercase font-bold">
-                          Aprobación: {block.minPassGrade}/10 · Tutoría: {block.mandatoryTutoring ? 'Obligatoria' : 'Opcional'}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={() => setIsParallelModalOpen(false)} className={BTN_GHOST + ' flex-1 text-[10px]'}>Cancelar</button>
-            <button type="submit" disabled={savingParallel} className={BTN_PRIMARY + ' flex-1 text-[10px] disabled:opacity-50'}>
-              {savingParallel ? 'Guardando...' : 'Asignar Paralelo'}
-            </button>
-          </div>
-        </form>
-      </Modal>
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}

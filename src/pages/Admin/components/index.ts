@@ -9,4 +9,4 @@ export * from './CourseContentTab';
 export * from './ProgressTab';
 export * from './BadgesTab';
 export * from './CourseManagementView';
-export * from './GenerationsTab';
+export * from './GroupsTab';

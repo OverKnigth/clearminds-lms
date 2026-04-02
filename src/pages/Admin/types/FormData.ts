@@ -5,9 +5,8 @@ export interface FormData {
   password: string;
   role: 'student' | 'tutor' | 'admin';
   status: 'active' | 'inactive';
-  generationId: string;  // cohort/generation id for cascading selection
-  generation: string;    // courseId assigned to the user
   groupId: string;
+  courseId: string;
   selectedCourses: string[];
   courseParallelMap?: { [courseId: string]: string };
   // Course fields
