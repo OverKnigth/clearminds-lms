@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import type { Student } from '../../../domain/entities';
+import type { Student } from '../../domain/entities';
 
 interface StudentsTabProps {
   students: Student[];
@@ -38,17 +38,11 @@ export function StudentsTab({
 
   // getParallelNames — available for future use
   const getGroupName = (student: Student): string => {
-    // Use generationName from backend if available
+    // groupName viene directo del backend
+    if ((student as any).groupName) return (student as any).groupName;
+    // Fallback: generationName (cohort)
     if ((student as any).generationName) return (student as any).generationName;
-    // Fallback: search in groups
-    const map = student.courseParallelMap;
-    if (!map || Object.keys(map).length === 0) return '—';
-    const assignedIds = Object.values(map).filter(Boolean);
-    const matchedGroup = groups.find(g => {
-      if (assignedIds.includes(g.id)) return true;
-      return g.offerings?.some((off: any) => assignedIds.includes(off.id));
-    });
-    return matchedGroup?.cohortName || matchedGroup?.cohort || '—';
+    return '—';
   };
 
   return (
@@ -153,9 +147,6 @@ export function StudentsTab({
               <tr key={student.id} className="hover:bg-slate-700/20 transition-colors group">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white text-xs font-black uppercase shadow-md shadow-red-900/30">
-                      {student.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                    </div>
                     <p className="text-sm font-black text-white uppercase tracking-tighter group-hover:text-red-400 transition-colors">{student.fullName}</p>
                   </div>
                 </td>

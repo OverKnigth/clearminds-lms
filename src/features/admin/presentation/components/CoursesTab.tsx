@@ -1,4 +1,4 @@
-import type { CourseData } from '../../../domain/entities';
+import type { CourseData } from '../../domain/entities';
 
 interface CoursesTabProps {
   courses: CourseData[];

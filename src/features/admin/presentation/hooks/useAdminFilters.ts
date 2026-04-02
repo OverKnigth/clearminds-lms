@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Student } from '../../../domain/entities';
+import type { Student } from '../../domain/entities';
 
 export const useAdminFilters = (students: Student[]) => {
   const [assignmentFilter, setAssignmentFilter] = useState({ name: '', generation: 'all' });

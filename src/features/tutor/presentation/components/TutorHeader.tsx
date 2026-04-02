@@ -1,4 +1,4 @@
-import type { TutorTab } from '../../../domain/entities';
+import type { TutorTab } from '../../domain/entities';
 
 interface TutorHeaderProps {
   activeTab: TutorTab;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Modal from '@/shared/components/Modal';
-import type { CourseData } from '../../../domain/entities';
+import type { CourseData } from '../../domain/entities';
 import { api } from '@/shared/services/api';
 import { useDialog } from '@/shared/hooks/useDialog';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';

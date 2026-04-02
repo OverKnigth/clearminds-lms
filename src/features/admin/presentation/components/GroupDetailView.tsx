@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useGroupDetail } from '@/shared/hooks/useGroupDetail';
 import { api } from '@/shared/services/api';
 import type { Group } from '@/shared/types/group';
-import type { CourseData, Student } from '../../../domain/entities';
+import type { CourseData, Student } from '../../domain/entities';
 import Modal from '@/shared/components/Modal';
 
 interface GroupDetailViewProps {
@@ -396,9 +396,6 @@ export function GroupDetailView({
                         onChange={() => toggleStudent(student.id)}
                         className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-red-600 focus:ring-red-600 focus:ring-offset-slate-900" 
                       />
-                      <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-black text-slate-500 shrink-0">
-                        {student.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                      </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] font-black text-white uppercase tracking-tighter truncate">{student.fullName}</p>
                         <p className="text-[9px] text-slate-600 font-bold truncate">{student.email}</p>

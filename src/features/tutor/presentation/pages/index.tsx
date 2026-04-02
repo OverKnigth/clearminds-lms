@@ -4,7 +4,7 @@ import Footer from '@/shared/components/Footer';
 import { api } from '@/shared/services/api';
 import { useTutorData } from '../hooks/useTutorData';
 import { SessionCard, StudentsTab, ChallengesTab } from '../components';
-import type { TutorTab } from '../../../domain/entities';
+import type { TutorTab } from '../../domain/entities';
 
 export default function Tutor() {
   const location = useLocation();

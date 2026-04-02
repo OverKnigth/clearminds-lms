@@ -1,4 +1,4 @@
-import type { Student } from '../../../domain/entities';
+import type { Student } from '../../domain/entities';
 
 interface AdminsTabProps {
   admins: Student[];
@@ -47,9 +47,6 @@ export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPer
               <tr key={admin.id} className="hover:bg-slate-700/30 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white font-semibold">
-                      {admin.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                    </div>
                     <div>
                       <p className="text-sm font-medium text-white">{admin.fullName}</p>
                     </div>

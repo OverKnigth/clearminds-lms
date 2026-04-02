@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/shared/services/api';
-import type { CourseData } from '../../../domain/entities';
+import type { CourseData } from '../../domain/entities';
 import Modal from '@/shared/components/Modal';
 import { useDialog } from '@/shared/hooks/useDialog';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';

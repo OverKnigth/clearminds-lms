@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TutoringSession } from '../../../domain/entities';
+import type { TutoringSession } from '../../domain/entities';
 import { api } from '@/shared/services/api';
 import { useDialog } from '@/shared/hooks/useDialog';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';

@@ -88,6 +88,7 @@ export default function Admin() {
           email: formData.email,
           status: formData.status,
         };
+        if (formData.groupId) payload.groupId = formData.groupId;
         await api.updateUser(selectedStudent.id, payload);
         await fetchByRole((selectedStudent as any).role || 'student');
         setIsModalOpen(false);
@@ -172,13 +173,17 @@ export default function Admin() {
     try {
       const selectedOfferings = Object.values(formData.courseParallelMap || {}).filter(id => id);
       
-      if (selectedOfferings.length === 0) {
-        showAlert('Selecciona al menos un curso con su paralelo para asignar.');
+      if (selectedOfferings.length > 0) {
+        // Hay offerings disponibles — inscribir por offering
+        for (const offeringId of selectedOfferings) {
+          await (api as any).enrollStudents(offeringId, { userIds: [selectedStudent.id] });
+        }
+      } else if (formData.selectedCourses.length > 0) {
+        // Sin offerings — asignar cursos directamente al usuario
+        await api.assignCoursesToUser(selectedStudent.id, formData.selectedCourses);
+      } else {
+        showAlert('Selecciona al menos un curso para asignar.');
         return;
-      }
-
-      for (const offeringId of selectedOfferings) {
-        await (api as any).enrollStudents(offeringId, { userIds: [selectedStudent.id] });
       }
 
       // Actualización local del estudiante con los nuevos cursos
@@ -191,7 +196,7 @@ export default function Admin() {
       ));
 
       setIsModalOpen(false);
-      showAlert('Cursos e Instancias asignados correctamente.', 'Éxito');
+      showAlert('Cursos asignados correctamente.', 'Éxito');
     } catch (e: any) { 
       showAlert(e.response?.data?.message || 'Error al asignar cursos');
     } finally { setSaving(false); }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/shared/services/api';
-import type { Student, CourseData } from '../../../domain/entities';
+import type { Student, CourseData } from '../../domain/entities';
 
 const mapUser = (u: any): any => ({
   id: u.id,
@@ -9,6 +9,7 @@ const mapUser = (u: any): any => ({
   enrollmentDate: u.createdAt?.split('T')[0] || '2026-01-01',
   generation: u.generation || 'N/A',
   generationName: u.generationName || '',
+  groupName: u.groupName || '',
   assignedCourses: u.assignedCourses || [],
   courseParallelMap: u.courseParallelMap || {},
   progress: u.progress || 0,

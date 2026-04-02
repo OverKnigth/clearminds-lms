@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '@/shared/services/api';
 import { useDialog } from '@/shared/hooks/useDialog';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
-import type { Student } from '../../../domain/entities';
+import type { Student } from '../../domain/entities';
 
 interface TutorsTabProps {
   tutors: Student[];
@@ -100,9 +100,6 @@ export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPer
                 <tr key={tutor.id} className="hover:bg-slate-700/30 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white text-xs font-black">
-                        {tutor.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </div>
                       <p className="text-sm font-black text-white uppercase tracking-tighter">{tutor.fullName}</p>
                     </div>
                   </td>

@@ -1,4 +1,4 @@
-import type { Tab } from '../../../domain/entities';
+import type { Tab } from '../../domain/entities';
 
 interface AdminHeaderProps {
   activeTab: Tab;

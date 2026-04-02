@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Tab, Student, CourseData, FormData, ContentFormData } from '../../../domain/entities';
+import type { Tab, Student, CourseData, FormData, ContentFormData } from '../../domain/entities';
 
 export function useAdminModals(_activeTab: Tab) {
   const [isModalOpen, setIsModalOpen] = useState(false);

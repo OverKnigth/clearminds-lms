@@ -1,4 +1,4 @@
-import type { Student, CourseData } from '../../../domain/entities';
+import type { Student, CourseData } from '../../domain/entities';
 
 interface AssignmentsTabProps {
   filteredStudentsForAssignments: Student[];
@@ -68,9 +68,6 @@ export function AssignmentsTab({
                 <tr key={student.id} className="hover:bg-slate-700/30 transition-colors">
                   <td className="px-6 py-4 sticky left-0 bg-slate-800 z-10">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-                        {student.fullName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </div>
                       <div>
                         <p className="text-sm font-medium text-white whitespace-nowrap">{student.fullName}</p>
                         <p className="text-xs text-slate-400">{student.generation}</p>

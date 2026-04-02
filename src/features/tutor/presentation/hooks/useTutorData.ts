@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/shared/services/api';
-import type { TutoringSession, TutorStudent, ChallengeSubmission } from '../../../domain/entities';
+import type { TutoringSession, TutorStudent, TutorChallengeSubmission as ChallengeSubmission } from '../../domain/entities';
 
 export const useTutorData = () => {
   const [sessions, setSessions] = useState<TutoringSession[]>([]);

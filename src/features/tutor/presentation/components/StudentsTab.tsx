@@ -1,4 +1,4 @@
-import type { TutorStudent } from '../../../domain/entities';
+import type { TutorStudent } from '../../domain/entities';
 
 interface StudentsTabProps {
   students: TutorStudent[];
