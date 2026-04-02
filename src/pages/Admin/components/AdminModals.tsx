@@ -201,13 +201,9 @@ export function AdminModals({
             <div className="space-y-2">
               {courses.map(course => {
                 const isSelected = formData.selectedCourses.includes(course.id);
-                const parallelOptions = groups.filter(
-                  g => g.name !== '__template__' && !g.name.startsWith('direct_') && g.offerings?.some((off: any) => off.course_id === course.id)
-                );
                 return (
                   <div key={course.id}
                     className={`rounded-lg border transition-all ${isSelected ? 'border-slate-500 bg-slate-800' : 'border-slate-700/50 bg-slate-800/40'}`}>
-                    {/* Course row */}
                     <label className="flex items-center gap-3 px-4 py-3 cursor-pointer">
                       <input
                         type="checkbox"
@@ -221,37 +217,10 @@ export function AdminModals({
                           <p className="text-[10px] text-slate-500 truncate mt-0.5">{course.description}</p>
                         )}
                       </div>
-                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded flex-shrink-0 ${course.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-slate-600/30 text-slate-500'
-                        }`}>
+                      <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded flex-shrink-0 ${course.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-slate-600/30 text-slate-500'}`}>
                         {course.status === 'active' ? 'Activo' : 'Inactivo'}
                       </span>
                     </label>
-
-                    {/* Parallel selector — shown when course is selected */}
-                    {isSelected && (
-                      <div className="px-4 pb-3 border-t border-slate-700/50 pt-3">
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
-                          Paralelo
-                        </label>
-                        {parallelOptions.length === 0 ? (
-                          <p className="text-[10px] text-slate-600 italic">Sin paralelos disponibles para este curso</p>
-                        ) : (
-                          <select
-                            value={formData.courseParallelMap?.[course.id] || ''}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              courseParallelMap: { ...formData.courseParallelMap, [course.id]: e.target.value }
-                            })}
-                            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-xs font-bold focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500"
-                          >
-                            {parallelOptions.map(group => {
-                              const offering = group.offerings?.find((off: any) => off.course_id === course.id);
-                              return <option key={group.id} value={offering?.id}>{group.name}</option>;
-                            })}
-                          </select>
-                        )}
-                      </div>
-                    )}
                   </div>
                 );
               })}
