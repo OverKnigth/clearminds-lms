@@ -414,6 +414,7 @@ export default function Admin() {
               <>
                 {coursesView === 'list' && (
                   <GroupsTab
+                    students={students}
                     courses={courses}
                     onSelectGroup={(group) => {
                       setSelectedGroup(group);

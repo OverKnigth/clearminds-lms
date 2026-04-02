@@ -1,14 +1,10 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios';
 import type {
-  Group,
-  GroupDetail,
-  Parallel,
-  EnrolledStudent,
-  CreateGroupPayload,
   UpdateGroupPayload,
   AddCoursesPayload,
   CreateParallelPayload,
   EnrollStudentsPayload,
+  CreateGroupPayload,
 } from '../types/group';
 
 // API Configuration
@@ -695,10 +691,10 @@ export const api = {
   },
 
   // ─── Admin - Groups ─────────────────────────────────────────────────────
-  getGroups: async (): Promise<Group[]> => {
+  getGroups: async (): Promise<any> => {
     try {
       const response = await apiClient.get(API_ENDPOINTS.GET_GROUPS);
-      return response.data.data ?? response.data;
+      return response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
@@ -708,10 +704,10 @@ export const api = {
     }
   },
 
-  createGroup: async (data: CreateGroupPayload): Promise<Group> => {
+  createGroup: async (data: CreateGroupPayload): Promise<any> => {
     try {
       const response = await apiClient.post(API_ENDPOINTS.CREATE_GROUP, data);
-      return response.data.data ?? response.data;
+      return response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
@@ -721,10 +717,10 @@ export const api = {
     }
   },
 
-  updateGroup: async (id: string, data: UpdateGroupPayload): Promise<Group> => {
+  updateGroup: async (id: string, data: UpdateGroupPayload): Promise<any> => {
     try {
       const response = await apiClient.patch(API_ENDPOINTS.UPDATE_GROUP(id), data);
-      return response.data.data ?? response.data;
+      return response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
@@ -734,10 +730,10 @@ export const api = {
     }
   },
 
-  getGroupDetail: async (id: string): Promise<GroupDetail> => {
+  getGroupDetail: async (id: string): Promise<any> => {
     try {
       const response = await apiClient.get(API_ENDPOINTS.GET_GROUP_DETAIL(id));
-      return response.data.data ?? response.data;
+      return response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
@@ -776,10 +772,10 @@ export const api = {
     return response.data;
   },
 
-  createParallel: async (groupId: string, data: CreateParallelPayload): Promise<Parallel> => {
+  createParallel: async (groupId: string, data: CreateParallelPayload): Promise<any> => {
     try {
       const response = await apiClient.post(API_ENDPOINTS.CREATE_PARALLEL(groupId), data);
-      return response.data.data ?? response.data;
+      return response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
@@ -789,10 +785,10 @@ export const api = {
     }
   },
 
-  getParallelStudents: async (parallelId: string): Promise<EnrolledStudent[]> => {
+  getParallelStudents: async (parallelId: string): Promise<any> => {
     try {
       const response = await apiClient.get(API_ENDPOINTS.GET_PARALLEL_STUDENTS(parallelId));
-      return response.data.data ?? response.data;
+      return response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
@@ -802,10 +798,10 @@ export const api = {
     }
   },
 
-  enrollStudentsInParallel: async (parallelId: string, data: EnrollStudentsPayload): Promise<{ enrolled: number }> => {
+  enrollStudentsInParallel: async (parallelId: string, data: EnrollStudentsPayload): Promise<any> => {
     try {
       const response = await apiClient.post(API_ENDPOINTS.ENROLL_STUDENTS_IN_PARALLEL(parallelId), data);
-      return response.data.data ?? response.data;
+      return response.data;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;

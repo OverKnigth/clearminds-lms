@@ -35,8 +35,10 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
   const loadGroups = async () => {
     setIsLoading(true);
     try {
-      const data = await api.getGroups();
-      setGroups(data || []);
+      const res = await api.getGroups();
+      if (res.success) {
+        setGroups(Array.isArray(res.data) ? res.data : (res.data?.rows || []));
+      }
     } catch (e) {
       console.error('Error loading groups:', e);
     } finally {

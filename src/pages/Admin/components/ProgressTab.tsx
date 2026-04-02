@@ -30,7 +30,7 @@ export function ProgressTab() {
 
   const loadGroups = async () => {
     try {
-      const res = await api.getAllGroups();
+      const res = await api.getGroups();
       if (res.success) {
         const list = res.data.rows || res.data || [];
         setGroups(list.filter((g: any) => g.status === 'active' && g.name !== '__template__'));

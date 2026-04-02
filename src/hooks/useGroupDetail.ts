@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
-import type { GroupDetail, Parallel } from '../types/generation';
+import type { GroupDetail, Parallel } from '../types/group';
 
 interface UseGroupDetailReturn {
   detail: GroupDetail | null;
@@ -17,8 +17,10 @@ export function useGroupDetail(groupId: string): UseGroupDetailReturn {
   const fetchDetail = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await api.getGroupDetail(groupId);
-      setDetail(data);
+      const res = await api.getGroupDetail(groupId);
+      if (res.success) {
+        setDetail(res.data);
+      }
     } catch (err) {
       console.error('Error al cargar detalle del grupo:', err);
       setDetail(null);
@@ -37,9 +39,9 @@ export function useGroupDetail(groupId: string): UseGroupDetailReturn {
   }, [groupId, fetchDetail]);
 
   const createParallel = useCallback(async (name: string, blockIds?: string[]): Promise<Parallel> => {
-    const parallel = await api.createParallel(groupId, { name, blockIds });
+    const res = await api.createParallel(groupId, { name, blockIds });
     await fetchDetail();
-    return parallel;
+    return res.data;
   }, [groupId, fetchDetail]);
 
   return {

@@ -45,7 +45,7 @@ export const useAdminData = () => {
         api.getAllUsers('tutor', tutorsPage, limit),
         api.getAllUsers('admin', adminsPage, limit),
         api.getAdminCourses(),
-        api.getAllGroups(),
+        api.getGroups(),
         api.getAdminStats(),
         api.getBadges(),
       ]);

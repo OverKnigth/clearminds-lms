@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
-import type { ParallelDetail, EnrolledStudent } from '../types/generation';
+import type { ParallelDetail, EnrolledStudent } from '../types/group';
 
 interface UseParallelDetailReturn {
   detail: ParallelDetail | null;
@@ -17,8 +17,10 @@ export function useParallelDetail(parallelId: string): UseParallelDetailReturn {
   const fetchStudents = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await api.getParallelStudents(parallelId);
-      setStudents(data);
+      const res = await api.getParallelStudents(parallelId);
+      if (res.success) {
+        setStudents(res.data);
+      }
     } catch (err) {
       console.error('Error al cargar estudiantes del paralelo:', err);
       setStudents([]);

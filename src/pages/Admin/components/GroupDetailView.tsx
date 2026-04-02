@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useGroupDetail } from '../../../hooks/useGroupDetail';
 import { api } from '../../../services/api';
-import type { Group } from '../../../types/generation';
+import type { Group } from '../../../types/group';
 import type { CourseData, Student } from '../types';
 import Modal from '../../../components/Modal';
 

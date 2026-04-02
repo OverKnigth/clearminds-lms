@@ -9,10 +9,8 @@ interface Badge {
   imageUrl: string | null;
   icon: string | null;
   category: string;
-  groupId?: string | null;
   courseId?: string | null;
   course?: { name: string };
-  group?: { name: string };
 }
 
 const INPUT_CLS = 'w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-all';
@@ -22,7 +20,6 @@ const BTN_PRIMARY = 'px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:
 export function BadgesTab() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
-  const [blocks, setBlocks] = useState<any[]>([]);
   const [courseBlocks, setCourseBlocks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,7 +31,6 @@ export function BadgesTab() {
     description: '',
     imageUrl: '',
     courseId: '',
-    groupId: '',
     blockIds: [] as string[],
     category: 'academic',
   });
@@ -55,7 +51,6 @@ export function BadgesTab() {
         ...b,
         imageUrl: b.imageUrl ?? b.image_url ?? null,
         courseId: b.courseId ?? b.course_id ?? null,
-        groupId: b.groupId ?? b.group_id ?? null,
         blockId: b.blockId ?? b.block_id ?? null,
         blockIds: b.blockIds ?? (b.block_id ? [b.block_id] : []),
       })));
@@ -68,16 +63,10 @@ export function BadgesTab() {
   };
 
   const handleCourseChange = async (courseId: string) => {
-    setForm(f => ({ ...f, courseId, groupId: '', blockIds: [] }));
-    setBlocks([]);
+    setForm(f => ({ ...f, courseId, blockIds: [] }));
     setCourseBlocks([]);
     if (!courseId) return;
     try {
-      // Load parallels for the course
-      const res = await api.getCourseOfferings(courseId);
-      if (res.success) {
-        setBlocks(res.data.map((off: any) => off.group).filter((g: any) => g && g.name !== '__template__' && !g.name.startsWith('direct_')) || []);
-      }
       // Load blocks for the course
       const courseRes = await api.getCourseDetail(courseId);
       if (courseRes.success) {
@@ -96,22 +85,16 @@ export function BadgesTab() {
         description: badge.description || '',
         imageUrl: badge.imageUrl || '',
         courseId: badge.courseId || '',
-        groupId: badge.groupId || '',
         blockIds: (badge as any).blockIds || ((badge as any).blockId ? [(badge as any).blockId] : []),
         category: badge.category,
       });
       if (badge.courseId) {
-        const [offeringsRes, courseRes] = await Promise.all([
-          api.getCourseOfferings(badge.courseId),
-          api.getCourseDetail(badge.courseId),
-        ]);
-        if (offeringsRes.success) setBlocks(offeringsRes.data.map((off: any) => off.group).filter((g: any) => g && g.name !== '__template__' && !g.name.startsWith('direct_')) || []);
+        const courseRes = await api.getCourseDetail(badge.courseId);
         if (courseRes.success) setCourseBlocks((courseRes.data.blocks || []).sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0)));
       }
       setEditingBadge(badge);
     } else {
-      setForm({ name: '', description: '', imageUrl: '', courseId: '', groupId: '', blockIds: [], category: 'academic' });
-      setBlocks([]);
+      setForm({ name: '', description: '', imageUrl: '', courseId: '', blockIds: [], category: 'academic' });
       setCourseBlocks([]);
       setEditingBadge(null);
     }
@@ -257,14 +240,6 @@ export function BadgesTab() {
                 <select className={INPUT_CLS} value={form.courseId} onChange={e => handleCourseChange(e.target.value)}>
                   <option value="">Selecciona un curso</option>
                   {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className={LABEL_CLS}>Paralelo de activación</label>
-                <select className={INPUT_CLS} value={form.groupId} onChange={e => setForm(f => ({ ...f, groupId: e.target.value }))} disabled={!form.courseId}>
-                  <option value="">Selecciona el paralelo meta</option>
-                  {blocks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
 
