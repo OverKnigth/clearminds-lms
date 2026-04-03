@@ -4,6 +4,7 @@ import type { CourseData } from '../../domain/entities';
 import Modal from '@/shared/components/Modal';
 import { useDialog } from '@/shared/hooks/useDialog';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
+import { MuxVideoUploader } from './MuxVideoUploader';
 
 interface Topic {
   id: string;
@@ -86,6 +87,9 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
   });
   const [savingContent, setSavingContent] = useState(false);
   const [fetchingMeta, setFetchingMeta] = useState(false);
+  // MUX state
+  const [muxPlaybackId, setMuxPlaybackId] = useState<string | null>(null);
+  const [muxAssetId, setMuxAssetId] = useState<string | null>(null);
 
   useEffect(() => {
     loadTopics();
@@ -303,6 +307,8 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       url: '', order: existing.length + 1, durationMinutes: 0, 
       deadline: '', allowDownload: false, minProgressToComplete: 90 
     });
+    setMuxPlaybackId(null);
+    setMuxAssetId(null);
     setContentModal({ open: true, topicId, editing: null });
   };
 
@@ -315,6 +321,10 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       allowDownload: c.allowDownload || false,
       minProgressToComplete: c.minProgressToComplete || 90,
     });
+    // Si la URL tiene prefijo mux:, restaurar el playbackId
+    const isMux = c.url?.startsWith('mux:') ?? false;
+    setMuxPlaybackId(isMux ? c.url!.replace('mux:', '') : null);
+    setMuxAssetId(null);
     setContentModal({ open: true, topicId, editing: c });
   };
 
@@ -330,11 +340,21 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       if (contentForm.description.trim()) payload.description = contentForm.description;
       if (contentForm.instructions.trim()) payload.instructions = contentForm.instructions;
       if (contentForm.evaluationCriteria.trim()) payload.evaluationCriteria = contentForm.evaluationCriteria;
-      if (contentForm.url.trim()) payload.url = contentForm.url;
-      if (contentForm.type === 'video' && contentForm.durationMinutes > 0) payload.durationMinutes = contentForm.durationMinutes;
+
+      // Para video: usar playbackId de MUX si existe, sino la URL manual
+      if (contentForm.type === 'video') {
+        // Prefijo mux: para distinguir inequívocamente de URLs externas
+        const videoUrl = muxPlaybackId ? `mux:${muxPlaybackId}` : contentForm.url.trim();
+        if (videoUrl) payload.url = videoUrl;
+        if (muxAssetId) payload.muxAssetId = muxAssetId;
+        if (contentForm.durationMinutes > 0) payload.durationMinutes = contentForm.durationMinutes;
+        payload.minProgressToComplete = contentForm.minProgressToComplete;
+      } else {
+        if (contentForm.url.trim()) payload.url = contentForm.url;
+        payload.allowDownload = contentForm.allowDownload;
+      }
+
       if (contentForm.deadline) payload.deadline = new Date(contentForm.deadline).toISOString();
-      if (contentForm.type !== 'video') payload.allowDownload = contentForm.allowDownload;
-      if (contentForm.type === 'video') payload.minProgressToComplete = contentForm.minProgressToComplete;
 
       console.log('[saveContent] topicId:', contentModal.topicId, 'payload:', payload);
 
@@ -707,24 +727,37 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1.5">
-              {contentForm.type === 'document' ? 'URL del documento / enlace externo' : contentForm.type === 'challenge' ? 'Documento de apoyo (URL, opcional)' : 'URL del video'}
+              {contentForm.type === 'document' ? 'URL del documento / enlace externo' : contentForm.type === 'challenge' ? 'Documento de apoyo (URL, opcional)' : 'Video'}
             </label>
-            <div className="relative">
-              <input className={INPUT_CLS} value={contentForm.url}
-                onChange={e => handleUrlChange(e.target.value)}
-                onBlur={e => contentForm.type === 'video' && fetchVideoDuration(e.target.value)}
-                placeholder={contentForm.type === 'document' ? 'https://drive.google.com/... o https://...' : 'https://...'} />
-              {fetchingMeta && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
-                </div>
-              )}
-            </div>
-            {contentForm.type === 'video' && contentForm.url && (getYouTubeId(contentForm.url) || getVimeoId(contentForm.url)) && (
-              <p className="text-xs text-green-400 mt-1">
-                ✓ {getYouTubeId(contentForm.url) ? 'YouTube' : 'Vimeo'} detectado
-                {getVimeoId(contentForm.url) ? ' — duración obtenida automáticamente' : ' — ingresa la duración manualmente'}
-              </p>
+            {contentForm.type === 'video' ? (
+              <div className="space-y-2">
+                <MuxVideoUploader
+                  title={contentForm.title || undefined}
+                  onSuccess={(playbackId, assetId, durationMins) => {
+                    setMuxPlaybackId(playbackId);
+                    setMuxAssetId(assetId);
+                    if (durationMins) setContentForm(f => ({ ...f, durationMinutes: durationMins }));
+                  }}
+                  onError={(msg) => showAlert(msg)}
+                />
+                {muxPlaybackId && (
+                  <p className="text-xs text-green-400">
+                    ✓ MUX Playback ID: <span className="font-mono">{muxPlaybackId}</span>
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="relative">
+                <input className={INPUT_CLS} value={contentForm.url}
+                  onChange={e => handleUrlChange(e.target.value)}
+                  onBlur={e => contentForm.type === 'video' && fetchVideoDuration(e.target.value)}
+                  placeholder={contentForm.type === 'document' ? 'https://drive.google.com/... o https://...' : 'https://...'} />
+                {fetchingMeta && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

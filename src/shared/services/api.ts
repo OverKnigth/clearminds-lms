@@ -365,7 +365,6 @@ export const api = {
     const token = localStorage.getItem('authToken');
     const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_USERS_BULK}`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
         Authorization: token ? `Bearer ${token}` : '',
       },
     });
@@ -434,7 +433,6 @@ export const api = {
     const token = localStorage.getItem('authToken');
     const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_COURSE_IMAGE}`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
         Authorization: token ? `Bearer ${token}` : '',
       },
     });
@@ -795,6 +793,27 @@ export const api = {
   updateTutoringConfig: async (globalMessage: string) => {
     const response = await apiClient.patch('/admin/tutoring/config', { globalMessage });
     return response.data;
+  },
+
+  // ─── MUX Video ──────────────────────────────────────────────────────────────
+  muxCreateUploadUrl: async (title?: string): Promise<{ uploadId: string; uploadUrl: string }> => {
+    const response = await apiClient.post('/admin/mux/upload-url', { title });
+    return response.data.data;
+  },
+
+  muxGetUploadStatus: async (uploadId: string) => {
+    const response = await apiClient.get(`/admin/mux/upload/${uploadId}`);
+    return response.data.data;
+  },
+
+  muxImportFromUrl: async (url: string, title?: string): Promise<{ assetId: string; status: string; playbackId: string | null }> => {
+    const response = await apiClient.post('/admin/mux/import-url', { url, title });
+    return response.data.data;
+  },
+
+  muxGetAssetStatus: async (assetId: string): Promise<{ assetId: string; status: string; playbackId: string | null; duration: number | null }> => {
+    const response = await apiClient.get(`/admin/mux/asset/${assetId}`);
+    return response.data.data;
   },
 };
 

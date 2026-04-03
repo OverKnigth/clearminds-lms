@@ -61,7 +61,33 @@ export default function Admin() {
   }, [activeTab]);
 
   const [_saving, setSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null!);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const res = await api.uploadUsersBulk(file);
+      if (res.success) {
+        const { success: ok, failed, errors } = res.data;
+        await fetchByRole('student');
+        let msg = `Importación completada: ${ok} exitosos, ${failed} fallidos.`;
+        if (errors?.length > 0) {
+          msg += `\n\nErrores:\n${errors.slice(0, 5).map((e: any) => `• ${e.email || 'N/A'}: ${e.error}`).join('\n')}`;
+          if (errors.length > 5) msg += `\n... y ${errors.length - 5} más.`;
+        }
+        showAlert(msg, failed > 0 ? 'Importación con errores' : 'Éxito');
+      }
+    } catch (err: any) {
+      showAlert(err.response?.data?.message || 'Error al importar el archivo');
+    } finally {
+      setIsUploading(false);
+      // Reset input so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmitStudent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -362,11 +388,11 @@ export default function Admin() {
               <StudentsTab 
                 students={students}
                 groups={groups}
-                isUploading={false} 
+                isUploading={isUploading} 
                 isImportMenuOpen={isImportMenuOpen} 
                 setIsImportMenuOpen={setIsImportMenuOpen} 
                 fileInputRef={fileInputRef} 
-                handleFileUpload={async () => {}} 
+                handleFileUpload={handleFileUpload} 
                 openModal={openModal} 
                 currentPage={studentsPage} 
                 totalItems={studentsTotal} 

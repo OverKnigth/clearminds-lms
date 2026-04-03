@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactPlayerImport from 'react-player';
 const ReactPlayer = ReactPlayerImport as any;
+import MuxPlayer from '@mux/mux-player-react';
 import { api } from '@/shared/services/api';
 import Footer from '@/shared/components/Footer';
 import Modal from '@/shared/components/Modal';
@@ -46,9 +47,11 @@ export default function ContentView() {
   const [blockId, setBlockId] = useState<string | null>(null);
   const [showRateModal, setShowRateModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [muxVideoError, setMuxVideoError] = useState(false);
   const progressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    setMuxVideoError(false);
     if (courseSlug && contentSlug) loadContent(courseSlug, contentSlug);
     return () => { if (progressTimer.current) clearTimeout(progressTimer.current); };
   }, [courseSlug, contentSlug]);
@@ -141,18 +144,42 @@ export default function ContentView() {
 
   const getCleanVideoUrl = (url: string | null) => {
     if (!url) return '';
-    // Si es un link de YouTube embed, lo convertimos a watch para que ReactPlayer lo maneje mejor
     if (url.includes('youtube.com/embed/')) {
       const id = url.split('embed/')[1]?.split('?')[0];
       return `https://www.youtube.com/watch?v=${id}`;
     }
-    // Si es un link de Vimeo player, lo convertimos a la URL normal de Vimeo
     if (url.includes('player.vimeo.com/video/')) {
       const id = url.split('video/')[1]?.split('?')[0];
       return `https://vimeo.com/${id}`;
     }
     return url;
   };
+
+  // Detecta si la URL es un playback_id de MUX
+  // Formato nuevo: "mux:<playbackId>"
+  // Formato legacy: alfanumérico sin http (retrocompatibilidad)
+  const isMuxPlaybackId = (url: string | null): boolean => {
+    if (!url) return false;
+    if (url.startsWith('mux:')) return true;
+    // Retrocompatibilidad: si no empieza con http/https y es alfanumérico, asumir MUX
+    return !url.startsWith('http') && !url.startsWith('/') && /^[a-zA-Z0-9_-]{10,}$/.test(url);
+  };
+
+  const getMuxPlaybackId = (url: string): string => {
+    if (url.startsWith('mux:')) return url.replace('mux:', '');
+    return url; // legacy format
+  };
+
+  // Debug: log cuando se detecta MUX
+  useEffect(() => {
+    if (content?.type === 'video' && content.url) {
+      const isMux = isMuxPlaybackId(content.url);
+      const playbackId = isMux ? getMuxPlaybackId(content.url) : null;
+      console.log('[ContentView] Video URL:', content.url);
+      console.log('[ContentView] Is MUX?', isMux);
+      console.log('[ContentView] Playback ID:', playbackId);
+    }
+  }, [content]);
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,23 +242,65 @@ export default function ContentView() {
         {/* VIDEO */}
         {content.type === 'video' && (
           <div className="mt-6">
+            <div className="bg-yellow-500/20 text-yellow-300 p-3 mb-4 rounded font-mono text-sm border border-yellow-500/30">
+              <p>RAW URL: "{content.url}"</p>
+              <p>IS MUX: {isMuxPlaybackId(content.url) ? 'YES' : 'NO'}</p>
+              <p>PLAYBACK ID: {content.url ? getMuxPlaybackId(content.url) : 'N/A'}</p>
+            </div>
             {content.url ? (
               <div className="aspect-video bg-black rounded-xl overflow-hidden mb-6 shadow-2xl relative">
-                <ReactPlayer
-                  url={getCleanVideoUrl(content.url)}
-                  width="100%"
-                  height="100%"
-                  controls
-                  onProgress={handleVideoProgress}
-                  onError={(e: any) => console.error('ReactPlayer Error:', e)}
-                  onStart={() => {
-                    if (lastSavedProgress === 0) api.updateProgress(content.id, 1);
-                  }}
-                  config={{
-                    youtube: { playerVars: { showinfo: 0, rel: 0 } },
-                    vimeo: { playerOptions: { autopause: true } }
-                  }}
-                />
+                {isMuxPlaybackId(content.url) ? (
+                  muxVideoError ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-6 bg-slate-900">
+                      <svg className="w-12 h-12 text-red-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM1 1l22 22" />
+                      </svg>
+                      <div className="text-center">
+                        <p className="text-white font-semibold mb-1">El video no está disponible</p>
+                        <p className="text-slate-400 text-sm">El video aún está siendo procesado o necesita ser re-subido.<br/>Por favor contacta a tu tutor o administrador.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <MuxPlayer
+                        playbackId={getMuxPlaybackId(content.url!)}
+                        streamType="on-demand"
+                        metadata={{ video_title: content.title }}
+                        style={{ width: '100%', height: '100%' }}
+                        onError={() => setMuxVideoError(true)}
+                        onTimeUpdate={(e: any) => {
+                          const el = e.target as HTMLVideoElement;
+                          if (!el.duration) return;
+                          const pct = Math.round((el.currentTime / el.duration) * 100);
+                          handleVideoProgress({ played: pct / 100 });
+                        }}
+                        onPlay={() => {
+                          if (lastSavedProgress === 0) api.updateProgress(content.id, 1);
+                        }}
+                      />
+                      {/* Debug badge */}
+                      <div className="absolute top-2 left-2 bg-black/80 text-white text-[10px] px-2 py-1 rounded font-mono">
+                        MUX: {getMuxPlaybackId(content.url!)}
+                      </div>
+                    </>
+                  )
+                ) : (
+                  <ReactPlayer
+                    url={getCleanVideoUrl(content.url)}
+                    width="100%"
+                    height="100%"
+                    controls
+                    onProgress={handleVideoProgress}
+                    onError={(e: any) => console.error('ReactPlayer Error:', e)}
+                    onStart={() => {
+                      if (lastSavedProgress === 0) api.updateProgress(content.id, 1);
+                    }}
+                    config={{
+                      youtube: { playerVars: { showinfo: 0, rel: 0 } },
+                      vimeo: { playerOptions: { autopause: true } }
+                    }}
+                  />
+                )}
               </div>
             ) : (
               <div className="aspect-video bg-slate-800 rounded-xl flex items-center justify-center mb-6 border border-slate-700">
