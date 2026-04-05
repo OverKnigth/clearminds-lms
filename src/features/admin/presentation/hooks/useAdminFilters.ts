@@ -2,19 +2,19 @@ import { useState } from 'react';
 import type { Student } from '../../domain/entities';
 
 export const useAdminFilters = (students: Student[]) => {
-  const [assignmentFilter, setAssignmentFilter] = useState({ name: '', generation: 'all' });
-  const [progressFilter, setProgressFilter] = useState({ name: '', generation: 'all', course: 'all' });
+  const [assignmentFilter, setAssignmentFilter] = useState({ name: '', group: 'all' });
+  const [progressFilter, setProgressFilter] = useState({ name: '', group: 'all', course: 'all' });
 
   const filteredStudentsForAssignments = students.filter(student => {
     const matchesName = student.fullName.toLowerCase().includes(assignmentFilter.name.toLowerCase());
-    const matchesGeneration = assignmentFilter.generation === 'all' || student.generation === assignmentFilter.generation;
-    return matchesName && matchesGeneration;
+    const matchesGroup = assignmentFilter.group === 'all' || student.groupName === assignmentFilter.group;
+    return matchesName && matchesGroup;
   });
 
   const filteredStudentsForProgress = students.filter(student => {
     const matchesName = student.fullName.toLowerCase().includes(progressFilter.name.toLowerCase());
-    const matchesGeneration = progressFilter.generation === 'all' || student.generation === progressFilter.generation;
-    return matchesName && matchesGeneration;
+    const matchesGroup = progressFilter.group === 'all' || student.groupName === progressFilter.group;
+    return matchesName && matchesGroup;
   });
 
   return {

@@ -9,13 +9,13 @@ export default function Reports() {
   const navigate = useNavigate();
   const [activeReport, setActiveReport] = useState<ReportType>('daily');
   const [selectedCourse, setSelectedCourse] = useState('all');
-  const [selectedGeneration, setSelectedGeneration] = useState('all');
+  const [selectedGroup, setSelectedGroup] = useState('all');
   const [dateRange, setDateRange] = useState({ start: '2026-02-20', end: '2026-02-24' });
 
   const filteredReports = mockDailyReports.filter(report => {
     const matchesCourse = selectedCourse === 'all' || report.courseId === selectedCourse;
-    const matchesGeneration = selectedGeneration === 'all' || report.generation === selectedGeneration;
-    return matchesCourse && matchesGeneration;
+    const matchesGroup = selectedGroup === 'all' || (report as any).group === selectedGroup;
+    return matchesCourse && matchesGroup;
   });
 
   return (
@@ -88,16 +88,13 @@ export default function Reports() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Generación</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Grupo</label>
             <select
-              value={selectedGeneration}
-              onChange={(e) => setSelectedGeneration(e.target.value)}
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
             >
-              <option value="all">Todas las generaciones</option>
-              <option value="Gen 2026-A">Gen 2026-A</option>
-              <option value="Gen 2026-B">Gen 2026-B</option>
-              <option value="Gen 2025-B">Gen 2025-B</option>
+              <option value="all">Todos los grupos</option>
             </select>
           </div>
 
@@ -164,7 +161,7 @@ export default function Reports() {
                             </div>
                             <div>
                               <p className="text-sm font-medium text-white">{report.studentName}</p>
-                              <p className="text-xs text-slate-400">{report.generation}</p>
+                              <p className="text-xs text-slate-400">{(report as any).group || ''}</p>
                             </div>
                           </div>
                         </td>

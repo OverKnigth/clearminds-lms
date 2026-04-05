@@ -3,8 +3,8 @@ import type { Student, CourseData } from '../../domain/entities';
 interface AssignmentsTabProps {
   filteredStudentsForAssignments: Student[];
   courses: CourseData[];
-  assignmentFilter: { name: string; generation: string };
-  setAssignmentFilter: (val: { name: string; generation: string }) => void;
+  assignmentFilter: { name: string; group: string };
+  setAssignmentFilter: (val: { name: string; group: string }) => void;
   toggleCourseForStudent: (studentId: string, courseId: string) => void;
 }
 
@@ -36,14 +36,11 @@ export function AssignmentsTab({
           />
         </div>
         <select 
-          value={assignmentFilter.generation}
-          onChange={(e) => setAssignmentFilter({ ...assignmentFilter, generation: e.target.value })}
+          value={assignmentFilter.group}
+          onChange={(e) => setAssignmentFilter({ ...assignmentFilter, group: e.target.value })}
           className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500"
         >
-          <option value="all">Todas las Generaciones</option>
-          <option value="Gen 2026-A">Gen 2026-A</option>
-          <option value="Gen 2026-B">Gen 2026-B</option>
-          <option value="Gen 2025-B">Gen 2025-B</option>
+          <option value="all">Todos los Grupos</option>
         </select>
       </div>
 
@@ -70,7 +67,7 @@ export function AssignmentsTab({
                     <div className="flex items-center gap-3">
                       <div>
                         <p className="text-sm font-medium text-white whitespace-nowrap">{student.fullName}</p>
-                        <p className="text-xs text-slate-400">{student.generation}</p>
+                        <p className="text-xs text-slate-400">{student.groupName}</p>
                       </div>
                     </div>
                   </td>

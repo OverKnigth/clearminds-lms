@@ -4,16 +4,15 @@ import type { AdminStudent, AdminTutor, AdminCourse, AdminGroup, AdminStats, Cou
 
 const mapUser = (u: any): any => ({
   id: u.id,
-  fullName: `${u.names} ${u.lastNames}`,
+  fullName: `${u.names || ''} ${u.lastNames || ''}`.trim(),
   email: u.email,
-  enrollmentDate: u.createdAt?.split('T')[0] || '2026-01-01',
-  generation: u.generation || 'N/A',
-  generationName: u.generationName || '',
+  enrollmentDate: u.createdAt?.split('T')[0] || '',
+  groupName: u.groupName || u.generationName || '',
   assignedCourses: u.assignedCourses || [],
   courseParallelMap: u.courseParallelMap || {},
   progress: u.progress || 0,
-  status: u.status,
-  role: u.role?.name || 'student',
+  status: u.status || 'active',
+  role: (typeof u.role === 'string' ? u.role : u.role?.name) || 'student',
   rating: u.rating || 0,
   reviewsCount: u.reviewsCount || 0,
 });

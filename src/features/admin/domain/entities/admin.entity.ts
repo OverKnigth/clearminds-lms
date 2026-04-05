@@ -3,7 +3,7 @@ export interface AdminStudent {
   fullName: string;
   email: string;
   enrollmentDate: string;
-  generation: string;
+  groupName: string;
   assignedCourses: string[];
   courseParallelMap?: { [courseId: string]: string };
   progress: number;

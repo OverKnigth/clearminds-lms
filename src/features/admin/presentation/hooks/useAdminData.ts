@@ -9,7 +9,6 @@ const mapUser = (u: any): any => ({
   lastNames: u.lastNames || '',
   email: u.email,
   enrollmentDate: u.createdAt?.split?.('T')[0] || '',
-  generation: u.generation || '',
   groupName: u.groupName || u.generationName || '',
   assignedCourses: Array.isArray(u.assignedCourses) ? u.assignedCourses : [],
   courseParallelMap: u.courseParallelMap || {},
