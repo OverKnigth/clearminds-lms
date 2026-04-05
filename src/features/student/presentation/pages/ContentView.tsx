@@ -2,10 +2,26 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactPlayerImport from 'react-player';
 const ReactPlayer = ReactPlayerImport as any;
-import MuxPlayer from '@mux/mux-player-react';
+import { MuxVideoPlayer } from '../components/MuxVideoPlayer';
 import { api } from '@/shared/services/api';
 import Footer from '@/shared/components/Footer';
 import Modal from '@/shared/components/Modal';
+
+// Declaración de tipos para mux-player
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'mux-player': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        'playback-id'?: string;
+        'metadata-video-title'?: string;
+        'stream-type'?: string;
+        'accent-color'?: string;
+        ref?: React.Ref<HTMLElement>;
+        style?: React.CSSProperties;
+      };
+    }
+  }
+}
 
 interface Content {
   id: string;
@@ -44,14 +60,11 @@ export default function ContentView() {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [lastSavedProgress, setLastSavedProgress] = useState(0);
-  const [blockId, setBlockId] = useState<string | null>(null);
   const [showRateModal, setShowRateModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [muxVideoError, setMuxVideoError] = useState(false);
   const progressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setMuxVideoError(false);
     if (courseSlug && contentSlug) loadContent(courseSlug, contentSlug);
     return () => { if (progressTimer.current) clearTimeout(progressTimer.current); };
   }, [courseSlug, contentSlug]);
@@ -75,13 +88,11 @@ export default function ContentView() {
         }
 
         let foundContent: Content | null = null;
-        let foundBlockId: string | null = null;
 
         for (const topic of courseData.topics) {
           const found = topic.contents.find((c: any) => c.slug === ctSlug || c.id === ctSlug);
           if (found) { 
             foundContent = found;
-            foundBlockId = topic.blockId;
             break; 
           }
         }
@@ -94,7 +105,6 @@ export default function ContentView() {
           }
           setContent(foundContent); 
           setLastSavedProgress(foundContent.progress.pctWatched || 0);
-          setBlockId(foundBlockId);
         }
       }
     } catch (e) { console.error(e); }
@@ -170,14 +180,11 @@ export default function ContentView() {
     return url; // legacy format
   };
 
-  // Debug: log cuando se detecta MUX
+  // Debug: log cuando se carga el contenido
   useEffect(() => {
     if (content?.type === 'video' && content.url) {
       const isMux = isMuxPlaybackId(content.url);
-      const playbackId = isMux ? getMuxPlaybackId(content.url) : null;
-      console.log('[ContentView] Video URL:', content.url);
-      console.log('[ContentView] Is MUX?', isMux);
-      console.log('[ContentView] Playback ID:', playbackId);
+      console.log('[VIDEO]', isMux ? 'MUX' : 'External', content.url);
     }
   }, [content]);
 
@@ -188,9 +195,10 @@ export default function ContentView() {
     setSubmitting(true);
     try {
       await api.submitChallenge(contentId, { gitUrl, comment: comment || undefined });
-      // Redirect to meetings/tutoring page after successful submission
-      // Include blockId in state to preselect it in the meetings page
-      navigate('/meetings', { state: { preselectedBlockId: blockId } });
+      // Ya no redirigimos a tutorías automáticamente después de un reto individual
+      // Solo refrescamos el contenido para mostrar que fue entregado
+      loadContent(courseSlug!, contentSlug!);
+      // Opcional: Podríamos mostrar un mensaje de éxito temporal si fuera necesario
     } catch (e: any) { setError(e.response?.data?.message || e.message); }
     finally { setSubmitting(false); }
   };
@@ -242,48 +250,34 @@ export default function ContentView() {
         {/* VIDEO */}
         {content.type === 'video' && (
           <div className="mt-6">
-            <div className="bg-yellow-500/20 text-yellow-300 p-3 mb-4 rounded font-mono text-sm border border-yellow-500/30">
-              <p>RAW URL: "{content.url}"</p>
-              <p>IS MUX: {isMuxPlaybackId(content.url) ? 'YES' : 'NO'}</p>
-              <p>PLAYBACK ID: {content.url ? getMuxPlaybackId(content.url) : 'N/A'}</p>
+            {/* Debug panel - TEMPORAL */}
+            <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+              <p className="text-yellow-400 font-bold mb-2">🔍 DEBUG INFO:</p>
+              <div className="text-xs text-yellow-300 space-y-1 font-mono">
+                <p>URL guardada: <span className="text-white">{content.url || 'null'}</span></p>
+                <p>Es MUX?: <span className="text-white">{isMuxPlaybackId(content.url) ? 'SÍ ✓' : 'NO ✗'}</span></p>
+                {isMuxPlaybackId(content.url) && content.url && (
+                  <p>Playback ID: <span className="text-white">{getMuxPlaybackId(content.url)}</span></p>
+                )}
+                <p>Tipo detectado: <span className="text-white">
+                  {isMuxPlaybackId(content.url) ? 'MUX Player' : 'ReactPlayer (YouTube/Vimeo)'}
+                </span></p>
+              </div>
             </div>
+
             {content.url ? (
               <div className="aspect-video bg-black rounded-xl overflow-hidden mb-6 shadow-2xl relative">
                 {isMuxPlaybackId(content.url) ? (
-                  muxVideoError ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-6 bg-slate-900">
-                      <svg className="w-12 h-12 text-red-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2zM1 1l22 22" />
-                      </svg>
-                      <div className="text-center">
-                        <p className="text-white font-semibold mb-1">El video no está disponible</p>
-                        <p className="text-slate-400 text-sm">El video aún está siendo procesado o necesita ser re-subido.<br/>Por favor contacta a tu tutor o administrador.</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <MuxPlayer
-                        playbackId={getMuxPlaybackId(content.url!)}
-                        streamType="on-demand"
-                        metadata={{ video_title: content.title }}
-                        style={{ width: '100%', height: '100%' }}
-                        onError={() => setMuxVideoError(true)}
-                        onTimeUpdate={(e: any) => {
-                          const el = e.target as HTMLVideoElement;
-                          if (!el.duration) return;
-                          const pct = Math.round((el.currentTime / el.duration) * 100);
-                          handleVideoProgress({ played: pct / 100 });
-                        }}
-                        onPlay={() => {
-                          if (lastSavedProgress === 0) api.updateProgress(content.id, 1);
-                        }}
-                      />
-                      {/* Debug badge */}
-                      <div className="absolute top-2 left-2 bg-black/80 text-white text-[10px] px-2 py-1 rounded font-mono">
-                        MUX: {getMuxPlaybackId(content.url!)}
-                      </div>
-                    </>
-                  )
+                  <MuxVideoPlayer
+                    playbackId={getMuxPlaybackId(content.url!)}
+                    title={content.title}
+                    startTime={(content.durationMinutes || 0) * 60 * (lastSavedProgress / 100)}
+                    onProgress={(pct) => handleVideoProgress({ played: pct / 100 })}
+                    onPlay={() => {
+                      if (lastSavedProgress === 0) api.updateProgress(content.id, 1);
+                    }}
+                    onError={(msg) => setError(msg)}
+                  />
                 ) : (
                   <ReactPlayer
                     url={getCleanVideoUrl(content.url)}

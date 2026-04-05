@@ -5,6 +5,7 @@ const ReactPlayer = ReactPlayerImport as any;
 import { api } from '@/shared/services/api';
 import Footer from '@/shared/components/Footer';
 import { StudentBadges } from '../components';
+import { MuxVideoPlayer } from '../components/MuxVideoPlayer';
 import { useDialog } from '@/shared/hooks/useDialog';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 
@@ -155,12 +156,17 @@ export default function CourseView() {
         const courseData = res.data;
         if (idOrSlug === courseData.id && courseData.slug) {
           navigate(`/course/${courseData.slug}`, { replace: true });
-          return;
+          return courseData;
         }
         setCourse(courseData);
         if (courseData.topics.length > 0) setSelectedTopicId(courseData.topics[0].id);
+        return courseData;
       }
-    } catch (e) { console.error(e); }
+      return null;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
     finally { setIsLoading(false); }
   };
 
@@ -168,8 +174,15 @@ export default function CourseView() {
   const reloadCourse = async (idOrSlug: string) => {
     try {
       const res = await api.getStudentCourseDetail(idOrSlug);
-      if (res.success) setCourse(res.data);
-    } catch (e) { console.error(e); }
+      if (res.success) {
+        setCourse(res.data);
+        return res.data;
+      }
+      return null;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
   };
 
   // Actualiza el progreso de un contenido localmente sin recargar el curso completo
@@ -191,6 +204,11 @@ export default function CourseView() {
         }))
       };
     });
+    
+    // Recargar datos oficiales del servidor para actualizar estados de insignias (para solicitar tutoría)
+    if (courseSlug) {
+      setTimeout(() => reloadCourse(courseSlug).catch(() => {}), 100);
+    }
   };
 
   if (isLoading) return (
@@ -218,6 +236,17 @@ export default function CourseView() {
   // canRequestTutoring — available for future use
 
   // handleManualComplete — available for future use
+  const isMuxUrl = (url: string | null): boolean => {
+    if (!url) return false;
+    if (url.startsWith('mux:')) return true;
+    return !url.startsWith('http') && !url.startsWith('/') && /^[a-zA-Z0-9_-]{10,}$/.test(url);
+  };
+
+  const getMuxPlaybackId = (url: string): string => {
+    if (url.startsWith('mux:')) return url.replace('mux:', '');
+    return url;
+  };
+
   const getYouTubeId = (url: string): string | null => {
     if (!url) return null;
     // youtu.be/ID
@@ -294,14 +323,19 @@ export default function CourseView() {
       setShowRatingModal(false);
       setPendingRatingSubmission(null);
       setTutorRating(0);
-      if (courseSlug) {
-        // Snapshot badges before reload to detect newly earned ones
-        const badgesBefore = new Set(
-          (course?.badges ?? []).filter((b: any) => b.state === 'earned').map((b: any) => b.id)
-        );
-        seenBadgeIds.current = badgesBefore;
-        await reloadCourse(courseSlug);
-      }
+        let freshCourse = null;
+        if (courseSlug) {
+          freshCourse = await reloadCourse(courseSlug);
+        }
+        
+        // Buscar la insignia del bloque calificado para mostrarla como premio (si acaba de obtenerse)
+        const targetCourse = freshCourse || course;
+        if (selectedTopic?.blockId && targetCourse) {
+          const blockBadge = targetCourse.badges?.find((b: any) => (b.blockId === selectedTopic.blockId || b.block_id === selectedTopic.blockId) && b.state === 'earned');
+          if (blockBadge) {
+            setNewBadge(blockBadge);
+          }
+        }
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setRatingSubmitting(false); }
   };
@@ -586,18 +620,54 @@ export default function CourseView() {
                   </div>
                 );
 
+                // Reviso si el bloque ya es elegible para tutoría (available)
+                const blockBadge = course?.badges?.find((b: any) => (b.blockId === selectedTopic.blockId || b.block_id === selectedTopic.blockId));
+                if (blockBadge?.state === 'available') return (
+                  <div className="mb-8 p-6 bg-gradient-to-r from-red-600/20 to-red-600/5 border border-red-500/30 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-left-4 duration-500">
+                    <div className="flex items-center gap-4 text-center md:text-left">
+                      <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-900/40">
+                         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                      </div>
+                      <div>
+                        <h4 className="text-white font-black text-lg leading-tight">¡Meta cumplida!</h4>
+                        <p className="text-sm text-slate-300">Ya puedes solicitar tu tutoría para aprobar este bloque y reclamar tu insignia.</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={openTutoringModal}
+                      className="whitespace-nowrap px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-xl shadow-red-900/30"
+                    >
+                      Solicitar Tutoría Ahora
+                    </button>
+                  </div>
+                );
+
                 return null;
               })()}
+
 
               {/* VIEWERS */}
               {selectedContent.type === 'video' && (
                 <div className="space-y-6">
                   {selectedContent.url ? (
                     <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800 relative">
-                      {getYouTubeId(selectedContent.url) ? (
+                      {isMuxUrl(selectedContent.url) ? (
+                        /* MUX — HLS.js player */
+                        <MuxVideoPlayer
+                          playbackId={getMuxPlaybackId(selectedContent.url!)}
+                          title={selectedContent.title}
+                          onProgress={(pct) => {
+                            setLastSavedProgress(pct);
+                            handleYouTubeProgress(selectedContent.id, pct);
+                          }}
+                          onPlay={() => {
+                            if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
+                          }}
+                        />
+                      ) : getYouTubeId(selectedContent.url!) ? (
                         /* YouTube — IFrame API para rastrear progreso real */
                         <YouTubePlayer
-                          videoId={getYouTubeId(selectedContent.url)!}
+                          videoId={getYouTubeId(selectedContent.url!)!}
                           onProgress={(pct) => {
                             setLastSavedProgress(pct);
                             handleYouTubeProgress(selectedContent.id, pct);
@@ -644,17 +714,78 @@ export default function CourseView() {
               )}
 
               {selectedContent.type === 'document' && (
-                <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 text-center space-y-6">
-                  <div className="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center mx-auto">
-                    <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  </div>
-                  <h2 className="text-xl font-bold text-white">{selectedContent.title}</h2>
-                  <div className="flex justify-center gap-4">
-                    <a href={selectedContent.url || '#'} target="_blank" className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all">Abrir Documento</a>
-                    {selectedContent.allowDownload && <a href={selectedContent.url || '#'} download className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all">Descargar</a>}
+                <div className="space-y-6">
+                  {selectedContent.url ? (
+                    <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
+                      <div className="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-800/50">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                          </div>
+                          <h3 className="text-sm font-bold text-white truncate max-w-md">{selectedContent.title}</h3>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a href={selectedContent.url} target="_blank" className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors" title="Abrir en pestaña nueva">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                          </a>
+                        </div>
+                      </div>
+                      
+                      <div className="aspect-[16/9] md:aspect-[21/9] lg:aspect-video w-full bg-slate-900 flex items-center justify-center relative">
+                        {(() => {
+                           let embedUrl = selectedContent.url;
+                           if (embedUrl.includes('drive.google.com')) {
+                             if (embedUrl.includes('/view')) {
+                               embedUrl = embedUrl.replace('/view', '/preview');
+                             } else if (embedUrl.includes('id=')) {
+                               const idMatch = embedUrl.match(/id=([^&]+)/);
+                               if (idMatch) embedUrl = `https://drive.google.com/file/d/${idMatch[1]}/preview`;
+                             }
+                           }
+                           
+                           return (
+                             <iframe 
+                               src={embedUrl}
+                               className="w-full h-full border-0 rounded-b-2xl"
+                               allow="autoplay"
+                               title={selectedContent.title}
+                             />
+                           );
+                        })()}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-800 p-12 rounded-2xl border border-slate-700 text-center space-y-4">
+                      <div className="w-16 h-16 bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      </div>
+                      <p className="text-slate-400">Este documento no tiene una URL configurada.</p>
+                    </div>
+                  )}
+
+                  {(selectedContent.progress?.status !== 'completed') && (
+                    <button
+                      onClick={() => handleYouTubeProgress && handleYouTubeProgress(selectedContent.id, 100)}
+                      className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-xl shadow-blue-900/30 flex items-center justify-center gap-3 animate-in fade-in duration-500"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                      Completar Documento
+                    </button>
+                  )}
+
+                  <div className="flex items-center justify-between bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">¿Problemas con la visualización?</p>
+                    <div className="flex gap-3">
+                      <a href={selectedContent.url || '#'} target="_blank" className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-lg border border-blue-600/30 transition-all">Abrir en Google Drive</a>
+                      {selectedContent.allowDownload && (
+                        <a href={selectedContent.url || '#'} download className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all">Descargar PDF</a>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
+
+
 
               {selectedContent.type === 'challenge' && (
                 <div className="space-y-8">
@@ -814,12 +945,12 @@ export default function CourseView() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 w-full relative">
+          <div className="flex-1 w-full relative overflow-hidden">
             {course.imageUrl ? (
               <img 
                 src={course.imageUrl} 
                 alt={course.name} 
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-red-600 to-red-900 flex items-center justify-center">
@@ -961,24 +1092,32 @@ export default function CourseView() {
       </div>
     )}
 
-    {/* ── New Badge Modal ── */}
+    {/* Modal de Insignia Obtenida */}
     {newBadge && (
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
         <div className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-8 w-full max-w-sm shadow-2xl shadow-yellow-900/20 text-center animate-in zoom-in-95 duration-300">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center overflow-hidden">
-            {newBadge.imageUrl
-              ? <img src={newBadge.imageUrl} alt={newBadge.name} className="w-full h-full object-cover" />
-              : <span className="text-4xl">🏅</span>
-            }
+          <div className="relative mb-6">
+            <div className="w-32 h-32 mx-auto rounded-3xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border-2 border-yellow-500/40 flex items-center justify-center overflow-hidden shadow-xl shadow-yellow-900/20">
+              {(newBadge.imageUrl || newBadge.image_url) ? (
+                <img src={newBadge.imageUrl || newBadge.image_url} alt={newBadge.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-5xl">🏅</span>
+              )}
+            </div>
+            <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-white text-lg shadow-lg border-4 border-slate-800">
+              ✓
+            </div>
           </div>
-          <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">¡Insignia obtenida!</p>
-          <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-2">{newBadge.name}</h2>
+
+          <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">¡Insignia Desbloqueada!</p>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2 leading-none">{newBadge.name}</h2>
           {newBadge.description && (
-            <p className="text-sm text-slate-400 mb-6">{newBadge.description}</p>
+            <p className="text-sm text-slate-400 mb-6 italic">"{newBadge.description}"</p>
           )}
+
           <button
             onClick={() => setNewBadge(null)}
-            className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-black text-sm uppercase tracking-widest rounded-xl transition-all"
+            className="w-full py-3.5 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black text-sm uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-yellow-900/20"
           >
             Aceptar
           </button>

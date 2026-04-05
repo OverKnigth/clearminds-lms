@@ -5,6 +5,8 @@ import Modal from '@/shared/components/Modal';
 import { useDialog } from '@/shared/hooks/useDialog';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { MuxVideoUploader } from './MuxVideoUploader';
+import type { MuxVideoUploaderHandle } from './MuxVideoUploader';
+import { useRef } from 'react';
 
 interface Topic {
   id: string;
@@ -90,11 +92,21 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
   // MUX state
   const [muxPlaybackId, setMuxPlaybackId] = useState<string | null>(null);
   const [muxAssetId, setMuxAssetId] = useState<string | null>(null);
+  const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
+  const muxUploaderRef = useRef<MuxVideoUploaderHandle>(null);
 
   useEffect(() => {
     loadTopics();
     loadBlocks();
   }, [course.id]);
+
+  useEffect(() => {
+    // Si la subida terminó con éxito y el modal sigue abierto, autoguardamos el contenido
+    if (muxPlaybackId && contentModal.open && selectedVideoFile) {
+      saveContent();
+      setSelectedVideoFile(null); // Limpiar para no entrar en bucle
+    }
+  }, [muxPlaybackId]);
 
   const loadTopics = async () => {
     setIsLoading(true);
@@ -309,6 +321,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     });
     setMuxPlaybackId(null);
     setMuxAssetId(null);
+    setSelectedVideoFile(null);
     setContentModal({ open: true, topicId, editing: null });
   };
 
@@ -321,15 +334,32 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       allowDownload: c.allowDownload || false,
       minProgressToComplete: c.minProgressToComplete || 90,
     });
-    // Si la URL tiene prefijo mux:, restaurar el playbackId
-    const isMux = c.url?.startsWith('mux:') ?? false;
-    setMuxPlaybackId(isMux ? c.url!.replace('mux:', '') : null);
+    // Detectar si es MUX (con o sin prefijo)
+    const isMux = c.url?.startsWith('mux:') || (!c.url?.startsWith('http') && c.url && /^[a-zA-Z0-9_-]{10,}$/.test(c.url));
+    const playbackId = isMux ? (c.url!.startsWith('mux:') ? c.url!.replace('mux:', '') : c.url!) : null;
+    setMuxPlaybackId(playbackId);
     setMuxAssetId(null);
     setContentModal({ open: true, topicId, editing: c });
   };
 
-  const saveContent = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const saveContent = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+
+    // NUEVO: Si es video y hay archivo seleccionado PERO aún no tenemos playbackId, iniciamos subida
+    if (contentForm.type === 'video' && selectedVideoFile && !muxPlaybackId) {
+      setSavingContent(true);
+      try {
+        await muxUploaderRef.current?.upload(selectedVideoFile);
+        // NO cerramos el modal ni paramos savingContent. El useEffect de arriba se encargará
+        // de re-llamar a saveContent cuando muxPlaybackId cambie.
+        return;
+      } catch (err: any) {
+        setSavingContent(false);
+        showAlert('Error al iniciar la subida a MUX');
+        return;
+      }
+    }
+
     setSavingContent(true);
     try {
       const payload: any = {
@@ -398,7 +428,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     <div>
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <button onClick={onBack} className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
+        <button type="button" onClick={onBack} className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
           <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -408,7 +438,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
           <p className="text-sm text-slate-400">Gestión de temas y contenidos</p>
         </div>
         {activeTab === 'topics' ? (
-          <button onClick={openAddTopic} className={BTN_PRIMARY}>
+          <button type="button" onClick={openAddTopic} className={BTN_PRIMARY}>
             <span className="flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -417,7 +447,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
             </span>
           </button>
         ) : (
-          <button onClick={openAddBlock} className={BTN_PRIMARY}>
+          <button type="button" onClick={openAddBlock} className={BTN_PRIMARY}>
             <span className="flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -430,11 +460,11 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
 
       {/* Tabs */}
       <div className="flex gap-2 p-1 bg-slate-800 rounded-xl w-fit border border-slate-700 mb-6">
-        <button onClick={() => setActiveTab('topics')}
+        <button type="button" onClick={() => setActiveTab('topics')}
           className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'topics' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
           Temas
         </button>
-        <button onClick={() => setActiveTab('blocks')}
+        <button type="button" onClick={() => setActiveTab('blocks')}
           className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'blocks' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
           Bloques {courseBlocks.length > 0 && <span className="ml-1 opacity-70">({courseBlocks.length})</span>}
         </button>
@@ -451,7 +481,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
           <p className="text-slate-400 mb-4">Este curso no tiene temas aún</p>
-          <button onClick={openAddTopic} className={BTN_PRIMARY}>Crear primer tema</button>
+          <button type="button" onClick={openAddTopic} className={BTN_PRIMARY}>Crear primer tema</button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -462,7 +492,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
               <div key={topic.id} className="bg-slate-800 rounded-xl border border-slate-700">
                 {/* Topic header */}
                 <div className="flex items-center gap-3 p-4">
-                  <button onClick={() => toggleTopic(topic.id)} className="text-slate-400 hover:text-white transition-colors">
+                  <button type="button" onClick={() => toggleTopic(topic.id)} className="text-slate-400 hover:text-white transition-colors">
                     <svg className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -476,17 +506,17 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
                   </div>
                   <span className="text-xs text-slate-500">{contents.length} contenido{contents.length !== 1 ? 's' : ''}</span>
                   <div className="flex gap-1">
-                    <button onClick={() => openAddContent(topic.id)} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-green-400 transition-colors" title="Agregar contenido">
+                    <button type="button" onClick={() => openAddContent(topic.id)} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-green-400 transition-colors" title="Agregar contenido">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
                     </button>
-                    <button onClick={() => openEditTopic(topic)} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-yellow-400 transition-colors" title="Editar tema">
+                    <button type="button" onClick={() => openEditTopic(topic)} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-yellow-400 transition-colors" title="Editar tema">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
-                    <button onClick={() => deleteTopic(topic)} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-red-400 transition-colors" title="Eliminar tema">
+                    <button type="button" onClick={() => deleteTopic(topic)} className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-red-400 transition-colors" title="Eliminar tema">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
@@ -517,12 +547,12 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
                             </p>
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => openEditContent(topic.id, c)} className="p-1.5 hover:bg-slate-600 rounded text-slate-400 hover:text-yellow-400 transition-colors">
+                            <button type="button" onClick={() => openEditContent(topic.id, c)} className="p-1.5 hover:bg-slate-600 rounded text-slate-400 hover:text-yellow-400 transition-colors">
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                               </svg>
                             </button>
-                            <button onClick={() => deleteContent(c)} className="p-1.5 hover:bg-slate-600 rounded text-slate-400 hover:text-red-400 transition-colors">
+                            <button type="button" onClick={() => deleteContent(c)} className="p-1.5 hover:bg-slate-600 rounded text-slate-400 hover:text-red-400 transition-colors">
                               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
@@ -531,7 +561,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
                         </div>
                       ))
                     )}
-                    <button onClick={() => openAddContent(topic.id)} className="w-full py-2 border border-dashed border-slate-600 hover:border-red-500 text-slate-500 hover:text-red-400 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+                    <button type="button" onClick={() => openAddContent(topic.id)} className="w-full py-2 border border-dashed border-slate-600 hover:border-red-500 text-slate-500 hover:text-red-400 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
@@ -576,8 +606,8 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
                     <div className="flex justify-between"><span className="text-slate-500">Tutoría:</span><span className={block.mandatoryTutoring ? 'text-green-500' : 'text-slate-500'}>{block.mandatoryTutoring ? 'Obligatoria' : 'Opcional'}</span></div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => openEditBlock(block)} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-[9px] font-black text-white uppercase tracking-widest transition-all">Editar</button>
-                    <button onClick={() => deleteBlock(block.id)} className="px-3 py-2 bg-red-900/10 hover:bg-red-500/20 rounded-lg text-[9px] font-black text-red-500 uppercase tracking-widest border border-red-500/20 transition-all">Eliminar</button>
+                    <button type="button" onClick={() => openEditBlock(block)} className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-[9px] font-black text-white uppercase tracking-widest transition-all">Editar</button>
+                    <button type="button" onClick={() => deleteBlock(block.id)} className="px-3 py-2 bg-red-900/10 hover:bg-red-500/20 rounded-lg text-[9px] font-black text-red-500 uppercase tracking-widest border border-red-500/20 transition-all">Eliminar</button>
                   </div>
                 </div>
               );
@@ -732,11 +762,16 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
             {contentForm.type === 'video' ? (
               <div className="space-y-2">
                 <MuxVideoUploader
+                  ref={muxUploaderRef}
                   title={contentForm.title || undefined}
+                  onFileSelect={setSelectedVideoFile}
                   onSuccess={(playbackId, assetId, durationMins) => {
                     setMuxPlaybackId(playbackId);
                     setMuxAssetId(assetId);
                     if (durationMins) setContentForm(f => ({ ...f, durationMinutes: durationMins }));
+                    // Una vez que tenemos el PlaybackId, guardamos definitivamente
+                    // Pero necesitamos los datos más frescos del formulario
+                    // Ver el useEffect de abajo para la auto-guardada tras subida
                   }}
                   onError={(msg) => showAlert(msg)}
                 />
@@ -786,8 +821,8 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
             {contentForm.type === 'video' && (
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Duración (min)</label>
-                <input type="number" min={0} className={INPUT_CLS} value={contentForm.durationMinutes}
-                  onChange={e => setContentForm(f => ({ ...f, durationMinutes: Number(e.target.value) }))} />
+                <input type="number" step="0.01" min={0} className={INPUT_CLS} value={contentForm.durationMinutes}
+                  onChange={e => setContentForm(f => ({ ...f, durationMinutes: parseFloat(e.target.value) || 0 }))} />
               </div>
             )}
             {contentForm.type === 'challenge' && (

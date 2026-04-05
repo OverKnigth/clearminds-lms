@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test MUX Video</title>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@mux/mux-player"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #0f172a;
+      color: white;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #dc2626;
+    }
+    .video-container {
+      margin: 20px 0;
+      background: black;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    mux-player {
+      width: 100%;
+      aspect-ratio: 16/9;
+    }
+    .info {
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+      border: 1px solid #334155;
+    }
+    .info code {
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #22c55e;
+    }
+    .test-button {
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin: 5px;
+    }
+    .test-button:hover {
+      background: #b91c1c;
+    }
+    #console {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+    .log-entry {
+      margin: 5px 0;
+      padding: 5px;
+      border-left: 3px solid #334155;
+      padding-left: 10px;
+    }
+    .log-error {
+      border-left-color: #dc2626;
+      color: #fca5a5;
+    }
+    .log-success {
+      border-left-color: #22c55e;
+      color: #86efac;
+    }
+    .log-info {
+      border-left-color: #3b82f6;
+      color: #93c5fd;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎥 Test MUX Video Player</h1>
+    
+    <div class="info">
+      <strong>Playback ID actual:</strong> <code id="current-playback-id">sZOuAj1GP7SmagyVz5AlEUJAkROxJ6UgxSNEcLNlltQSi</code>
+    </div>
+
+    <div class="info">
+      <label for="playback-input"><strong>Probar con otro Playback ID:</strong></label><br>
+      <input 
+        type="text" 
+        id="playback-input" 
+        placeholder="Ingresa un playback ID de MUX"
+        style="width: 100%; padding: 8px; margin-top: 5px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 4px;"
+      >
+      <button class="test-button" onclick="loadVideo()">Cargar Video</button>
+      <button class="test-button" onclick="testStreamUrl()">Test Stream URL</button>
+    </div>
+
+    <div class="video-container">
+      <mux-player
+        id="mux-player"
+        playback-id="sZOuAj1GP7SmagyVz5AlEUJAkROxJ6UgxSNEcLNlltQSi"
+        stream-type="on-demand"
+        accent-color="#dc2626"
+      ></mux-player>
+    </div>
+
+    <div class="info">
+      <strong>Stream URL:</strong><br>
+      <code id="stream-url">https://stream.mux.com/sZOuAj1GP7SmagyVz5AlEUJAkROxJ6UgxSNEcLNlltQSi.m3u8</code>
+    </div>
+
+    <h2>Console de Eventos</h2>
+    <div id="console"></div>
+  </div>
+
+  <script>
+    const consoleDiv = document.getElementById('console');
+    const player = document.getElementById('mux-player');
+    const playbackInput = document.getElementById('playback-input');
+
+    function log(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      consoleDiv.appendChild(entry);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+      console.log(message);
+    }
+
+    function loadVideo() {
+      const playbackId = playbackInput.value.trim() || 'sZOuAj1GP7SmagyVz5AlEUJAkROxJ6UgxSNEcLNlltQSi';
+      player.setAttribute('playback-id', playbackId);
+      document.getElementById('current-playback-id').textContent = playbackId;
+      document.getElementById('stream-url').textContent = `https://stream.mux.com/${playbackId}.m3u8`;
+      log(`Cargando video con playback ID: ${playbackId}`, 'info');
+    }
+
+    async function testStreamUrl() {
+      const playbackId = playbackInput.value.trim() || 'sZOuAj1GP7SmagyVz5AlEUJAkROxJ6UgxSNEcLNlltQSi';
+      const streamUrl = `https://stream.mux.com/${playbackId}.m3u8`;
+      
+      log(`Probando acceso a: ${streamUrl}`, 'info');
+      
+      try {
+        const response = await fetch(streamUrl, { method: 'HEAD' });
+        if (response.ok) {
+          log(`✓ Stream accesible (Status: ${response.status})`, 'success');
+        } else {
+          log(`✗ Stream no accesible (Status: ${response.status})`, 'error');
+          if (response.status === 403) {
+            log('El video puede tener política de acceso privada', 'error');
+          } else if (response.status === 404) {
+            log('El video no existe o aún se está procesando', 'error');
+          }
+        }
+      } catch (error) {
+        log(`✗ Error al probar stream: ${error.message}`, 'error');
+      }
+    }
+
+    // Event listeners
+    player.addEventListener('loadstart', () => log('▶ loadstart: Iniciando carga del video', 'info'));
+    player.addEventListener('loadedmetadata', () => log('▶ loadedmetadata: Metadata cargada', 'success'));
+    player.addEventListener('loadeddata', () => log('▶ loadeddata: Datos del video cargados', 'success'));
+    player.addEventListener('canplay', () => log('▶ canplay: Video listo para reproducir', 'success'));
+    player.addEventListener('canplaythrough', () => log('▶ canplaythrough: Video puede reproducirse sin interrupciones', 'success'));
+    player.addEventListener('play', () => log('▶ play: Reproducción iniciada', 'success'));
+    player.addEventListener('playing', () => log('▶ playing: Video reproduciéndose', 'success'));
+    player.addEventListener('pause', () => log('▶ pause: Video pausado', 'info'));
+    player.addEventListener('ended', () => log('▶ ended: Video terminado', 'info'));
+    player.addEventListener('error', (e) => {
+      log(`✗ error: ${JSON.stringify(e.detail || e.message || 'Error desconocido')}`, 'error');
+      if (e.target && e.target.error) {
+        log(`✗ Media Error Code: ${e.target.error.code}`, 'error');
+        log(`✗ Media Error Message: ${e.target.error.message}`, 'error');
+      }
+    });
+    player.addEventListener('waiting', () => log('⏳ waiting: Esperando datos...', 'info'));
+    player.addEventListener('stalled', () => log('⏸ stalled: Descarga detenida', 'error'));
+
+    // Initial test
+    log('Página cargada. Esperando eventos del reproductor...', 'info');
+    setTimeout(() => testStreamUrl(), 1000);
+  </script>
+</body>
+</html>

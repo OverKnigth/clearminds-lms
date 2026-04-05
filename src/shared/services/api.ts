@@ -354,8 +354,8 @@ export const api = {
     return response.data;
   },
 
-  assignCoursesToUser: async (userId: string, courseIds: string[]) => {
-    const response = await apiClient.post(`/users/${userId}/assign-courses`, { courseIds });
+  assignCoursesToUser: async (userId: string, courseIds: string[], groupId?: string) => {
+    const response = await apiClient.post(`/users/${userId}/assign-courses`, { courseIds, groupId });
     return response.data;
   },
 
@@ -813,6 +813,11 @@ export const api = {
 
   muxGetAssetStatus: async (assetId: string): Promise<{ assetId: string; status: string; playbackId: string | null; duration: number | null }> => {
     const response = await apiClient.get(`/admin/mux/asset/${assetId}`);
+    return response.data.data;
+  },
+
+  muxCheckPlayback: async (playbackId: string): Promise<{ ready: boolean; reason?: string; playbackId: string }> => {
+    const response = await apiClient.get(`/mux/playback/${playbackId}`);
     return response.data.data;
   },
 };

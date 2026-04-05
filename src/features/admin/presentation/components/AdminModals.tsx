@@ -26,7 +26,6 @@ interface AdminModalsProps {
   toggleCourseSelection: (courseId: string) => void;
   openContentModal: (type: any, moduleId?: string) => void;
   courses: CourseData[];
-  groups: any[];
   submitting?: boolean;
 }
 
@@ -39,7 +38,7 @@ export function AdminModals({
   contentFormData, setContentFormData,
   selectedStudent, selectedCourse,
   handleSubmitStudent, handleAssignCourses, handleSubmitContent, handleSubmitCourse,
-  toggleCourseSelection, openContentModal, courses, groups,
+  toggleCourseSelection, openContentModal, courses,
   submitting = false
 }: AdminModalsProps) {
   // ── Cascading group → course → parallel selection ──────────────────────
@@ -209,7 +208,27 @@ export function AdminModals({
               </label>
               <select
                 value={assignGroupFilter}
-                onChange={(e) => setAssignGroupFilter(e.target.value)}
+                onChange={async (e) => {
+                  const val = e.target.value;
+                  setAssignGroupFilter(val);
+                  setFormData({ ...formData, groupId: val, selectedCourses: [] });
+
+                  if (!val) return;
+
+                  // Cargar detalle del grupo para obtener sus cursos y auto-seleccionarlos
+                  try {
+                    const res = await api.getGroupDetail(val);
+                    const detail = res?.data ?? res;
+                    const groupCourseIds: string[] = (detail?.courses ?? []).map((c: any) =>
+                      c.course?.id ?? c.id
+                    );
+                    if (groupCourseIds.length > 0) {
+                      setFormData({ ...formData, groupId: val, selectedCourses: groupCourseIds });
+                    }
+                  } catch {
+                    // silently fail
+                  }
+                }}
                 className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-500"
                 disabled={loadingGroups}
               >
@@ -221,16 +240,7 @@ export function AdminModals({
             </div>
 
             <div className="space-y-2">
-              {courses
-                .filter(course => {
-                  if (!assignGroupFilter) return true;
-                  // Filtrar cursos que pertenecen al grupo seleccionado
-                  const group = groups.find((g: any) => g.id === assignGroupFilter);
-                  if (!group) return true;
-                  return group.offerings?.some((off: any) => off.course_id === course.id)
-                    || group.courses?.some((c: any) => c.course?.id === course.id || c.id === course.id);
-                })
-                .map(course => {
+              {courses.map(course => {
                   const isSelected = formData.selectedCourses.includes(course.id);
                   return (
                     <div key={course.id}
@@ -392,12 +402,13 @@ export function AdminModals({
                   </div>
                   <div className="flex gap-2">
                     <button
+                      type="button"
                       onClick={() => openContentModal('editModule', 'm1')}
                       className="text-red-400 hover:text-red-300 text-sm font-medium"
                     >
                       Editar
                     </button>
-                    <button className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar</button>
+                    <button type="button" className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar</button>
                   </div>
                 </div>
                 <div className="space-y-2 ml-7">
@@ -415,6 +426,7 @@ export function AdminModals({
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => {
                         setContentFormData({ ...contentFormData, type: 'video', title: '¿Qué es el Desarrollo Web?', duration: '12:30', order: 1 });
                         openContentModal('editContent', 'm1');
@@ -438,6 +450,7 @@ export function AdminModals({
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => {
                         setContentFormData({ ...contentFormData, type: 'video', title: 'HTML y CSS Moderno', duration: '18:45', order: 2 });
                         openContentModal('editContent', 'm1');
@@ -460,6 +473,7 @@ export function AdminModals({
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => {
                         setContentFormData({ ...contentFormData, type: 'challenge', title: 'Crea tu Primera Página Web', order: 3, requiresTutorReview: true });
                         openContentModal('editContent', 'm1');
@@ -470,6 +484,7 @@ export function AdminModals({
                     </button>
                   </div>
                   <button
+                    type="button"
                     onClick={() => openContentModal('addContent', 'm1')}
                     className="w-full py-2.5 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-red-500 hover:text-red-400 transition-all flex items-center justify-center gap-2 text-sm"
                   >
@@ -492,12 +507,13 @@ export function AdminModals({
                   </div>
                   <div className="flex gap-2">
                     <button
+                      type="button"
                       onClick={() => openContentModal('editModule', 'm2')}
                       className="text-red-400 hover:text-red-300 text-sm font-medium"
                     >
                       Editar
                     </button>
-                    <button className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar</button>
+                    <button type="button" className="text-red-400 hover:text-red-300 text-sm font-medium">Eliminar</button>
                   </div>
                 </div>
                 <div className="space-y-2 ml-7">
@@ -515,6 +531,7 @@ export function AdminModals({
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => {
                         setContentFormData({ ...contentFormData, type: 'video', title: 'Funciones y Closures', duration: '22:15', order: 1 });
                         openContentModal('editContent', 'm2');
@@ -525,6 +542,7 @@ export function AdminModals({
                     </button>
                   </div>
                   <button
+                    type="button"
                     onClick={() => openContentModal('addContent', 'm2')}
                     className="w-full py-2.5 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-red-500 hover:text-red-400 transition-all flex items-center justify-center gap-2 text-sm"
                   >
@@ -537,6 +555,7 @@ export function AdminModals({
               </div>
 
               <button
+                type="button"
                 onClick={() => openContentModal('addModule')}
                 className="w-full py-3 border-2 border-dashed border-slate-600 rounded-lg text-slate-400 hover:border-red-500 hover:text-red-400 transition-all flex items-center justify-center gap-2 font-medium"
               >
