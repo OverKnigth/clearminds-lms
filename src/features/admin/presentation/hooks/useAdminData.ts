@@ -4,16 +4,17 @@ import type { Student, CourseData } from '../../domain/entities';
 
 const mapUser = (u: any): any => ({
   id: u.id,
-  fullName: `${u.names} ${u.lastNames}`,
+  fullName: `${u.names || ''} ${u.lastNames || ''}`.trim(),
+  names: u.names || '',
+  lastNames: u.lastNames || '',
   email: u.email,
-  enrollmentDate: u.createdAt?.split('T')[0] || '2026-01-01',
-  generation: u.generation || 'N/A',
-  generationName: u.generationName || '',
-  groupName: u.groupName || '',
-  assignedCourses: u.assignedCourses || [],
+  enrollmentDate: u.createdAt?.split?.('T')[0] || '',
+  generation: u.generation || '',
+  groupName: u.groupName || u.generationName || '',
+  assignedCourses: Array.isArray(u.assignedCourses) ? u.assignedCourses : [],
   courseParallelMap: u.courseParallelMap || {},
   progress: u.progress || 0,
-  status: u.status,
+  status: u.status || 'active',
   role: (typeof u.role === 'string' ? u.role : u.role?.name) || 'student',
   rating: u.rating || 0,
   reviewsCount: u.reviewsCount || 0,
@@ -54,7 +55,8 @@ export const useAdminData = () => {
       const [studentsRes, tutorsRes, adminsRes, coursesRes, groupsRes, statsRes, badgesRes] = results;
 
       if (studentsRes.status === 'fulfilled' && studentsRes.value?.success) {
-        setStudents(Array.isArray(studentsRes.value.rows || studentsRes.value.data) ? (studentsRes.value.rows || studentsRes.value.data).map(mapUser) : []);
+        const rawRows = studentsRes.value.rows || studentsRes.value.data || [];
+        setStudents(Array.isArray(rawRows) ? rawRows.map(mapUser) : []);
         setStudentsTotal(studentsRes.value.total || 0);
       }
       if (tutorsRes.status === 'fulfilled' && tutorsRes.value?.success) {

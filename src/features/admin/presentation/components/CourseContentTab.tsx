@@ -108,27 +108,30 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     }
   }, [muxPlaybackId]);
 
-  const loadTopics = async () => {
-    setIsLoading(true);
+  const loadTopics = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const res = await api.getCourseTopics(course.id);
-      console.log('[loadTopics] courseId:', course.id, 'response:', res);
       if (res.success) {
         setTopics(res.data);
         const entries = await Promise.all(
           res.data.map(async (t: Topic) => {
             const cr = await api.getTopicContents(t.id);
-            console.log('[loadTopics] topicId:', t.id, 'contents:', cr);
             return [t.id, cr.success ? cr.data : []] as [string, Content[]];
           })
         );
         setContentsByTopic(Object.fromEntries(entries));
-        setExpandedTopics(new Set(res.data.map((t: Topic) => t.id)));
+        setExpandedTopics(prev => {
+          // Mantener los temas ya expandidos + agregar los nuevos
+          const next = new Set(prev);
+          res.data.forEach((t: Topic) => next.add(t.id));
+          return next;
+        });
       }
     } catch (e) {
       console.error('[loadTopics] error:', e);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -181,7 +184,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
         if (!topic || topic.blockId !== blockId) await api.linkTopicToBlock(id, blockId);
       }
       setBlockModal({ open: false, editing: null });
-      await Promise.all([loadBlocks(), loadTopics()]);
+      await Promise.all([loadBlocks(), loadTopics(true)]);
     } catch (e: any) {
       showAlert(e.response?.data?.message || e.message);
     } finally { setSavingBlock(false); }
@@ -192,7 +195,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       try {
         for (const t of topics.filter(t => t.blockId === id)) await api.unlinkTopicFromBlock(t.id);
         await api.deleteBlock(id);
-        await Promise.all([loadBlocks(), loadTopics()]);
+        await Promise.all([loadBlocks(), loadTopics(true)]);
       } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     }, { title: 'Eliminar bloque', confirmLabel: 'Eliminar', danger: true });
   };
@@ -225,7 +228,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
         await api.createTopic(course.id, payload);
       }
       setTopicModal({ open: false, editing: null });
-      await loadTopics();
+      await loadTopics(true);
     } catch (e: any) {
       showAlert(e.response?.data?.message || e.message);
     } finally {
@@ -237,7 +240,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     showConfirm(`¿Eliminar el tema "${t.title}"? Se eliminarán todos sus contenidos.`, async () => {
       try {
         await api.deleteTopic(t.id);
-        await loadTopics();
+        await loadTopics(true);
       } catch (e: any) {
         showAlert(e.response?.data?.message || e.message);
       }
@@ -396,7 +399,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
         console.log('[saveContent] create response:', res);
       }
       setContentModal({ open: false, topicId: '', editing: null });
-      await loadTopics();
+      await loadTopics(true);
     } catch (e: any) {
       console.error('[saveContent] error:', e.response?.data || e.message);
       showAlert(e.response?.data?.message || e.message);
@@ -409,7 +412,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     showConfirm(`¿Eliminar "${c.title}"?`, async () => {
       try {
         await api.deleteContent(c.id);
-        await loadTopics();
+        await loadTopics(true);
       } catch (e: any) {
         showAlert(e.response?.data?.message || e.message);
       }

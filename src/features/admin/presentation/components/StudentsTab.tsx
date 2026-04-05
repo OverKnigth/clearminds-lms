@@ -38,10 +38,7 @@ export function StudentsTab({
 
   // getParallelNames — available for future use
   const getGroupName = (student: Student): string => {
-    // groupName viene directo del backend
     if ((student as any).groupName) return (student as any).groupName;
-    // Fallback: generationName (cohort)
-    if ((student as any).generationName) return (student as any).generationName;
     return '—';
   };
 
