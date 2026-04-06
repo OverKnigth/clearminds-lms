@@ -71,26 +71,19 @@ export default function Meetings() {
   void pending; void confirmed; void completed; // used in stats only
 
   if (isLoading) return (
-    <div className="min-h-screen bg-slate-900 pt-16 flex items-center justify-center">
+    <div className="flex items-center justify-center py-32">
       <div className="w-10 h-10 border-4 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-slate-900 pt-16">
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <button onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-2 text-slate-400 hover:text-white mb-3 transition-colors text-sm">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Dashboard
-            </button>
-            <h1 className="text-3xl font-bold text-white">Mis Tutorías</h1>
-            <p className="text-slate-400">Gestiona tus sesiones de validación</p>
-          </div>
+    <div className="min-h-screen bg-slate-900 flex flex-col font-sans">
+      <div className="flex-1 w-full max-w-7xl mx-auto px-6 pt-6 pb-8">
+        <div className="bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4 flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Mis Tutorías</h1>
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Gestiona tus sesiones de validación</p>
+            </div>
           <div className="flex items-center gap-3">
             <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
               <button

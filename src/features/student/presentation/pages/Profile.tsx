@@ -23,7 +23,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-slate-900 overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="max-w-7xl mx-auto px-6 pt-6 pb-8">
         {/* Profile Header */}
         <div className="bg-slate-800/80 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-10 mb-10 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-10 opacity-20">
@@ -37,11 +37,11 @@ export default function Profile() {
             
             <div className="text-center md:text-left flex-1">
               <div className="flex items-center justify-center md:justify-start gap-4 mb-2">
-                 <h1 className="text-4xl font-black text-white">{userName}</h1>
+                 <h1 className="text-2xl font-black text-white uppercase tracking-tighter">{userName}</h1>
                  <span className="px-3 py-1 bg-red-600 text-[10px] font-black uppercase tracking-widest rounded-full">Estudiante PRO</span>
               </div>
-              <p className="text-slate-400 text-lg mb-6 max-w-xl leading-relaxed">
-                Potenciando mis habilidades en el desarrollo de software y coleccionando hitos de aprendizaje.
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-6">
+                Potenciando habilidades en desarrollo de software
               </p>
               
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">

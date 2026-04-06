@@ -22,7 +22,7 @@ export default function Student() {
     .slice(0, 3);
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-6 pt-6 pb-8 space-y-6">
 
       {/* ── Hero ── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 p-8 border border-slate-700/50">
@@ -227,9 +227,6 @@ export default function Student() {
           </div>
         )}
       </div>
-
-      {/* ── Full badges section ── */}
-      {badges.length > 0 && <StudentBadges badges={badges} />}
 
       <Footer />
     </div>

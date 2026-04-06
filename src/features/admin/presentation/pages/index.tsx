@@ -32,7 +32,7 @@ export default function Admin() {
     studentsPage, setStudentsPage, tutorsPage, setTutorsPage, adminsPage, setAdminsPage,
     studentsTotal, tutorsTotal, adminsTotal,
     isLoading, fetchByRole, limit,
-    setStudents, setCourses,
+    setCourses,
   } = useAdminData();
 
   const {
@@ -59,8 +59,6 @@ export default function Admin() {
     setSelectedGroup(null);
     setSelectedCourseForBlocks(null);
   }, [activeTab]);
-
-  const [_saving, setSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null!);
 
@@ -195,7 +193,7 @@ export default function Admin() {
   const handleAssignCourses = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) return;
-    setSaving(true);
+    setSubmitting(true);
     try {
       if (formData.selectedCourses.length === 0) {
         showAlert('Selecciona al menos un curso para asignar.');
@@ -203,22 +201,16 @@ export default function Admin() {
       }
 
       // Asignar cursos directamente al usuario (crea groupEnrollments)
-      await api.assignCoursesToUser(selectedStudent.id, formData.selectedCourses);
+      await api.assignCoursesToUser(selectedStudent.id, formData.selectedCourses, formData.groupId || undefined);
 
-      // Actualización local
-      const newCourseIds = [...new Set([
-        ...(selectedStudent.assignedCourses || []),
-        ...formData.selectedCourses
-      ])];
-      setStudents((prev: any[]) => prev.map((s: any) =>
-        s.id === selectedStudent.id ? { ...s, assignedCourses: newCourseIds } : s
-      ));
+      // Actualización local: traemos la lista actualizada para obtener relaciones (como nombre del grupo)
+      await fetchByRole('student');
 
       setIsModalOpen(false);
       showAlert('Cursos asignados correctamente.', 'Éxito');
     } catch (e: any) { 
       showAlert(e.response?.data?.message || 'Error al asignar cursos');
-    } finally { setSaving(false); }
+    } finally { setSubmitting(false); }
   };
 
   const [_assignmentFilter, _setAssignmentFilter] = useState({ name: '', groupId: 'all' });
@@ -529,7 +521,6 @@ export default function Admin() {
         toggleCourseSelection={toggleCourseSelection} 
         openContentModal={openContentModal} 
         courses={courses} 
-        groups={groups}
         submitting={submitting}
       />
 

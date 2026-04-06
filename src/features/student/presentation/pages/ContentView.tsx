@@ -55,12 +55,21 @@ export default function ContentView() {
   const { courseSlug, contentSlug } = useParams<{ courseSlug: string; contentSlug: string }>();
   const navigate = useNavigate();
   const [content, setContent] = useState<Content | null>(null);
+  const [course, setCourse] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [gitUrl, setGitUrl] = useState('');
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [lastSavedProgress, setLastSavedProgress] = useState(0);
   const [showRateModal, setShowRateModal] = useState(false);
+  const [showTutoringModal, setShowTutoringModal] = useState(false);
+  const [showEligibilityModal, setShowEligibilityModal] = useState(false);
+  const [dismissedBlockIds, setDismissedBlockIds] = useState<Set<string>>(new Set());
+  const [tutoringSessions, setTutoringSessions] = useState<any[]>([]);
+  const [tutoringObservation, setTutoringObservation] = useState('');
+  const [tutoringDate, setTutoringDate] = useState(new Date().toISOString().split('T')[0]);
+  const [requestingTutoring, setRequestingTutoring] = useState(false);
+  const [topicOfContent, setTopicOfContent] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const progressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,6 +83,69 @@ export default function ContentView() {
       setShowRateModal(true);
     }
   }, [content]);
+
+  useEffect(() => {
+    loadTutoring();
+  }, []);
+
+  const loadTutoring = async () => {
+    try {
+      const res = await api.getStudentTutoring();
+      if (res.success) setTutoringSessions(res.data);
+    } catch (e) {
+      console.error('Error fetching tutoring sessions:', e);
+    }
+  };
+
+  const handleRequestTutoring = async () => {
+    if (!topicOfContent?.blockId) return;
+    setRequestingTutoring(true);
+    try {
+      const res = await api.requestTutoring(topicOfContent.blockId, tutoringDate, tutoringObservation);
+      if (res.success) {
+        setShowTutoringModal(false);
+        loadTutoring();
+      }
+    } catch (e: any) {
+      console.error(e);
+    } finally {
+      setRequestingTutoring(false);
+    }
+  };
+
+  const openTutoringModal = () => {
+    setTutoringObservation('');
+    setTutoringDate(new Date().toISOString().split('T')[0]);
+    setShowTutoringModal(true);
+  };
+
+  // Efecto para detectar elegibilidad para tutoría (disponibilidad de insignias) en videos/documentos
+  useEffect(() => {
+    if (course && topicOfContent && (content?.type === 'video' || content?.type === 'document')) {
+      const blockId = topicOfContent.blockId;
+      if (!blockId || dismissedBlockIds.has(blockId)) {
+        setShowEligibilityModal(false);
+        return;
+      }
+
+      const blockBadge = course.badges?.find((b: any) => (b.blockId === blockId || b.block_id === blockId));
+      if (blockBadge?.state === 'available') {
+        const hasSession = tutoringSessions.some(s => 
+          ((s.block_id || s.block?.id) === blockId) && 
+          ['requested', 'confirmed', 'rescheduled'].includes(s.status)
+        );
+        if (!hasSession) {
+          setShowEligibilityModal(true);
+        } else {
+          setShowEligibilityModal(false);
+        }
+      } else {
+        setShowEligibilityModal(false);
+      }
+    } else {
+      setShowEligibilityModal(false);
+    }
+  }, [course, topicOfContent, content, tutoringSessions, dismissedBlockIds]);
 
   const loadContent = async (cSlug: string, ctSlug: string) => {
     setIsLoading(true);
@@ -98,6 +170,7 @@ export default function ContentView() {
         }
 
         if (foundContent) {
+          setCourse(courseData);
           // Redirigir si el contenido se accedió por ID
           if (ctSlug === foundContent.id && foundContent.slug) {
             navigate(`/course/${courseData.slug}/content/${foundContent.slug}`, { replace: true });
@@ -105,6 +178,10 @@ export default function ContentView() {
           }
           setContent(foundContent); 
           setLastSavedProgress(foundContent.progress.pctWatched || 0);
+          
+          // Encontrar el tema al que pertenece para tener el blockId
+          const topic = courseData.topics.find((t: any) => t.contents.some((c: any) => c.id === foundContent?.id));
+          setTopicOfContent(topic || null);
         }
       }
     } catch (e) { console.error(e); }
@@ -250,21 +327,6 @@ export default function ContentView() {
         {/* VIDEO */}
         {content.type === 'video' && (
           <div className="mt-6">
-            {/* Debug panel - TEMPORAL */}
-            <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
-              <p className="text-yellow-400 font-bold mb-2">🔍 DEBUG INFO:</p>
-              <div className="text-xs text-yellow-300 space-y-1 font-mono">
-                <p>URL guardada: <span className="text-white">{content.url || 'null'}</span></p>
-                <p>Es MUX?: <span className="text-white">{isMuxPlaybackId(content.url) ? 'SÍ ✓' : 'NO ✗'}</span></p>
-                {isMuxPlaybackId(content.url) && content.url && (
-                  <p>Playback ID: <span className="text-white">{getMuxPlaybackId(content.url)}</span></p>
-                )}
-                <p>Tipo detectado: <span className="text-white">
-                  {isMuxPlaybackId(content.url) ? 'MUX Player' : 'ReactPlayer (YouTube/Vimeo)'}
-                </span></p>
-              </div>
-            </div>
-
             {content.url ? (
               <div className="aspect-video bg-black rounded-xl overflow-hidden mb-6 shadow-2xl relative">
                 {isMuxPlaybackId(content.url) ? (
@@ -524,6 +586,8 @@ export default function ContentView() {
           </div>
         )}
       </div>
+
+      {/* ── Rate Tutor Modal ── */}
       {showRateModal && content.submission?.tutoring && (
         <RateTutorModal
           sessionId={content.submission.tutoring.id}
@@ -535,6 +599,117 @@ export default function ContentView() {
           setError={setError}
         />
       )}
+
+      {/* ── Tutoring Request Modal ── */}
+      {showTutoringModal && topicOfContent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <div className="mb-6">
+              <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Solicitar Tutoría</h2>
+              <p className="text-xs text-slate-500">Completa los datos para solicitar tu sesión de validación.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bloque</label>
+                <div className="px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm font-bold border-l-4 border-l-red-500">
+                  {topicOfContent.blockName || 'Bloque actual'}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha sugerida de Solicitud</label>
+                <input
+                  type="date"
+                  value={tutoringDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={e => setTutoringDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                  Observación <span className="text-slate-600 normal-case font-medium">(opcional)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={tutoringObservation}
+                  onChange={(e) => setTutoringObservation(e.target.value)}
+                  placeholder="Ej: Tengo dudas sobre el tema X, me gustaría reforzar..."
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none placeholder-slate-500 transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button
+                type="button"
+                onClick={() => setShowTutoringModal(false)}
+                className="flex-1 py-3.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
+              >
+                Cerrar
+              </button>
+              <button
+                disabled={requestingTutoring}
+                onClick={handleRequestTutoring}
+                className="flex-1 py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-red-900/40 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {requestingTutoring && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                Confirmar Solicitud
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Eligibility Modal (Special for Videos/Documents) ── */}
+      {showEligibilityModal && topicOfContent && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-all">
+          <div className="bg-slate-800 border-2 border-red-500/30 rounded-[2.5rem] p-10 w-full max-w-lg shadow-[0_0_50px_rgba(220,38,38,0.15)] text-center animate-in zoom-in-95 duration-500">
+            <div className="w-24 h-24 bg-gradient-to-br from-red-600 to-red-700 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-red-900/40 rotate-3">
+               <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
+               </svg>
+            </div>
+            
+            <h2 className="text-4xl font-black text-white uppercase tracking-tighter mb-4 leading-none">¡Meta cumplida!</h2>
+            <p className="text-slate-400 text-lg mb-8 leading-relaxed px-4">
+              Has completado los requisitos de avance. Ya puedes solicitar la tutoría para aprobar este bloque y obtener tu insignia.
+            </p>
+
+            <div className="flex flex-col gap-4">
+              <button
+                onClick={() => {
+                  setShowEligibilityModal(false);
+                  if (topicOfContent?.blockId) {
+                    setDismissedBlockIds(prev => new Set([...prev, topicOfContent.blockId]));
+                  }
+                  openTutoringModal();
+                }}
+                className="w-full py-5 bg-red-600 hover:bg-red-500 text-white font-black text-sm uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-red-900/40 flex items-center justify-center gap-3 active:scale-95"
+              >
+                Solicitar Tutoría Ahora
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  setShowEligibilityModal(false);
+                  if (topicOfContent?.blockId) {
+                    setDismissedBlockIds(prev => new Set([...prev, topicOfContent.blockId]));
+                  }
+                }}
+                className="w-full py-4 text-slate-500 hover:text-slate-300 font-bold text-xs uppercase tracking-widest transition-colors"
+              >
+                Lo haré más tarde
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
 
       {/* Modal de Error personalizado */}

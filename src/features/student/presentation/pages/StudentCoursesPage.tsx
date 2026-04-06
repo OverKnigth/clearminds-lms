@@ -13,10 +13,10 @@ export default function StudentCoursesPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-black text-white mb-2">Mis Cursos</h1>
-        <p className="text-slate-400">Todos tus cursos asignados en un solo lugar.</p>
+    <div className="max-w-7xl mx-auto px-6 pt-6 pb-8">
+      <div className="mb-8 bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4">
+        <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Mis Cursos</h1>
+        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Todos tus cursos asignados en un solo lugar</p>
       </div>
       <StudentCourses courses={courses} />
     </div>

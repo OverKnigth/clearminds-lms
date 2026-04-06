@@ -33,7 +33,16 @@ export function ProgressTab() {
       const res = await api.getGroups();
       if (res.success) {
         const list = res.data.rows || res.data || [];
-        setGroups(list.filter((g: any) => g.status === 'active' && g.name !== '__template__'));
+        const filteredGroups = list.filter((g: any) => g.status === 'active' && g.name !== '__template__');
+        setGroups(filteredGroups);
+        
+        // Auto-seleccionar el primero y cargar datos
+        if (filteredGroups.length > 0 && !selectedGroup) {
+          const firstId = filteredGroups[0].id;
+          setSelectedGroup(firstId);
+          if (activeReport === 'group') loadGroupReport(firstId);
+          if (activeReport === 'daily_snapshot') loadHistorical(firstId);
+        }
       }
     } catch (e) {
       console.error('Error loading groups', e);
@@ -42,7 +51,6 @@ export function ProgressTab() {
 
   const loadGroupReport = async (groupId: string) => {
     setLoading(true);
-    setSelectedGroup(groupId);
     try {
       const res = await api.getCourseGroupDetail(groupId);
       if (res.success) setGroupData(res.data);
@@ -86,7 +94,6 @@ export function ProgressTab() {
 
   const loadHistorical = async (groupId: string) => {
     setLoading(true);
-    setSelectedGroup(groupId);
     try {
       const res = await api.getGroupHistoricalReport(groupId);
       if (res.success) setHistoricalData(res.data);
@@ -107,7 +114,9 @@ export function ProgressTab() {
     if (activeReport === 'tutoring') loadTutoringReport();
     if (activeReport === 'daily_view') loadDailyView();
     if (activeReport === 'student') searchByStudentName('');
-  }, [activeReport]);
+    if (activeReport === 'group' && selectedGroup) loadGroupReport(selectedGroup);
+    if (activeReport === 'daily_snapshot' && selectedGroup) loadHistorical(selectedGroup);
+  }, [activeReport, selectedGroup]);
 
   const triggerSnapshot = async () => {
     setModal({ show: true, type: 'confirm', msg: '¿Desea generar el snapshot de progreso académico diario ahora mismo?' });
@@ -205,9 +214,9 @@ export function ProgressTab() {
                   <select
                     className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm font-bold focus:ring-2 ring-red-500/50 outline-none transition-all"
                     value={selectedGroup}
-                    onChange={(e) => loadGroupReport(e.target.value)}
+                    onChange={(e) => setSelectedGroup(e.target.value)}
                   >
-                    <option value="">-- Elige un grupo --</option>
+                    <option value="" disabled>Seleccione un grupo...</option>
                     {groups.map(g => <option key={g.id} value={g.id}>{g.name} - {g.cohort}</option>)}
                   </select>
                 </div>
@@ -227,7 +236,7 @@ export function ProgressTab() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/50">
-                        {groupData.map((row, i) => (
+                        {groupData.length > 0 ? groupData.map((row, i) => (
                           <tr key={i} className="hover:bg-slate-800/30 transition-colors group">
                             <td className="px-6 py-4">
                               <div className="font-bold text-white group-hover:text-red-400 transition-colors">{row.studentName}</div>
@@ -275,18 +284,13 @@ export function ProgressTab() {
                               </span>
                             </td>
                           </tr>
-                        ))}
+                        )) : (
+                          <tr><td colSpan={7} className="px-6 py-16 text-center text-slate-500 font-bold uppercase tracking-[0.2em] text-xs">No hay estudiantes registrados en este grupo</td></tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
-                ) : (
-                  <div className="bg-slate-800/30 border-2 border-dashed border-slate-700 rounded-2xl p-16 flex flex-col items-center justify-center gap-4">
-                    <svg className="w-16 h-16 text-slate-700 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Selecciona un grupo para ver el reporte</p>
-                  </div>
-                )}
+                ) : null}
               </div>
             )}
 
@@ -328,7 +332,7 @@ export function ProgressTab() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/50">
-                        {studentList.map((s) => (
+                        {studentList.length > 0 ? studentList.map((s) => (
                           <tr key={s.id} className="hover:bg-slate-800/10 transition-colors">
                             <td className="px-6 py-4">
                               <div className="text-sm font-black text-white uppercase tracking-tighter">{s.name}</div>
@@ -350,7 +354,9 @@ export function ProgressTab() {
                               </button>
                             </td>
                           </tr>
-                        ))}
+                        )) : (
+                          <tr><td colSpan={4} className="px-6 py-16 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No hay estudiantes registrados con este criterio</td></tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -544,14 +550,7 @@ export function ProgressTab() {
                       </div>
                     </div>
                   </div>
-                ) : (
-                   <div className="bg-slate-800/30 border-2 border-dashed border-slate-700 rounded-2xl p-16 flex flex-col items-center justify-center gap-4">
-                    <svg className="w-16 h-16 text-slate-700 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Busca un estudiante para ver su avance individual</p>
-                  </div>
-                )}
+                ) : null}
               </div>
             )}
 
@@ -602,9 +601,9 @@ export function ProgressTab() {
                   <select
                     className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm font-bold"
                     value={selectedGroup}
-                    onChange={(e) => loadHistorical(e.target.value)}
+                    onChange={(e) => setSelectedGroup(e.target.value)}
                   >
-                    <option value="">-- Elige un grupo --</option>
+                    <option value="" disabled>Seleccione un grupo...</option>
                     {groups.map(g => <option key={g.id} value={g.id}>{g.name} - {g.cohort}</option>)}
                   </select>
                 </div>
@@ -626,7 +625,7 @@ export function ProgressTab() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/50">
-                        {historicalData.map((row, i) => (
+                        {historicalData.length > 0 ? historicalData.map((row, i) => (
                           <tr key={i} className="hover:bg-slate-800/30 transition-all text-[11px]">
                             <td className="px-6 py-4 font-bold text-slate-400">{row.date}</td>
                             <td className="px-6 py-4">
@@ -646,18 +645,13 @@ export function ProgressTab() {
                             <td className="px-6 py-4 text-center uppercase font-bold text-slate-500">{row.tutoring || '-'}</td>
                             <td className="px-6 py-4 text-slate-500 max-w-[200px] truncate italic">{row.observations || 'Sin observaciones'}</td>
                           </tr>
-                        ))}
+                        )) : (
+                          <tr><td colSpan={9} className="px-6 py-16 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No hay datos históricos registrados para este grupo</td></tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
-                ) : (
-                   <div className="h-64 flex flex-col items-center justify-center bg-slate-800/20 border-2 border-dashed border-slate-700 rounded-2xl opacity-50">
-                     <svg className="w-12 h-12 text-slate-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                     </svg>
-                     <p className="text-xs font-black uppercase tracking-widest text-slate-500">Sin datos históricos para este grupo</p>
-                  </div>
-                )}
+                ) : null}
               </div>
             )}
 

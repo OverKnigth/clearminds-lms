@@ -4,6 +4,7 @@ export interface Student {
   email: string;
   enrollmentDate: string;
   groupName: string;
+  groupId?: string;
   assignedCourses: string[];
   courseParallelMap?: { [courseId: string]: string };
   progress: number;

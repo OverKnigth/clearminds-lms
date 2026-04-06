@@ -6,6 +6,7 @@ export interface FormData {
   role: 'student' | 'tutor' | 'admin';
   status: 'active' | 'inactive';
   groupId: string;
+  groupName?: string;
   courseId: string;
   selectedCourses: string[];
   courseParallelMap?: { [courseId: string]: string };

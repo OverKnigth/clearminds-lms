@@ -68,8 +68,8 @@ export const API_ENDPOINTS = {
   GET_BADGES: '/badges',
   GET_USER_BADGES: '/badges/user',
   GET_NOTIFICATIONS: '/notifications',
-  MARK_NOTIFICATION_READ: (id: string) => `/notifications/${id}/read`,
-  MARK_ALL_READ: '/notifications/mark-all-read',
+  MARK_NOTIFICATION_READ: (id: string) => `/notifications/${id}`,
+  MARK_ALL_READ: '/notifications',
   GET_DAILY_REPORT: '/reports/daily',
   GET_STUDENT_REPORTS: '/reports/students',
   GET_ADMIN_STATS: '/reports/stats',
@@ -111,6 +111,7 @@ export const API_ENDPOINTS = {
   GET_MY_SUBMISSIONS: '/challenges/me',
   GET_SUBMISSIONS_BY_CONTENT: (contentId: string) => `/challenges/content/${contentId}`,
   REVIEW_SUBMISSION: (submissionId: string) => `/challenges/submissions/${submissionId}/review`,
+  GET_GENERATION_DETAIL: (id: string) => `/admin/generations/${id}`,
   GET_GROUPS: '/admin/groups',
   CREATE_GROUP: '/admin/groups',
   UPDATE_GROUP: (id: string) => `/admin/groups/${id}`,
@@ -120,6 +121,7 @@ export const API_ENDPOINTS = {
   CREATE_PARALLEL: (groupId: string) => `/admin/groups/${groupId}/parallels`,
   GET_PARALLEL_STUDENTS: (parallelId: string) => `/admin/parallels/${parallelId}/students`,
   ENROLL_STUDENTS_IN_PARALLEL: (parallelId: string) => `/admin/parallels/${parallelId}/enroll`,
+  REQUEST_TUTORING: '/student/tutoring',
 };
 
 // API Service
@@ -256,12 +258,12 @@ export const api = {
   },
 
   markNotificationRead: async (id: string) => {
-    const response = await apiClient.post(API_ENDPOINTS.MARK_NOTIFICATION_READ(id));
+    const response = await apiClient.delete(API_ENDPOINTS.MARK_NOTIFICATION_READ(id));
     return response.data;
   },
 
   markAllNotificationsRead: async () => {
-    const response = await apiClient.post(API_ENDPOINTS.MARK_ALL_READ);
+    const response = await apiClient.delete(API_ENDPOINTS.MARK_ALL_READ);
     return response.data;
   },
 
@@ -539,8 +541,8 @@ export const api = {
     return response.data;
   },
 
-  requestTutoring: async (blockId: string, observations?: string) => {
-    const response = await apiClient.post('/student/tutoring', { blockId, observations });
+  requestTutoring: async (blockId: string, observations?: string, scheduledDate?: string) => {
+    const response = await apiClient.post(API_ENDPOINTS.REQUEST_TUTORING, { blockId, observations, scheduledAt: scheduledDate });
     return response.data;
   },
 
@@ -560,12 +562,12 @@ export const api = {
   },
 
   markStudentNotificationRead: async (id: string) => {
-    const response = await apiClient.patch(`/student/notifications/${id}/read`);
+    const response = await apiClient.delete(`/student/notifications/${id}`);
     return response.data;
   },
 
   markAllStudentNotificationsRead: async () => {
-    const response = await apiClient.post('/student/notifications/mark-all-read');
+    const response = await apiClient.delete('/student/notifications');
     return response.data;
   },
 
@@ -575,12 +577,12 @@ export const api = {
   },
 
   markTutorNotificationRead: async (id: string) => {
-    const response = await apiClient.patch(`/tutor/notifications/${id}/read`);
+    const response = await apiClient.delete(`/tutor/notifications/${id}`);
     return response.data;
   },
 
   markAllTutorNotificationsRead: async () => {
-    const response = await apiClient.post('/tutor/notifications/mark-all-read');
+    const response = await apiClient.delete('/tutor/notifications');
     return response.data;
   },
 
@@ -660,6 +662,15 @@ export const api = {
       const status = axiosError.response?.status;
       const message = axiosError.response?.data?.message ?? 'Error al actualizar el grupo';
       if (status === 400 || status === 404 || status === 409) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  getGenerationDetail: async (id: string): Promise<any> => {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.GET_GENERATION_DETAIL(id));
+      return response.data;
+    } catch (error) {
       throw error;
     }
   },

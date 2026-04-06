@@ -98,7 +98,7 @@ export default function NotificationPanel({
           notifications.map(n => (
             <button
               key={n.id}
-              onClick={() => !n.read && onMarkRead(n.id)}
+              onClick={() => onMarkRead(n.id)}
               className={`w-full text-left px-4 py-3 flex items-start gap-3 border-b border-slate-800/50 last:border-0 transition-colors hover:bg-slate-800/30 ${!n.read ? 'bg-slate-800/20' : ''}`}
             >
               <span className="text-base flex-shrink-0 leading-none mt-0.5">

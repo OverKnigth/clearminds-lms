@@ -38,7 +38,7 @@ export function useNotifications() {
   }, [fetchNotifications]);
 
   const markRead = async (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setNotifications(prev => prev.filter(n => n.id !== id));
     try {
       if (isTutor) await api.markTutorNotificationRead(id);
       else         await api.markStudentNotificationRead(id);
@@ -46,7 +46,7 @@ export function useNotifications() {
   };
 
   const markAllRead = async () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications([]);
     try {
       if (isTutor) await api.markAllTutorNotificationsRead();
       else         await api.markAllStudentNotificationsRead();

@@ -10,6 +10,7 @@ const mapUser = (u: any): any => ({
   email: u.email,
   enrollmentDate: u.createdAt?.split?.('T')[0] || '',
   groupName: u.groupName || u.generationName || '',
+  groupId: u.groupId || '',
   assignedCourses: Array.isArray(u.assignedCourses) ? u.assignedCourses : [],
   courseParallelMap: u.courseParallelMap || {},
   progress: u.progress || 0,

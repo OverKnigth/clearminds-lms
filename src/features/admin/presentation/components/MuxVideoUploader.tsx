@@ -113,8 +113,15 @@ export const MuxVideoUploader = forwardRef<MuxVideoUploaderHandle, MuxVideoUploa
         }, 2000);
       } catch (err: any) {
         setUploadState('error');
-        setStatusMsg(err.message || 'Error al subir el video');
-        onError?.(err.message || 'Error al subir el video');
+        const raw = err?.message || '';
+        let msg = 'Error al subir el video';
+        if (raw.includes('Free plan is limited') || raw.includes('exceeding this limit')) {
+          msg = 'Límite del plan gratuito de MUX alcanzado (máx. 10 videos). Elimina videos en dashboard.mux.com para continuar.';
+        } else if (raw.includes('invalid_parameters')) {
+          msg = 'Error de parámetros al crear la subida en MUX.';
+        }
+        setStatusMsg(msg);
+        onError?.(msg);
         throw err;
       }
     };

@@ -94,10 +94,13 @@ export default function CourseView() {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [pendingRatingSubmission, setPendingRatingSubmission] = useState<{ id: string; tutorName: string } | null>(null);
   const [showTutoringModal, setShowTutoringModal] = useState(false);
+  const [showEligibilityModal, setShowEligibilityModal] = useState(false);
+  const [dismissedBlockIds, setDismissedBlockIds] = useState<Set<string>>(new Set());
   const [tutoringObservation, setTutoringObservation] = useState('');
   const [tutoringDate, setTutoringDate] = useState(new Date().toISOString().split('T')[0]);
   const [requestingTutoring, setRequestingTutoring] = useState(false);
   const [newBadge, setNewBadge] = useState<any | null>(null);
+  const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
   const seenBadgeIds = useRef<Set<string> | null>(null);
   const { dialog, showAlert, close: closeDialog } = useDialog();
 
@@ -160,6 +163,14 @@ export default function CourseView() {
         }
         setCourse(courseData);
         if (courseData.topics.length > 0) setSelectedTopicId(courseData.topics[0].id);
+        // Expandir solo los primeros 2 temas por defecto
+        const first2 = new Set<string>(
+          courseData.topics
+            .sort((a: any, b: any) => a.order - b.order)
+            .slice(0, 2)
+            .map((t: any) => t.id)
+        );
+        setExpandedTopicIds(first2);
         return courseData;
       }
       return null;
@@ -211,6 +222,43 @@ export default function CourseView() {
     }
   };
 
+  const selectedTopic = course?.topics.find(t => t.id === selectedTopicId);
+  const selectedContent = selectedTopic?.contents.find(c => c.id === selectedContentId);
+  
+  const blockSessions = selectedTopic?.blockId 
+    ? tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === selectedTopic.blockId) 
+    : [];
+  const activeSession = blockSessions.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
+  const currentBlock = course?.blocks?.find(b => b.id === selectedTopic?.blockId);
+
+  // Efecto para detectar elegibilidad para tutoría (disponibilidad de insignias) en videos/documentos
+  useEffect(() => {
+    if (course && selectedTopic && (selectedContent?.type === 'video' || selectedContent?.type === 'document')) {
+      const blockId = selectedTopic.blockId;
+      if (!blockId || dismissedBlockIds.has(blockId)) {
+        setShowEligibilityModal(false);
+        return;
+      }
+
+      const blockBadge = course.badges?.find((b: any) => (b.blockId === blockId || b.block_id === blockId));
+      if (blockBadge?.state === 'available') {
+        const hasSession = tutoringSessions.some(s => 
+          ((s.block_id ?? s.block?.id) === blockId) && 
+          ['requested', 'confirmed', 'rescheduled'].includes(s.status)
+        );
+        if (!hasSession) {
+          setShowEligibilityModal(true);
+        } else {
+          setShowEligibilityModal(false);
+        }
+      } else {
+        setShowEligibilityModal(false);
+      }
+    } else {
+      setShowEligibilityModal(false);
+    }
+  }, [course, selectedTopic, selectedContent, tutoringSessions, dismissedBlockIds]);
+
   if (isLoading) return (
     <div className="min-h-screen bg-slate-900 pt-16 flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
@@ -223,19 +271,6 @@ export default function CourseView() {
     </div>
   );
 
-  const selectedTopic = course.topics.find(t => t.id === selectedTopicId);
-  const selectedContent = selectedTopic?.contents.find(c => c.id === selectedContentId);
-  
-  const blockSessions = selectedTopic?.blockId 
-    ? tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === selectedTopic.blockId) 
-    : [];
-  const activeSession = blockSessions.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
-  const currentBlock = course.blocks?.find(b => b.id === selectedTopic?.blockId);
-
-  // Lógica de habilitación de tutoría (13.2)
-  // canRequestTutoring — available for future use
-
-  // handleManualComplete — available for future use
   const isMuxUrl = (url: string | null): boolean => {
     if (!url) return false;
     if (url.startsWith('mux:')) return true;
@@ -344,7 +379,7 @@ export default function CourseView() {
     if (!selectedTopic?.blockId) return;
     setRequestingTutoring(true);
     try {
-      await (api as any).requestTutoring(selectedTopic.blockId, tutoringObservation || undefined);
+      await (api as any).requestTutoring(selectedTopic.blockId, tutoringObservation || undefined, tutoringDate);
       setShowTutoringModal(false);
       setTutoringObservation('');
       loadTutoring();
@@ -404,10 +439,11 @@ export default function CourseView() {
 
   return (
     <>
-    <div className="h-screen flex overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       {/* Sidebar */}
-      <div className="w-84 bg-slate-800 border-r border-slate-700 overflow-y-auto flex-shrink-0 hidden md:flex flex-col">
-        <div className="p-5 flex-1">
+      <div className="w-84 bg-slate-800 border-r border-slate-700 flex-shrink-0 hidden md:flex flex-col overflow-hidden">
+        {/* Parte fija — no hace scroll */}
+        <div className="p-5 flex-shrink-0">
           <button onClick={() => navigate('/dashboard')}
             className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors text-sm font-medium">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -416,7 +452,7 @@ export default function CourseView() {
             Volver al Dashboard
           </button>
           
-          <div className="mb-6">
+          <div className="mb-4">
             <h2 className="text-lg font-bold text-white mb-2 leading-tight">{course.name}</h2>
             <div className="flex items-center gap-3">
               <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
@@ -427,7 +463,11 @@ export default function CourseView() {
             </div>
           </div>
 
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4 px-1">Curriculum</p>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-1">Curriculum</p>
+        </div>
+
+        {/* Parte scrollable — solo el curriculum */}
+        <div className="flex-1 overflow-y-auto px-5 pb-5" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
           <div className="space-y-4">
             {/* Badges Link */}
             <button
@@ -452,15 +492,19 @@ export default function CourseView() {
             {course.topics.map(topic => {
               const completed = topic.contents.filter(c => c.progress.status === 'completed').length;
               const isTopicActive = selectedTopicId === topic.id;
+              const isExpanded = expandedTopicIds.has(topic.id);
               
               return (
                 <div key={topic.id} className="space-y-1">
                   <button onClick={() => {
                     setShowBadges(false);
                     setSelectedTopicId(topic.id);
-                    if (!isTopicActive && topic.contents.length > 0) {
-                      setSelectedContentId(null);
-                    }
+                    // Toggle expansión
+                    setExpandedTopicIds(prev => {
+                      const next = new Set(prev);
+                      next.has(topic.id) ? next.delete(topic.id) : next.add(topic.id);
+                      return next;
+                    });
                   }}
                     className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${isTopicActive ? 'bg-slate-700/50 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
                     <div className="flex items-center gap-3 overflow-hidden">
@@ -469,10 +513,15 @@ export default function CourseView() {
                       </span>
                       <p className="text-xs font-bold truncate uppercase tracking-wide">{topic.title}</p>
                     </div>
-                    <span className="text-[9px] font-bold opacity-50">{completed}/{topic.contents.length}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-bold opacity-50">{completed}/{topic.contents.length}</span>
+                      <svg className={`w-3 h-3 transition-transform opacity-40 ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </button>
 
-                  {(isTopicActive || true) && (
+                  {isExpanded && (
                     <div className="ml-8 space-y-1 border-l-2 border-slate-700/50 pl-3 py-1">
                       {topic.contents.map(content => {
                         const isContentActive = selectedContentId === content.id;
@@ -515,7 +564,7 @@ export default function CourseView() {
               );
             })}
           </div>
-        </div>
+        </div> {/* cierra overflow-y-auto scrollable */}
       </div>
 
       {/* Main Content */}
@@ -622,25 +671,34 @@ export default function CourseView() {
 
                 // Reviso si el bloque ya es elegible para tutoría (available)
                 const blockBadge = course?.badges?.find((b: any) => (b.blockId === selectedTopic.blockId || b.block_id === selectedTopic.blockId));
-                if (blockBadge?.state === 'available') return (
-                  <div className="mb-8 p-6 bg-gradient-to-r from-red-600/20 to-red-600/5 border border-red-500/30 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-left-4 duration-500">
-                    <div className="flex items-center gap-4 text-center md:text-left">
-                      <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-900/40">
-                         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                if (blockBadge?.state === 'available') {
+                  // Si es video o documento, mostramos el modal invitativo mediante useEffect
+                  // Pero para retos preferimos el banner arriba del formulario
+                  if (selectedContent?.type === 'challenge') {
+                    return (
+                      <div className="mb-8 p-6 bg-gradient-to-r from-red-600/20 to-red-600/5 border border-red-500/30 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-left-4 duration-500">
+                        <div className="flex items-center gap-4 text-center md:text-left">
+                          <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-900/40">
+                             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                          </div>
+                          <div>
+                            <h4 className="text-white font-black text-lg leading-tight">¡Meta cumplida!</h4>
+                            <p className="text-sm text-slate-300">Ya puedes solicitar tu tutoría para aprobar este bloque y reclamar tu insignia.</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={openTutoringModal}
+                          className="whitespace-nowrap px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-xl shadow-red-900/30"
+                        >
+                          Solicitar Tutoría Ahora
+                        </button>
                       </div>
-                      <div>
-                        <h4 className="text-white font-black text-lg leading-tight">¡Meta cumplida!</h4>
-                        <p className="text-sm text-slate-300">Ya puedes solicitar tu tutoría para aprobar este bloque y reclamar tu insignia.</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={openTutoringModal}
-                      className="whitespace-nowrap px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-xl shadow-red-900/30"
-                    >
-                      Solicitar Tutoría Ahora
-                    </button>
-                  </div>
-                );
+                    );
+                  }
+                  
+                  // Retornar banner pequeño o nada, ya que el modal saldrá vía useEffect
+                  return null;
+                }
 
                 return null;
               })()}
@@ -1039,20 +1097,20 @@ export default function CourseView() {
             {/* Bloque */}
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bloque</label>
-              <div className="px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm font-bold">
+              <div className="px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm font-bold border-l-4 border-l-red-500">
                 {currentBlock?.name ?? selectedTopic.blockName ?? 'Bloque actual'}
               </div>
             </div>
 
             {/* Fecha de solicitud */}
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha sugerida de Solicitud</label>
               <input
                 type="date"
                 value={tutoringDate}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={e => setTutoringDate(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
               />
             </div>
 
@@ -1066,26 +1124,73 @@ export default function CourseView() {
                 value={tutoringObservation}
                 onChange={(e) => setTutoringObservation(e.target.value)}
                 placeholder="Ej: Tengo dudas sobre el tema X, me gustaría reforzar..."
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none placeholder-slate-500"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none placeholder-slate-500 transition-all"
               />
             </div>
           </div>
 
-          <div className="flex gap-3 mt-6">
+          <div className="flex gap-3 mt-8">
             <button
               type="button"
               onClick={() => setShowTutoringModal(false)}
-              className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
+              className="flex-1 py-3.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
             >
-              Cancelar
+              Cerrar
             </button>
             <button
               disabled={requestingTutoring}
               onClick={handleRequestTutoring}
-              className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-red-900/40 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {requestingTutoring && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-              Solicitar Tutoría
+              Confirmar Solicitud
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Eligibility Modal (Special for Videos/Documents) ── */}
+    {showEligibilityModal && selectedTopic && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-all">
+        <div className="bg-slate-800 border-2 border-red-500/30 rounded-[2.5rem] p-10 w-full max-w-lg shadow-[0_0_50px_rgba(220,38,38,0.15)] text-center animate-in zoom-in-95 duration-500">
+          <div className="w-24 h-24 bg-gradient-to-br from-red-600 to-red-700 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-red-900/40 rotate-3">
+             <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
+             </svg>
+          </div>
+          
+          <h2 className="text-4xl font-black text-white uppercase tracking-tighter mb-4 leading-none">¡Meta cumplida!</h2>
+          <p className="text-slate-400 text-lg mb-8 leading-relaxed px-4">
+            Has completado los requisitos de avance. Ya puedes solicitar la tutoría para aprobar este bloque y obtener tu insignia.
+          </p>
+
+          <div className="flex flex-col gap-4">
+            <button
+              onClick={() => {
+                setShowEligibilityModal(false);
+                if (selectedTopic.blockId) {
+                  setDismissedBlockIds(prev => new Set([...prev, selectedTopic.blockId!]));
+                }
+                openTutoringModal();
+              }}
+              className="w-full py-5 bg-red-600 hover:bg-red-500 text-white font-black text-sm uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-red-900/40 flex items-center justify-center gap-3 active:scale-95"
+            >
+              Solicitar Tutoría Ahora
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                setShowEligibilityModal(false);
+                if (selectedTopic.blockId) {
+                  setDismissedBlockIds(prev => new Set([...prev, selectedTopic.blockId!]));
+                }
+              }}
+              className="w-full py-4 text-slate-500 hover:text-slate-300 font-bold text-xs uppercase tracking-widest transition-colors"
+            >
+              Lo haré más tarde
             </button>
           </div>
         </div>
@@ -1111,6 +1216,11 @@ export default function CourseView() {
 
           <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">¡Insignia Desbloqueada!</p>
           <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2 leading-none">{newBadge.name}</h2>
+          {newBadge.awardedAt && (
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 italic">
+              Obtenida el {new Date(newBadge.awardedAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+            </p>
+          )}
           {newBadge.description && (
             <p className="text-sm text-slate-400 mb-6 italic">"{newBadge.description}"</p>
           )}

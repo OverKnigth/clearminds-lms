@@ -23,7 +23,7 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [saving, setSaving] = useState(false);
-  const { dialog, showAlert, close: closeDialog } = useDialog();
+  const { dialog, showAlert, showConfirm, close: closeDialog } = useDialog();
 
   // Form for creating group
   const [groupForm, setGroupForm] = useState({ name: '', courseIds: [] as string[] });
@@ -152,6 +152,27 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
                 className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
               >
                 Inscribir Estudiantes
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  showConfirm(
+                    `¿Eliminar el grupo "${group.name}"? Esta acción no se puede deshacer.`,
+                    async () => {
+                      try {
+                        await api.deleteGroup(group.id);
+                        // Actualización local sin recargar
+                        setGroups(prev => prev.filter(g => g.id !== group.id));
+                      } catch (err: any) {
+                        showAlert(err.response?.data?.message || err.message || 'Error al eliminar el grupo');
+                      }
+                    },
+                    { title: 'Eliminar Grupo', confirmLabel: 'Eliminar', danger: true }
+                  );
+                }}
+                className="w-full py-2 bg-red-900/20 hover:bg-red-900/40 text-red-400 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-red-500/20 mt-2"
+              >
+                Eliminar
               </button>
             </div>
           ))}
