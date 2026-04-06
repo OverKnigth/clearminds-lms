@@ -16,8 +16,8 @@ export function UpcomingTutorings({ tutorings }: { tutorings: Tutoring[] }) {
             <div key={t.id} className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
               <div className="flex items-start justify-between mb-1">
                 <div>
-                  <p className="text-white font-medium">{t.block.name}</p>
-                  <p className="text-sm text-slate-400">{t.block.course.name}</p>
+                  <p className="text-white font-medium">{t.block?.name}</p>
+                  <p className="text-sm text-slate-400">{t.block?.course?.name}</p>
                 </div>
                 <span className={`px-2 py-0.5 text-xs rounded-full ${t.status === 'confirmed' ? 'bg-blue-500/20 text-blue-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                   {t.status === 'confirmed' ? 'Confirmada' : 'Pendiente'}

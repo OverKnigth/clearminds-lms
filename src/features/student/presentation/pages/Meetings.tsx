@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { api } from '@/shared/services/api';
 import Footer from '@/shared/components/Footer';
 import Modal from '@/shared/components/Modal';
@@ -32,7 +32,6 @@ const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
 };
 
 export default function Meetings() {
-  const navigate = useNavigate();
   const location = useLocation();
   const [tutorings, setTutorings] = useState<Tutoring[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -79,12 +78,12 @@ export default function Meetings() {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col font-sans">
       <div className="flex-1 w-full max-w-7xl mx-auto px-6 pt-6 pb-8">
-        <div className="bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4 flex items-center justify-between mb-8">
+        <div className="bg-slate-800 border border-slate-700/50 rounded-lg px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
             <div>
               <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Mis Tutorías</h1>
               <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Gestiona tus sesiones de validación</p>
             </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
               <button
                 onClick={() => setViewMode('list')}
@@ -117,7 +116,7 @@ export default function Meetings() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 sm:mb-8">
           {[
             { label: 'Pendientes', value: pending.length, color: 'yellow' },
             { label: 'Confirmadas', value: confirmed.length, color: 'blue' },

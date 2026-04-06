@@ -7,13 +7,13 @@ export const useAdminFilters = (students: Student[]) => {
 
   const filteredStudentsForAssignments = students.filter(student => {
     const matchesName = student.fullName.toLowerCase().includes(assignmentFilter.name.toLowerCase());
-    const matchesGroup = assignmentFilter.group === 'all' || student.groupName === assignmentFilter.group;
+    const matchesGroup = assignmentFilter.group === 'all' || (student as any).groupName === assignmentFilter.group;
     return matchesName && matchesGroup;
   });
 
   const filteredStudentsForProgress = students.filter(student => {
     const matchesName = student.fullName.toLowerCase().includes(progressFilter.name.toLowerCase());
-    const matchesGroup = progressFilter.group === 'all' || student.groupName === progressFilter.group;
+    const matchesGroup = progressFilter.group === 'all' || (student as any).groupName === progressFilter.group;
     return matchesName && matchesGroup;
   });
 

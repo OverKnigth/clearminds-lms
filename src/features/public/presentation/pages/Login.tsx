@@ -45,10 +45,10 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
-      <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="flex-1 flex items-center justify-center px-4 py-8 relative">
         <button
           onClick={() => navigate('/')}
-          className="absolute top-6 left-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors z-20"
+          className="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors z-20"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -56,20 +56,20 @@ export default function Login() {
           Volver
         </button>
 
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-500/10 rounded-full blur-3xl animate-pulse" />
           <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-red-600/10 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
 
         <div className="relative z-10 w-full max-w-md">
-          <div className="text-center mb-10">
-            <img src={krakedevLogo} alt="KrakeDev" className="h-32 mx-auto mb-8" />
+          <div className="text-center mb-6 sm:mb-10">
+            <img src={krakedevLogo} alt="KrakeDev" className="h-20 sm:h-32 mx-auto mb-4 sm:mb-8" />
             <p className="text-slate-400 text-sm uppercase tracking-wider">Plataforma de Aprendizaje</p>
           </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-slate-700/50">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-semibold text-white mb-2">Bienvenido de nuevo</h2>
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-5 sm:p-8 shadow-2xl border border-slate-700/50">
+            <div className="text-center mb-6 sm:mb-8">
+              <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2">Bienvenido de nuevo</h2>
               <p className="text-slate-400 text-sm">Inicia sesión para acceder a tu plataforma</p>
             </div>
 

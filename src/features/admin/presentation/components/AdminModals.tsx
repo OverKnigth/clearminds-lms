@@ -59,7 +59,7 @@ export function AdminModals({
     if (isModalOpen && (modalType === 'addStudent' || modalType === 'addTutor' || modalType === 'addAdmin' || modalType === 'editStudent' || modalType === 'assignCourse')) {
       setLoadingGroups(true);
       api.getGroups()
-        .then(res => setGroupsList(Array.isArray(res) ? res : (res?.data ?? [])))
+        .then((res: any) => setGroupsList(Array.isArray(res) ? res : (res?.data ?? [])))
         .catch(() => setGroupsList([]))
         .finally(() => setLoadingGroups(false));
     }
@@ -83,7 +83,7 @@ export function AdminModals({
     setSelectedCourseId('');
     setFormData({ ...formDataRef.current, groupId: selectedGroupId });
     api.getGroupDetail(selectedGroupId)
-      .then(res => setGroupDetail(res?.data ?? res))
+      .then((res: any) => setGroupDetail(res?.data ?? res))
       .catch(() => setGroupDetail(null))
       .finally(() => setLoadingDetail(false));
   }, [selectedGroupId]);
@@ -221,7 +221,7 @@ export function AdminModals({
 
                   // Cargar detalle del grupo para obtener sus cursos y auto-seleccionarlos
                   api.getGroupDetail(val)
-                    .then((res) => {
+                    .then((res: any) => {
                       const detail = res?.data ?? res;
                       const groupCourseIds: string[] = (detail?.courses ?? []).map((c: any) =>
                         c.course?.id ?? c.id
@@ -904,7 +904,7 @@ function EditStudentForm({
     if (userRole?.toLowerCase() !== 'student') return;
     setLoadingGroups(true);
     api.getGroups()
-      .then(res => setGroupsList(Array.isArray(res) ? res : (res?.data ?? [])))
+      .then((res: any) => setGroupsList(Array.isArray(res) ? res : (res?.data ?? [])))
       .catch(() => { })
       .finally(() => setLoadingGroups(false));
   }, [userRole]);
@@ -919,25 +919,9 @@ function EditStudentForm({
     setLoadingDetail(true);
     setFormData({ ...formDataRef.current, groupId: selectedGroupId });
 
-    // Intentar cargar como Grupo, si falla intentar como Generación/Cohorte
     api.getGroupDetail(selectedGroupId)
-      .then(res => setGroupDetail(res?.data ?? res))
-      .catch(() => {
-        // Si no es un grupo, podría ser una Cohorte directa
-        // IMPORTANTE: Retornar la promesa para que el .finally exterior espere
-        return api.getGenerationDetail(selectedGroupId)
-          .then(res => {
-            const data = res?.data ?? res;
-            // Mapeamos la estructura de Cohorte a la de Grupo
-            // La respuesta de Generation ya trae [{ offeringId, course: {...} }]
-            if (data && data.courses) {
-              setGroupDetail({ ...data, courses: data.courses });
-            } else {
-              setGroupDetail(null);
-            }
-          })
-          .catch(() => setGroupDetail(null));
-      })
+      .then((res: any) => setGroupDetail(res?.data ?? res))
+      .catch(() => setGroupDetail(null))
       .finally(() => setLoadingDetail(false));
   }, [selectedGroupId]);
 
@@ -1131,7 +1115,7 @@ function TutorSelector({ selectedIds, onChange }: { selectedIds: string[]; onCha
 
   useEffect(() => {
     api.getAllUsers('tutor', 1, 100)
-      .then(res => { if (res.success) setTutors(res.rows || res.data || []); })
+      .then((res: any) => { if (res.success) setTutors(res.rows || res.data || []); })
       .catch(() => { })
       .finally(() => setLoading(false));
   }, []);

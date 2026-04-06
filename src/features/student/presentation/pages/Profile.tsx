@@ -25,13 +25,13 @@ export default function Profile() {
     <div className="min-h-screen bg-slate-900 overflow-y-auto">
       <div className="max-w-7xl mx-auto px-6 pt-6 pb-8">
         {/* Profile Header */}
-        <div className="bg-slate-800/80 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-10 mb-10 shadow-2xl relative overflow-hidden">
+        <div className="bg-slate-800/80 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 mb-6 sm:mb-10 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-10 opacity-20">
              <svg className="w-48 h-48 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
           </div>
           
           <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
-            <div className="w-32 h-32 bg-gradient-to-tr from-red-600 to-orange-600 rounded-[2rem] flex items-center justify-center text-4xl font-black text-white shadow-xl shadow-red-900/30">
+            <div className="w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-gradient-to-tr from-red-600 to-orange-600 rounded-2xl sm:rounded-[2rem] flex items-center justify-center text-3xl sm:text-4xl font-black text-white shadow-xl shadow-red-900/30">
               {userName.charAt(0)}
             </div>
             

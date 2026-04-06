@@ -11,7 +11,6 @@ import Admin from '@/features/admin/presentation/pages/index.tsx';
 import Tutor from '@/features/tutor/presentation/pages/index.tsx';
 import Meetings from '@/features/student/presentation/pages/Meetings';
 import Profile from '@/features/student/presentation/pages/Profile';
-import Reports from '@/features/admin/presentation/pages/Reports';
 import MainLayout from '@/shared/layouts/MainLayout';
 
 export default function AppRoutes() {
@@ -30,7 +29,6 @@ export default function AppRoutes() {
           <Route path="/meetings" element={<Meetings />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />
-          <Route path="/admin/reports" element={<Reports />} />
           <Route path="/tutor" element={<Tutor />} />
         </Route>
       </Routes>

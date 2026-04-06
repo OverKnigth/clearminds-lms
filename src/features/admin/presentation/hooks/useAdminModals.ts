@@ -46,7 +46,6 @@ export function useAdminModals(_activeTab: Tab) {
         role: data.role,
         status: data.status,
         groupId: data.groupId || '',
-        groupName: data.groupName || '',
         courseId: '',
         selectedCourses: data.assignedCourses || [],
         courseParallelMap: data.courseParallelMap || {},

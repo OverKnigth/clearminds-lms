@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import { useStudentData } from '../hooks/useStudentData';
-import { StudentBadges } from '../components';
 import Footer from '@/shared/components/Footer';
 
 export default function Student() {

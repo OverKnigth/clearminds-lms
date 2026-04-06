@@ -35,7 +35,7 @@ export function GroupDetailView({
     setAddCoursesError(null);
     api
       .getAdminCourses()
-      .then((res) => {
+      .then((res: any) => {
         const all: CourseData[] = Array.isArray(res) ? res : (res?.data ?? []);
         const assignedIds = new Set((detail?.courses ?? []).map((c) => c.course.id));
         setAvailableCourses(all.filter((c) => !assignedIds.has(c.id)));
@@ -79,7 +79,7 @@ export function GroupDetailView({
     setStudentsLoading(true);
     // Fetch all students to pick from
     api.getAllUsers('student', 1, 1000)
-      .then(res => { 
+      .then((res: any) => { 
         const rows = res.rows || res.data || [];
         const mapped = Array.isArray(rows) ? rows.map((u: any) => ({
           id: u.id,

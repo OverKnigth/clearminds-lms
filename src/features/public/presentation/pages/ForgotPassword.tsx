@@ -26,8 +26,8 @@ export default function ForgotPassword() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
-      <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
-        <button onClick={() => navigate('/login')} className="absolute top-6 left-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors z-20">
+      <div className="flex-1 flex items-center justify-center p-4 relative">
+        <button onClick={() => navigate('/login')} className="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors z-20">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -35,8 +35,8 @@ export default function ForgotPassword() {
         </button>
 
         <div className="relative z-10 w-full max-w-md">
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-slate-700/50">
-            <div className="text-center mb-8">
+          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-5 sm:p-8 shadow-2xl border border-slate-700/50">
+            <div className="text-center mb-6 sm:mb-8">
               <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />

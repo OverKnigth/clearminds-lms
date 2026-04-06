@@ -1,4 +1,3 @@
-export * from './AdminHeader';
 export * from './StudentsTab';
 export * from './TutorsTab';
 export * from './AdminsTab';

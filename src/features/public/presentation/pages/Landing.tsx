@@ -7,26 +7,26 @@ export default function Landing() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-x-hidden">
       <LandingNavbar />
 
       {/* Hero Section */}
-      <div id="inicio" className="pt-32 pb-20 px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <div id="inicio" className="relative lg:min-h-screen flex items-center pt-24 pb-12 px-6 overflow-hidden">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center w-full">
           <div>
             <div className="inline-block px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-full mb-6">
               <span className="text-red-400 text-sm font-semibold">● ESCUELA DE PROGRAMACIÓN</span>
             </div>
-            <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-white mb-6 leading-tight">
               ¿Listo para transformar tu{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-600">
                 futuro?
               </span>
             </h1>
-            <p className="text-xl text-slate-300 mb-8 leading-relaxed">
+            <p className="text-lg sm:text-xl text-slate-300 mb-8 leading-relaxed max-w-lg">
               Estudia con nosotros y domina el desarrollo de software desde cero. Obtén certificaciones internacionales como AWS y trabaja con nosotros en proyectos reales.
             </p>
-            <div className="flex gap-4 mb-8">
+            <div className="flex flex-wrap gap-4 mb-10">
               <button
                 onClick={() => navigate('/login')}
                 className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-500/50"
@@ -41,28 +41,31 @@ export default function Landing() {
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-700">
+            <div className="grid grid-cols-3 gap-8 pt-8 border-t border-slate-700">
               <div>
-                <div className="text-3xl font-bold text-red-500 mb-1">150+</div>
-                <div className="text-sm text-slate-400">Estudiantes Activos</div>
+                <div className="text-2xl lg:text-3xl font-bold text-red-500 mb-1">150+</div>
+                <div className="text-xs lg:text-sm text-slate-400">Estudiantes Activos</div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-red-500 mb-1">95%</div>
-                <div className="text-sm text-slate-400">Tasa de Éxito</div>
+                <div className="text-2xl lg:text-3xl font-bold text-red-500 mb-1">95%</div>
+                <div className="text-xs lg:text-sm text-slate-400">Tasa de Éxito</div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-red-500 mb-1">100+</div>
-                <div className="text-sm text-slate-400">Graduados con Nosotros</div>
+                <div className="text-2xl lg:text-3xl font-bold text-red-500 mb-1">100+</div>
+                <div className="text-xs lg:text-sm text-slate-400">Graduados con Nosotros</div>
               </div>
             </div>
           </div>
 
           <div className="relative">
-            <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 border border-slate-700/50 shadow-2xl">
-              <div className="absolute -top-4 -right-4 w-24 h-24 bg-red-500/20 rounded-full blur-2xl"></div>
-              <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-red-600/20 rounded-full blur-2xl"></div>
-              <img src={krakedevLogo} alt="KrakeDev" className="w-full h-auto relative z-10" />
+            <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 lg:p-10 border border-slate-700/50 shadow-2xl overflow-hidden group">
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-red-500/20 rounded-full blur-3xl group-hover:bg-red-500/30 transition-colors"></div>
+              <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-red-600/20 rounded-full blur-3xl group-hover:bg-red-600/30 transition-colors"></div>
+              <img src={krakedevLogo} alt="KrakeDev" className="w-full h-auto relative z-10 drop-shadow-2xl scale-95 group-hover:scale-100 transition-transform duration-500" />
             </div>
+            
+            {/* Background elements */}
+            <div className="absolute -z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-red-500/5 blur-[100px] rounded-full"></div>
           </div>
         </div>
       </div>
@@ -190,7 +193,7 @@ export default function Landing() {
           <h2 className="text-4xl font-bold text-white mb-6">Comienza tu carrera en tecnología hoy</h2>
           <p className="text-xl text-slate-300 mb-8">Únete a cientos de estudiantes que ya están transformando su futuro profesional</p>
           <button
-            onClick={() => window.location.href = 'mailto:contacto@krakedev.com'}
+            onClick={() => window.open('https://wa.me/593962635443', '_blank')}
             className="px-12 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-lg font-semibold rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-500/50"
           >
             Comunícate con un Asesor

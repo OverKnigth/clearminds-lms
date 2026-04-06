@@ -18,13 +18,13 @@ export default function LandingNavbar() {
         <button onClick={handleLogoClick} className="flex items-center cursor-pointer">
           <img src={krakedevLogo} alt="KrakeDev" className="h-12" />
         </button>
-        <div className="flex items-center gap-6">
-          <a href="#cursos" className="text-slate-300 hover:text-white transition-colors">Cursos</a>
-          <a href="#metodologia" className="text-slate-300 hover:text-white transition-colors">Metodología</a>
-          <a href="#historias" className="text-slate-300 hover:text-white transition-colors">Historias de Éxito</a>
+        <div className="flex items-center gap-4 lg:gap-10">
+          <a href="#cursos" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">Cursos</a>
+          <a href="#metodologia" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">Metodología</a>
+          <a href="#historias" className="text-slate-300 hover:text-white transition-colors text-sm font-medium">Historias de Éxito</a>
           <div className="flex items-center gap-3 ml-2">
             <button
-              onClick={() => window.location.href = 'mailto:contacto@krakedev.com'}
+              onClick={() => window.open('https://wa.me/593962635443', '_blank')}
               className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors"
             >
               Contáctanos

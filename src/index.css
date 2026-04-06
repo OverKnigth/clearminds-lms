@@ -2,7 +2,7 @@
 
 @layer base {
   html, body {
-    @apply h-full overflow-hidden antialiased;
+    @apply min-h-screen antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }

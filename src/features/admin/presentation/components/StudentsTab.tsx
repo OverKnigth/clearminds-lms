@@ -20,7 +20,7 @@ interface StudentsTabProps {
 
 export function StudentsTab({
   students,
-  groups,
+  groups: _groups,
   isUploading,
   isImportMenuOpen,
   setIsImportMenuOpen,

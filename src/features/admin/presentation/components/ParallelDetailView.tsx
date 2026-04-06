@@ -56,7 +56,7 @@ export function ParallelDetailView({ parallel, onBack }: ParallelDetailViewProps
     setStudentsLoading(true);
     api
       .getAllUsers('student', 1, 500)
-      .then((res) => {
+      .then((res: any) => {
         const data = res?.data ?? res;
         const list: UserRecord[] = Array.isArray(data) ? data : (data?.users ?? []);
         setAllStudents(list.filter((u) => !u.status || u.status === 'active'));

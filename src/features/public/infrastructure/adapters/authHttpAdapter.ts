@@ -1,4 +1,4 @@
-import { api } from '../../../../shared/services/httpClient';
+import { api } from '../../../../shared/services/api';
 import type { IAuthPort } from '../../domain/ports/auth.port';
 import type { LoginCredentials, AuthUser } from '../../domain/entities/auth.entity';
 

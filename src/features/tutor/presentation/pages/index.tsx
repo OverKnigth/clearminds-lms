@@ -14,7 +14,7 @@ export default function Tutor() {
   const [globalMessage, setGlobalMessage] = useState('');
 
   useEffect(() => {
-    api.getTutoringConfig().then(res => {
+    api.getTutoringConfig().then((res: any) => {
       if (res.success && res.data.globalMessage) setGlobalMessage(res.data.globalMessage);
     }).catch(() => {});
   }, []);
