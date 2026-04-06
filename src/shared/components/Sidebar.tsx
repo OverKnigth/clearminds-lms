@@ -1,47 +1,17 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import krakedevLogo from '../assets/krakedev_logo.png';
 import { api } from '../services/api';
 import { useNotifications } from '../hooks/useNotifications';
+import { UserAvatar } from './UserAvatar';
+import NotificationPanel from './NotificationPanel';
 
 interface SidebarProps {
   user?: { name: string; avatar?: string };
 }
 
-const TYPE_ICON: Record<string, string> = {
-  tutoring_requested: '🚀',
-  tutoring_confirmed: '✅',
-  tutoring_rescheduled: '🔄',
-  tutoring_cancelled: '❌',
-  tutoring_graded: '📋',
-  grade: '📋',
-  badge_earned: '🏅',
-  deadline: '⏰',
-  block_approved: '🎯',
-};
 
-const TYPE_COLOR: Record<string, { dot: string; bg: string; text: string }> = {
-  tutoring_requested: { dot: 'bg-yellow-400', bg: 'bg-yellow-500/10', text: 'text-yellow-400' },
-  tutoring_confirmed: { dot: 'bg-blue-400', bg: 'bg-blue-500/10', text: 'text-blue-400' },
-  tutoring_rescheduled: { dot: 'bg-orange-400', bg: 'bg-orange-500/10', text: 'text-orange-400' },
-  tutoring_cancelled: { dot: 'bg-red-400', bg: 'bg-red-500/10', text: 'text-red-400' },
-  tutoring_graded: { dot: 'bg-orange-400', bg: 'bg-orange-500/10', text: 'text-orange-400' },
-  grade: { dot: 'bg-orange-400', bg: 'bg-orange-500/10', text: 'text-orange-400' },
-  badge_earned: { dot: 'bg-purple-400', bg: 'bg-purple-500/10', text: 'text-purple-400' },
-  deadline: { dot: 'bg-red-400', bg: 'bg-red-500/10', text: 'text-red-400' },
-  block_approved: { dot: 'bg-green-400', bg: 'bg-green-500/10', text: 'text-green-400' },
-};
 
-function timeAgo(d: string | null): string {
-  if (!d) return '';
-  const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
-  if (m < 1) return 'ahora';
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-}
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export default function Sidebar({ user }: SidebarProps) {
   const location = useLocation();
@@ -49,23 +19,17 @@ export default function Sidebar({ user }: SidebarProps) {
   const sidebarRef = useRef<HTMLElement>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(80);
+
 
   const userRole = localStorage.getItem('userRole') || 'student';
   const isAdmin = userRole === 'admin';
 
-  const { notifications, unreadCount, isOpen: notifOpen, setIsOpen: setNotifOpen, markRead, markAllRead } = useNotifications();
+  const { notifications, unreadCount, isOpen: notifOpen, setIsOpen: setNotifOpen, markRead, markAllRead, deleteNotif } = useNotifications();
 
   const expanded = notifOpen ? false : hovered;
+  const sidebarWidth = expanded ? 256 : 80;
 
-  useEffect(() => {
-    if (!sidebarRef.current) return;
-    const obs = new ResizeObserver(entries => {
-      setSidebarWidth(entries[0].contentRect.width);
-    });
-    obs.observe(sidebarRef.current);
-    return () => obs.disconnect();
-  }, []);
+
 
   useEffect(() => {
     if (!notifOpen) return;
@@ -109,70 +73,6 @@ export default function Sidebar({ user }: SidebarProps) {
 
   if (!user) return null;
 
-  const notifPanel = notifOpen ? createPortal(
-    <div
-      id="notif-panel"
-      style={{ position: 'fixed', top: 0, left: sidebarWidth, width: 280, height: '100vh', zIndex: 49 }}
-      className="bg-slate-900 border-r border-slate-700/60 flex flex-col shadow-2xl shadow-black/40"
-    >
-      <div className="flex items-center justify-between px-4 py-4 border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-black text-white uppercase tracking-widest">Notificaciones</span>
-          {unreadCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-red-600/20 border border-red-600/30 text-red-400 text-[9px] font-black rounded-full">
-              {unreadCount}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {unreadCount > 0 && (
-            <button onClick={markAllRead} className="text-[9px] font-black text-slate-600 hover:text-slate-300 uppercase tracking-widest transition-colors">
-              Leer todas
-            </button>
-          )}
-          <button onClick={() => setNotifOpen(false)} className="text-slate-600 hover:text-slate-300 transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        {notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 pb-16">
-            <p className="text-[10px] text-slate-700 uppercase tracking-widest font-black">Sin notificaciones</p>
-          </div>
-        ) : (
-          notifications.map(n => (
-            <button
-              key={n.id}
-              onClick={() => !n.read && markRead(n.id)}
-              className={`w-full text-left px-4 py-3 flex items-start gap-3 border-b border-slate-800/60 last:border-0 hover:bg-slate-800/40 transition-colors ${!n.read ? 'bg-slate-800/20' : ''}`}
-            >
-              <span className={`flex-shrink-0 mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center text-sm ${(TYPE_COLOR[n.type ?? ''] ?? TYPE_COLOR['block_approved']).bg}`}>
-                {TYPE_ICON[n.type ?? ''] ?? '🔔'}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline justify-between gap-2 mb-0.5">
-                  <p className={`text-[11px] font-black uppercase tracking-tight truncate ${n.read ? 'text-slate-500' : 'text-white'}`}>
-                    {n.title}
-                  </p>
-                  <span className="text-[9px] text-slate-700 flex-shrink-0">{timeAgo(n.created_at)}</span>
-                </div>
-                <p className="text-[10px] text-slate-500 leading-relaxed line-clamp-2">{n.body}</p>
-              </div>
-              {!n.read && (
-                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${(TYPE_COLOR[n.type ?? ''] ?? { dot: 'bg-red-500' }).dot}`} />
-              )}
-            </button>
-          ))
-        )}
-      </div>
-    </div>,
-    document.body
-  ) : null;
-
   return (
     <>
       <aside
@@ -213,10 +113,8 @@ export default function Sidebar({ user }: SidebarProps) {
         </nav>
 
         <div className="p-4 border-t border-slate-700 bg-slate-800/50 overflow-hidden">
-          <div className="flex items-center gap-3 p-2 bg-slate-700/30 rounded-2xl mb-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white font-black shadow-lg shadow-red-900/20 flex-shrink-0">
-              {user.name.charAt(0)}
-            </div>
+          <div className="flex items-center gap-3 p-2 bg-slate-700/20 rounded-2xl mb-2 group">
+            <UserAvatar name={user.name} />
             <div className={`flex-1 min-w-0 transition-opacity duration-300 ${expanded ? 'opacity-100' : 'opacity-0'}`}>
               <p className="text-sm font-bold text-white truncate">{user.name}</p>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter capitalize">{userRole}</p>
@@ -262,7 +160,16 @@ export default function Sidebar({ user }: SidebarProps) {
         </div>
       </aside>
 
-      {notifPanel}
+      <NotificationPanel 
+        notifications={notifications}
+        unreadCount={unreadCount}
+        isOpen={notifOpen}
+        onToggle={() => setNotifOpen(!notifOpen)}
+        onMarkRead={markRead}
+        onMarkAllRead={markAllRead}
+        onDelete={deleteNotif}
+        offset={sidebarWidth}
+      />
     </>
   );
 }

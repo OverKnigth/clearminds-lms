@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 import type { Student } from '../../domain/entities';
+import { UserAvatar } from '../../../../shared/components/UserAvatar';
 
 interface StudentsTabProps {
   students: Student[];
@@ -143,8 +144,8 @@ export function StudentsTab({
             {students.map((student) => (
               <tr key={student.id} className="hover:bg-slate-700/20 transition-colors group">
                 <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <p className="text-sm font-black text-white uppercase tracking-tighter group-hover:text-red-400 transition-colors">{student.fullName}</p>
+                  <div className="flex items-center gap-4">
+                    <p className="text-sm font-black text-white uppercase tracking-tighter group-hover:text-red-400 transition-colors truncate">{student.fullName}</p>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-xs text-slate-400 font-mono">{student.email}</td>

@@ -33,12 +33,22 @@ export const useTutorData = () => {
     } catch (e) { console.error(e); }
   }, []);
 
+  const fetchChallenges = useCallback(async () => {
+    try {
+      const res = await api.getTutorChallenges();
+      if (res.success) setChallenges(res.data);
+    } catch (e) { console.error(e); }
+  }, []);
+
   useEffect(() => {
     fetchAll();
-    // Polling cada 30s para capturar nuevas solicitudes sin recargar la página
-    const id = setInterval(fetchSessions, 30_000);
+    // Polling cada 30s para capturar nuevas solicitudes/retos sin recargar la página
+    const id = setInterval(() => {
+      fetchSessions();
+      fetchChallenges();
+    }, 30_000);
     return () => clearInterval(id);
-  }, [fetchAll, fetchSessions]);
+  }, [fetchAll, fetchSessions, fetchChallenges]);
 
   const pending = sessions.filter(s => s.status === 'requested');
   const upcoming = sessions.filter(s => s.status === 'confirmed' || s.status === 'rescheduled');

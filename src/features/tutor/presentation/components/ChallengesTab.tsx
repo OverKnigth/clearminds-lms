@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 interface ChallengesTabProps {
   challenges: ChallengeSubmission[];
   onRefresh: () => void;
+  hideHeader?: boolean;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -15,7 +16,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   reviewed:  { label: 'Revisado',   color: 'green' },
 };
 
-export function ChallengesTab({ challenges, onRefresh }: ChallengesTabProps) {
+export function ChallengesTab({ challenges, onRefresh, hideHeader = false }: ChallengesTabProps) {
   const [reviewing, setReviewing] = useState<ChallengeSubmission | null>(null);
 
   if (challenges.length === 0) {
@@ -30,12 +31,14 @@ export function ChallengesTab({ challenges, onRefresh }: ChallengesTabProps) {
     <>
       <div className="bg-slate-800 border border-slate-700/50 rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Retos Entregados</p>
-            <p className="text-xs text-slate-500 mt-0.5">{challenges.length} entrega{challenges.length !== 1 ? 's' : ''}</p>
+        {!hideHeader && (
+          <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Retos Entregados</p>
+              <p className="text-xs text-slate-500 mt-0.5">{challenges.length} entrega{challenges.length !== 1 ? 's' : ''}</p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Table */}
         <div className="overflow-x-auto">
@@ -167,9 +170,9 @@ function ReviewModal({ submission, onClose, onSuccess }: {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-slate-800 rounded-2xl max-w-md w-full border border-slate-700 p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-white">Calificar Reto</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-medium text-white mb-2 uppercase tracking-tight">Calificar Reto</h2>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -205,14 +208,14 @@ function ReviewModal({ submission, onClose, onSuccess }: {
               value={observations} onChange={e => setObservations(e.target.value)}
               placeholder="Retroalimentación para el estudiante..." />
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 pt-6">
             <button type="submit" disabled={saving}
-              className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs uppercase tracking-widest rounded-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-              {saving && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-              {saving ? 'Guardando...' : 'Guardar calificación'}
+              className="flex-1 py-4 bg-white text-slate-950 font-semibold text-sm rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-slate-200">
+              {saving && <div className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />}
+              {saving ? 'Guardando...' : 'Guardar Calificación'}
             </button>
             <button type="button" onClick={onClose}
-              className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-colors">
+              className="px-6 py-4 bg-slate-700/50 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-xl transition-colors">
               Cancelar
             </button>
           </div>

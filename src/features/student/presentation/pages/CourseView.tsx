@@ -94,11 +94,12 @@ export default function CourseView() {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [pendingRatingSubmission, setPendingRatingSubmission] = useState<{ id: string; tutorName: string } | null>(null);
   const [showTutoringModal, setShowTutoringModal] = useState(false);
-  const [showEligibilityModal, setShowEligibilityModal] = useState(false);
   const [dismissedBlockIds, setDismissedBlockIds] = useState<Set<string>>(new Set());
   const [tutoringObservation, setTutoringObservation] = useState('');
   const [tutoringDate, setTutoringDate] = useState(new Date().toISOString().split('T')[0]);
   const [requestingTutoring, setRequestingTutoring] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [currentBlockId, setCurrentBlockId] = useState<string | null>(null);
   const [newBadge, setNewBadge] = useState<any | null>(null);
   const [expandedTopicIds, setExpandedTopicIds] = useState<Set<string>>(new Set());
   const seenBadgeIds = useRef<Set<string> | null>(null);
@@ -111,20 +112,24 @@ export default function CourseView() {
     }
   }, [courseSlug]);
 
-  // Auto-show rating modal if there's a pending tutor rating
+  // Auto-show rating modal if there's a pending tutor rating on EXECUTED sessions
   useEffect(() => {
-    if (!course) return;
-    for (const topic of course.topics) {
-      for (const content of topic.contents) {
-        if (content.submission?.tutoring && content.submission.grade !== null && !content.submission.tutoring.rating) {
-          setPendingRatingSubmission({ id: content.submission.tutoring.id, tutorName: content.submission.tutoring.tutorName });
-          setShowRatingModal(true);
-          setTutorRating(0);
-          return;
-        }
-      }
+    if (!tutoringSessions.length) return;
+    const pendingSession = tutoringSessions.find(s => 
+      s.status === 'executed' && 
+      s.grade !== null && 
+      !((s as any).tutor_rating) // Using property from prisma model
+    );
+    
+    if (pendingSession) {
+      setPendingRatingSubmission({ 
+        id: pendingSession.id, 
+        tutorName: 'tu Tutor' // We might need to get tutor name from somewhere else if not in session, but "tu Tutor" is safe fallback
+      });
+      setShowRatingModal(true);
+      setTutorRating(0);
     }
-  }, [course]);
+  }, [tutoringSessions]);
 
   // Detect newly earned badges
   useEffect(() => {
@@ -231,31 +236,54 @@ export default function CourseView() {
   const activeSession = blockSessions.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
   const currentBlock = course?.blocks?.find(b => b.id === selectedTopic?.blockId);
 
-  // Efecto para detectar elegibilidad para tutoría (disponibilidad de insignias) en videos/documentos
+  // Efecto para detectar elegibilidad para tutoría (Goal Reached) — solo al completar el ÚLTIMO del bloque
   useEffect(() => {
-    if (course && selectedTopic && (selectedContent?.type === 'video' || selectedContent?.type === 'document')) {
+    if (course && selectedTopic && selectedContent) {
       const blockId = selectedTopic.blockId;
       if (!blockId || dismissedBlockIds.has(blockId)) {
-        setShowEligibilityModal(false);
+        setShowGoalModal(false);
         return;
       }
 
-      const blockBadge = course.badges?.find((b: any) => (b.blockId === blockId || b.block_id === blockId));
-      if (blockBadge?.state === 'available') {
-        const hasSession = tutoringSessions.some(s => 
+      // 1. Obtener contenidos del bloque para verificar cual es el último
+      const blockContents: any[] = [];
+      for (const t of course.topics) {
+        if (t.blockId === blockId) {
+          blockContents.push(...t.contents);
+        }
+      }
+      if (blockContents.length === 0) return;
+
+      // 2. Solo activar si el contenido seleccionado es el ÚLTIMO del bloque
+      const lastContent = blockContents[blockContents.length - 1];
+      if (lastContent.id !== selectedContent.id) return;
+
+      // 3. Verificar si el bloque entero está completado (reglas: reto >=7, videos >=90%)
+      const isCompleted = blockContents.every((c: any) => {
+        if (c.type === 'challenge') {
+          return c.submission?.status === 'reviewed' && (c.submission.grade || 0) >= 7;
+        }
+        return (c.progress?.status === 'completed' || c.progress?.pctWatched >= (c.minProgressToComplete || 90));
+      });
+
+      if (isCompleted) {
+        // 4. Verificar que no tenga ya una sesión activa o aprobada
+        const hasActiveOrApproved = tutoringSessions.some(s => 
           ((s.block_id ?? s.block?.id) === blockId) && 
-          ['requested', 'confirmed', 'rescheduled'].includes(s.status)
+          (['requested', 'confirmed', 'rescheduled'].includes(s.status) || (s.status === 'executed' && (s.grade || 0) >= 7))
         );
-        if (!hasSession) {
-          setShowEligibilityModal(true);
+
+        if (!hasActiveOrApproved) {
+          setCurrentBlockId(blockId);
+          setShowGoalModal(true);
         } else {
-          setShowEligibilityModal(false);
+          setShowGoalModal(false);
         }
       } else {
-        setShowEligibilityModal(false);
+        setShowGoalModal(false);
       }
     } else {
-      setShowEligibilityModal(false);
+      setShowGoalModal(false);
     }
   }, [course, selectedTopic, selectedContent, tutoringSessions, dismissedBlockIds]);
 
@@ -351,26 +379,15 @@ export default function CourseView() {
     finally { setSubmittingChallenge(false); }
   };
 
-  const handleRateTutor = async (submissionId: string, rating: number) => {
+  const handleRateTutor = async (sessionId: string, rating: number) => {
     setRatingSubmitting(true);
     try {
-      await api.rateTutorFromChallenge(submissionId, rating);
+      await api.rateTutoring(sessionId, rating, undefined); // Currently no feedback text passed in this modal call but could add
       setShowRatingModal(false);
       setPendingRatingSubmission(null);
       setTutorRating(0);
-        let freshCourse = null;
-        if (courseSlug) {
-          freshCourse = await reloadCourse(courseSlug);
-        }
-        
-        // Buscar la insignia del bloque calificado para mostrarla como premio (si acaba de obtenerse)
-        const targetCourse = freshCourse || course;
-        if (selectedTopic?.blockId && targetCourse) {
-          const blockBadge = targetCourse.badges?.find((b: any) => (b.blockId === selectedTopic.blockId || b.block_id === selectedTopic.blockId) && b.state === 'earned');
-          if (blockBadge) {
-            setNewBadge(blockBadge);
-          }
-        }
+      loadTutoring(); // Refresh sessions to clear flag
+      if (courseSlug) reloadCourse(courseSlug);
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setRatingSubmitting(false); }
   };
@@ -397,10 +414,14 @@ export default function CourseView() {
   };
 
   const getContentStatus = (c: Content) => {
-    if (c.progress.status === 'completed' || c.submission) {
-      return 'completed';
+    if (c.type === 'challenge') {
+      if (!c.submission) return 'pending';
+      // Aprobado: revisado con nota >= 7
+      if (c.submission.status === 'reviewed' && c.submission.grade !== null && c.submission.grade >= 7) return 'completed';
+      // Entregado pero pendiente de revisión o nota insuficiente
+      return 'submitted';
     }
-    if (c.submission) return 'submitted';
+    if (c.progress.status === 'completed') return 'completed';
     return 'pending';
   };
 
@@ -508,7 +529,7 @@ export default function CourseView() {
                   }}
                     className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${isTopicActive ? 'bg-slate-700/50 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
                     <div className="flex items-center gap-3 overflow-hidden">
-                      <span className={`text-[10px] font-black w-5 h-5 rounded flex items-center justify-center border-2 ${isTopicActive ? 'border-red-500 text-red-500' : 'border-slate-700 text-slate-600'}`}>
+                      <span className={`text-[10px] font-black w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${isTopicActive ? 'border-red-500 text-red-500' : 'border-slate-700 text-slate-600'}`}>
                         {topic.order}
                       </span>
                       <p className="text-xs font-bold truncate uppercase tracking-wide">{topic.title}</p>
@@ -550,6 +571,10 @@ export default function CourseView() {
                             ) : status === 'completed' ? (
                                <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                               </svg>
+                            ) : status === 'submitted' ? (
+                               <svg className="w-3 h-3 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                </svg>
                             ) : (
                                <div className={`w-3 h-3 rounded-full border-2 ${isContentActive ? 'border-red-500' : 'border-slate-700'}`} />
@@ -668,37 +693,6 @@ export default function CourseView() {
                     </div>
                   </div>
                 );
-
-                // Reviso si el bloque ya es elegible para tutoría (available)
-                const blockBadge = course?.badges?.find((b: any) => (b.blockId === selectedTopic.blockId || b.block_id === selectedTopic.blockId));
-                if (blockBadge?.state === 'available') {
-                  // Si es video o documento, mostramos el modal invitativo mediante useEffect
-                  // Pero para retos preferimos el banner arriba del formulario
-                  if (selectedContent?.type === 'challenge') {
-                    return (
-                      <div className="mb-8 p-6 bg-gradient-to-r from-red-600/20 to-red-600/5 border border-red-500/30 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 animate-in slide-in-from-left-4 duration-500">
-                        <div className="flex items-center gap-4 text-center md:text-left">
-                          <div className="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-900/40">
-                             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                          </div>
-                          <div>
-                            <h4 className="text-white font-black text-lg leading-tight">¡Meta cumplida!</h4>
-                            <p className="text-sm text-slate-300">Ya puedes solicitar tu tutoría para aprobar este bloque y reclamar tu insignia.</p>
-                          </div>
-                        </div>
-                        <button 
-                          onClick={openTutoringModal}
-                          className="whitespace-nowrap px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-xl shadow-red-900/30"
-                        >
-                          Solicitar Tutoría Ahora
-                        </button>
-                      </div>
-                    );
-                  }
-                  
-                  // Retornar banner pequeño o nada, ya que el modal saldrá vía useEffect
-                  return null;
-                }
 
                 return null;
               })()}
@@ -971,15 +965,7 @@ export default function CourseView() {
                         </div>
                       )}
 
-                      {/* Rate tutor — handled by mandatory modal */}
-
-                      {/* Already rated */}
-                      {selectedContent.submission.tutoring?.rating && (
-                        <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-center gap-2">
-                          <span className="text-yellow-400 text-sm">{'★'.repeat(selectedContent.submission.tutoring.rating)}{'☆'.repeat(5 - selectedContent.submission.tutoring.rating)}</span>
-                          <span className="text-[10px] text-slate-400 uppercase font-black">Ya calificaste a tu tutor</span>
-                        </div>
-                      )}
+                      {/* Already rated or pending — handled by mandatory modal */}
                     </div>
                   ) : (
                     <form onSubmit={handleSubmitChallenge} className="bg-slate-800 p-8 rounded-2xl border border-slate-700 space-y-6">
@@ -1150,51 +1136,14 @@ export default function CourseView() {
       </div>
     )}
 
-    {/* ── Eligibility Modal (Special for Videos/Documents) ── */}
-    {showEligibilityModal && selectedTopic && (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-all">
-        <div className="bg-slate-800 border-2 border-red-500/30 rounded-[2.5rem] p-10 w-full max-w-lg shadow-[0_0_50px_rgba(220,38,38,0.15)] text-center animate-in zoom-in-95 duration-500">
-          <div className="w-24 h-24 bg-gradient-to-br from-red-600 to-red-700 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-red-900/40 rotate-3">
-             <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
-             </svg>
-          </div>
-          
-          <h2 className="text-4xl font-black text-white uppercase tracking-tighter mb-4 leading-none">¡Meta cumplida!</h2>
-          <p className="text-slate-400 text-lg mb-8 leading-relaxed px-4">
-            Has completado los requisitos de avance. Ya puedes solicitar la tutoría para aprobar este bloque y obtener tu insignia.
-          </p>
-
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={() => {
-                setShowEligibilityModal(false);
-                if (selectedTopic.blockId) {
-                  setDismissedBlockIds(prev => new Set([...prev, selectedTopic.blockId!]));
-                }
-                openTutoringModal();
-              }}
-              className="w-full py-5 bg-red-600 hover:bg-red-500 text-white font-black text-sm uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-red-900/40 flex items-center justify-center gap-3 active:scale-95"
-            >
-              Solicitar Tutoría Ahora
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </button>
-            <button
-              onClick={() => {
-                setShowEligibilityModal(false);
-                if (selectedTopic.blockId) {
-                  setDismissedBlockIds(prev => new Set([...prev, selectedTopic.blockId!]));
-                }
-              }}
-              className="w-full py-4 text-slate-500 hover:text-slate-300 font-bold text-xs uppercase tracking-widest transition-colors"
-            >
-              Lo haré más tarde
-            </button>
-          </div>
-        </div>
-      </div>
+    {showGoalModal && currentBlockId && (
+      <GoalReachedModal 
+        onClose={() => {
+          setShowGoalModal(false);
+          setDismissedBlockIds(prev => new Set([...prev, currentBlockId]));
+        }}
+        onConfirm={() => navigate('/meetings', { state: { preselectedBlockId: currentBlockId } })}
+      />
     )}
 
     {/* Modal de Insignia Obtenida */}
@@ -1245,9 +1194,9 @@ export default function CourseView() {
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
             </div>
-            <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Califica a tu Tutor</h2>
-            <p className="text-sm text-slate-400">Tu tutor <span className="text-white font-bold">{pendingRatingSubmission.tutorName}</span> ya calificó tu reto.</p>
-            <p className="text-xs text-slate-500 mt-1">Debes calificarlo para continuar.</p>
+            <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Califica tu Experiencia</h2>
+            <p className="text-sm text-slate-400">Tu sesión de tutoría ha finalizado y ha sido calificada.</p>
+            <p className="text-xs text-slate-500 mt-1">Por favor, califica el desempeño de tu tutor para continuar.</p>
           </div>
 
           <div className="flex items-center justify-center gap-3 mb-6">
@@ -1273,7 +1222,7 @@ export default function CourseView() {
           <button
             disabled={tutorRating === 0 || ratingSubmitting}
             onClick={() => handleRateTutor(pendingRatingSubmission!.id, tutorRating)}
-            className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black text-sm uppercase tracking-widest rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black text-sm uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-yellow-900/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {ratingSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
             {tutorRating === 0 ? 'Selecciona una calificación' : 'Enviar Calificación'}
@@ -1290,6 +1239,42 @@ export default function CourseView() {
       onCancel={closeDialog}
     />
     </>
+  );
+}
+
+// ── Meta Cumplida (Formal & Minimalista) ───────────────────────────────────
+function GoalReachedModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 transition-all transition-opacity duration-300">
+      <div className="bg-[#0f172a] border border-slate-800/50 rounded-3xl max-w-sm w-full p-8 shadow-2xl relative overflow-hidden group">
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/15 transition-all duration-700" />
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-slate-800/40 rounded-2xl flex items-center justify-center mb-6 border border-slate-700/30">
+            <svg className="w-8 h-8 text-blue-400/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-medium text-white mb-2 tracking-tight">Bloque Completado</h2>
+          <p className="text-sm text-slate-400 mb-8 leading-relaxed max-w-[240px]">
+            Has completado todos los requisitos de avance para este nivel académico.
+          </p>
+          <div className="w-full space-y-3">
+            <button 
+              onClick={onConfirm}
+              className="w-full py-4 bg-white text-slate-950 rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-slate-200 transition-all flex items-center justify-center gap-2 group/btn"
+            >
+              SOLICITAR TUTORÍA AHORA
+              <svg className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+            <button onClick={onClose} className="w-full py-2 text-slate-500 hover:text-slate-300 text-xs font-medium transition-colors">
+              Continuar más tarde
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { mockNotifications } from '../utils/mockData';
 import krakedevLogo from '../assets/krakedev_logo.png';
 import { api } from '../services/api';
+import { UserAvatar } from './UserAvatar';
 
 interface NavbarProps {
   user?: {
@@ -129,11 +130,9 @@ export default function Navbar({ user }: NavbarProps) {
             </div>
 
             <div className="relative pl-4 border-l border-slate-700">
-              <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                <span className="text-sm text-slate-300">{user.name}</span>
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white font-medium shadow-lg shadow-red-500/30">
-                  {user.name.charAt(0)}
-                </div>
+              <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-3 group transition-transform">
+                <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors">{user.name}</span>
+                <UserAvatar name={user.name} size="sm" />
               </button>
 
               {showProfileMenu && (

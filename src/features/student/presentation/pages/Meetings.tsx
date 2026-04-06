@@ -80,8 +80,8 @@ export default function Meetings() {
       <div className="flex-1 w-full max-w-7xl mx-auto px-6 pt-6 pb-8">
         <div className="bg-slate-800 border border-slate-700/50 rounded-lg px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
             <div>
-              <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Mis Tutorías</h1>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Gestiona tus sesiones de validación</p>
+              <h1 className="text-2xl font-semibold text-white tracking-tight">Mis Tutorías</h1>
+              <p className="text-sm text-slate-400 mt-1">Gestiona tus sesiones de validación académica</p>
             </div>
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">

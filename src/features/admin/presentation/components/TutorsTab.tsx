@@ -99,8 +99,8 @@ export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPer
               {tutors.map((tutor) => (
                 <tr key={tutor.id} className="hover:bg-slate-700/30 transition-colors">
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <p className="text-sm font-black text-white uppercase tracking-tighter">{tutor.fullName}</p>
+                    <div className="flex items-center gap-4">
+                      <p className="text-sm font-black text-white uppercase tracking-tighter truncate group-hover:text-red-400 transition-colors">{tutor.fullName}</p>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-xs text-slate-400 font-mono">{tutor.email}</td>

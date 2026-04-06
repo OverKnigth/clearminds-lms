@@ -36,11 +36,6 @@ export const studentApi = {
     return response.data;
   },
 
-  rateTutorFromChallenge: async (submissionId: string, rating: number, feedback?: string) => {
-    const response = await apiClient.post(`/challenges/submissions/${submissionId}/rate-tutor`, { rating, feedback });
-    return response.data;
-  },
-
   getStudentNotifications: async () => {
     const response = await apiClient.get('/student/notifications');
     return response.data;

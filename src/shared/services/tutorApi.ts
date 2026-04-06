@@ -48,12 +48,17 @@ export const tutorApi = {
   },
 
   markTutorNotificationRead: async (id: string) => {
+    const response = await apiClient.patch(`/tutor/notifications/${id}/read`);
+    return response.data;
+  },
+
+  deleteNotification: async (id: string) => {
     const response = await apiClient.delete(`/tutor/notifications/${id}`);
     return response.data;
   },
 
   markAllTutorNotificationsRead: async () => {
-    const response = await apiClient.delete('/tutor/notifications');
+    const response = await apiClient.patch('/tutor/notifications/read');
     return response.data;
   },
 

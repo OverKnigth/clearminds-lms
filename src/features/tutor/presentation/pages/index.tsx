@@ -51,9 +51,9 @@ export default function Tutor() {
         {/* ── DASHBOARD ── */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
-            <div className="bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4">
-              <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Dashboard</h1>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-0.5">Resumen de tu actividad como tutor</p>
+            <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl px-8 py-6 mb-8">
+              <h1 className="text-2xl font-semibold text-white tracking-tight">Panel de Tutor</h1>
+              <p className="text-sm text-slate-400 mt-1">Gestión integral de aprendizaje y evaluaciones</p>
             </div>
 
             {/* 6 stat cards — spec 20 */}
@@ -72,17 +72,17 @@ export default function Tutor() {
                     <svg className={`w-5 h-5 ${color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
                     </svg>
-                    <p className={`text-2xl font-black ${color}`}>{value}</p>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-tight">{label}</p>
+                    <p className={`text-2xl font-semibold ${color}`}>{value}</p>
+                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider leading-tight">{label}</p>
                   </a>
                 ) : (
                   <div key={label} className={`${bg} rounded-lg p-4 border ${border} flex flex-col items-center text-center gap-2`}>
                     <svg className={`w-5 h-5 ${color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
                     </svg>
-                    <p className={`text-2xl font-black ${color}`}>{value}</p>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-tight">{label}</p>
-                    <p className="text-[9px] text-slate-600">({stats.reviewsCount} reseñas)</p>
+                    <p className={`text-2xl font-semibold ${color}`}>{value}</p>
+                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider leading-tight">{label}</p>
+                    <p className="text-[10px] text-slate-600">({stats.reviewsCount} reseñas)</p>
                   </div>
                 )
               ))}
@@ -217,11 +217,41 @@ export default function Tutor() {
         )}
 
         {activeTab === 'pending' && (
-          pending.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pending.map(s => <SessionCard key={s.id} session={s} onRefresh={fetchSessions} />)}
+          <div className="space-y-8">
+            {/* Tutorías Pendientes */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <div className="w-1.5 h-6 bg-yellow-500 rounded-full" />
+                <h2 className="text-lg font-black text-white uppercase tracking-tight">Tutorías Solicitadas</h2>
+              </div>
+              {pending.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {pending.map(s => <SessionCard key={s.id} session={s} onRefresh={fetchSessions} />)}
+                </div>
+              ) : (
+                <div className="p-8 text-center bg-slate-800/50 border border-slate-700/50 rounded-xl">
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">No hay solicitudes de tutoría</p>
+                </div>
+              )}
             </div>
-          ) : <EmptyState message="No hay tutorías pendientes" />
+
+            {/* Retos Pendientes */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <div className="w-1.5 h-6 bg-purple-500 rounded-full" />
+                <h2 className="text-lg font-black text-white uppercase tracking-tight">Retos por Revisar</h2>
+              </div>
+              {pendingChallenges.length > 0 ? (
+                <div className="bg-slate-800 border border-slate-700/50 rounded-lg overflow-hidden">
+                  <ChallengesTab challenges={pendingChallenges} onRefresh={fetchAll} hideHeader={true} />
+                </div>
+              ) : (
+                <div className="p-8 text-center bg-slate-800/50 border border-slate-700/50 rounded-xl">
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">No hay retos para calificar</p>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {activeTab === 'upcoming' && (

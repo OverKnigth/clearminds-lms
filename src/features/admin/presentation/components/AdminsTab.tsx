@@ -1,4 +1,5 @@
 import type { Student } from '../../domain/entities';
+import { UserAvatar } from '../../../../shared/components/UserAvatar';
 
 interface AdminsTabProps {
   admins: Student[];
@@ -46,10 +47,8 @@ export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPer
             {admins.map((admin) => (
               <tr key={admin.id} className="hover:bg-slate-700/30 transition-colors">
                 <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-white">{admin.fullName}</p>
-                    </div>
+                  <div className="flex items-center gap-4">
+                    <p className="text-sm font-black text-white uppercase tracking-tighter truncate group-hover:text-red-400 transition-colors">{admin.fullName}</p>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-300">{admin.email}</td>
