@@ -81,6 +81,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     instructions: '',
     evaluationCriteria: '',
     url: '',
+    supportUrl: '',
     order: 1,
     durationMinutes: 0,
     deadline: '',
@@ -319,7 +320,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     setContentForm({ 
       type: 'video', title: '', description: '', 
       instructions: '', evaluationCriteria: '',
-      url: '', order: existing.length + 1, durationMinutes: 0, 
+      url: '', supportUrl: '', order: existing.length + 1, durationMinutes: 0, 
       deadline: '', allowDownload: false, minProgressToComplete: 90 
     });
     setMuxPlaybackId(null);
@@ -332,7 +333,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     setContentForm({
       type: c.type, title: c.title, description: c.description || '',
       instructions: c.instructions || '', evaluationCriteria: c.evaluationCriteria || '',
-      url: c.url || '', order: c.order, durationMinutes: c.durationMinutes || 0,
+      url: c.url || '', supportUrl: (c as any).supportUrl || '', order: c.order, durationMinutes: c.durationMinutes || 0,
       deadline: c.deadline ? new Date(c.deadline).toISOString().slice(0, 16) : '',
       allowDownload: c.allowDownload || false,
       minProgressToComplete: c.minProgressToComplete || 90,
@@ -382,6 +383,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
         if (muxAssetId) payload.muxAssetId = muxAssetId;
         if (contentForm.durationMinutes > 0) payload.durationMinutes = contentForm.durationMinutes;
         payload.minProgressToComplete = contentForm.minProgressToComplete;
+        if (contentForm.supportUrl.trim()) payload.supportUrl = contentForm.supportUrl.trim();
       } else {
         if (contentForm.url.trim()) payload.url = contentForm.url;
         payload.allowDownload = contentForm.allowDownload;
@@ -763,7 +765,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
               {contentForm.type === 'document' ? 'URL del documento / enlace externo' : contentForm.type === 'challenge' ? 'Documento de apoyo (URL, opcional)' : 'Video'}
             </label>
             {contentForm.type === 'video' ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <MuxVideoUploader
                   ref={muxUploaderRef}
                   title={contentForm.title || undefined}
@@ -772,9 +774,6 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
                     setMuxPlaybackId(playbackId);
                     setMuxAssetId(assetId);
                     if (durationMins) setContentForm(f => ({ ...f, durationMinutes: durationMins }));
-                    // Una vez que tenemos el PlaybackId, guardamos definitivamente
-                    // Pero necesitamos los datos más frescos del formulario
-                    // Ver el useEffect de abajo para la auto-guardada tras subida
                   }}
                   onError={(msg) => showAlert(msg)}
                 />
@@ -812,6 +811,18 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${contentForm.allowDownload ? 'translate-x-6' : 'translate-x-1'}`} />
               </button>
+            </div>
+          )}
+
+          {contentForm.type === 'video' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Material de apoyo (URL, opcional)</label>
+              <input
+                className={INPUT_CLS}
+                value={contentForm.supportUrl}
+                onChange={e => setContentForm(f => ({ ...f, supportUrl: e.target.value }))}
+                placeholder="https://drive.google.com/... o https://..."
+              />
             </div>
           )}
 

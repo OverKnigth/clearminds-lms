@@ -50,14 +50,19 @@ export function useNotifications() {
 
   const markRead = async (id: string) => {
     if (!id) return;
-    // Optimistic: marcar como leída localmente
+    // 1. Optimistic removal (immediate UI response)
     setNotifications(prev => prev.filter(n => n.id !== id));
+    
     try {
       if (roleInfo.isTutor) await api.markTutorNotificationRead(id);
       else if (roleInfo.isStudent) await api.markStudentNotificationRead(id);
+      
+      // 2. We don't call fetchNotifications immediately to avoid "race condition" 
+      // where the server might not have finished the deletion if it's very fast.
+      // But since we did an optimistic update, the user is happy.
     } catch (error) {
       console.error('[useNotifications] MarkRead error:', error);
-      // En caso de error, recargar
+      // fallback: refresh if error
       fetchNotifications();
     }
   };
@@ -66,7 +71,10 @@ export function useNotifications() {
     if (!id) return;
     setNotifications(prev => prev.filter(n => n.id !== id));
     try {
-      if (roleInfo.isTutor) await api.markTutorNotificationRead(id);
+      if (roleInfo.isTutor) {
+        if (api.deleteNotification) await api.deleteNotification(id);
+        else await api.markTutorNotificationRead(id);
+      }
       else if (roleInfo.isStudent) await api.markStudentNotificationRead(id);
     } catch (error) {
       console.error('[useNotifications] Delete error:', error);
