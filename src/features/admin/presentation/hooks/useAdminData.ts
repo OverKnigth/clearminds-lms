@@ -36,16 +36,19 @@ export const useAdminData = () => {
   const [studentsTotal, setStudentsTotal] = useState(0);
   const [tutorsTotal, setTutorsTotal] = useState(0);
   const [adminsTotal, setAdminsTotal] = useState(0);
+  const [studentsSearch, setStudentsSearch] = useState('');
+  const [tutorsSearch, setTutorsSearch] = useState('');
+  const [adminsSearch, setAdminsSearch] = useState('');
   const limit = 10;
 
   // Full reload — used on initial load and page changes
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchData = useCallback(async (isInitial = false) => {
+    if (isInitial) setIsLoading(true);
     try {
       const results = await Promise.allSettled([
-        api.getAllUsers('student', studentsPage, limit),
-        api.getAllUsers('tutor', tutorsPage, limit),
-        api.getAllUsers('admin', adminsPage, limit),
+        api.getAllUsers('student', studentsPage, limit, studentsSearch),
+        api.getAllUsers('tutor', tutorsPage, limit, tutorsSearch),
+        api.getAllUsers('admin', adminsPage, limit, adminsSearch),
         api.getAdminCourses(),
         api.getGroups(),
         api.getAdminStats(),
@@ -84,7 +87,7 @@ export const useAdminData = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [studentsPage, tutorsPage, adminsPage]);
+  }, [studentsPage, tutorsPage, adminsPage, studentsSearch, tutorsSearch, adminsSearch]);
 
   // Partial reload — only refreshes the specific role list after create/delete
   const fetchByRole = useCallback(async (role: 'student' | 'tutor' | 'admin') => {
@@ -107,7 +110,8 @@ export const useAdminData = () => {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    const isFirst = students.length === 0 && tutors.length === 0 && admins.length === 0;
+    fetchData(isFirst);
   }, [fetchData]);
 
   return {
@@ -126,6 +130,9 @@ export const useAdminData = () => {
     tutorsPage, setTutorsPage,
     adminsPage, setAdminsPage,
     studentsTotal, tutorsTotal, adminsTotal,
+    studentsSearch, setStudentsSearch,
+    tutorsSearch, setTutorsSearch,
+    adminsSearch, setAdminsSearch,
     limit,
   };
 };

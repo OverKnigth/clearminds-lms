@@ -1,5 +1,5 @@
+import { useState, useEffect } from 'react';
 import type { Student } from '../../domain/entities';
-import { UserAvatar } from '../../../../shared/components/UserAvatar';
 
 interface AdminsTabProps {
   admins: Student[];
@@ -10,10 +10,18 @@ interface AdminsTabProps {
   onPageChange: (page: number) => void;
   onToggleStatus: (admin: Student) => void;
   onDelete?: (admin: Student) => void;
+  search: string;
+  onSearch: (query: string) => void;
 }
 
-export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPerPage, onPageChange, onToggleStatus, onDelete }: AdminsTabProps) {
+export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPerPage, onPageChange, onToggleStatus, onDelete, search, onSearch }: AdminsTabProps) {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const [localSearch, setLocalSearch] = useState(search);
+
+  useEffect(() => {
+    const t = setTimeout(() => onSearch(localSearch), 400);
+    return () => clearTimeout(t);
+  }, [localSearch]);
   
   return (
     <div>
@@ -33,6 +41,21 @@ export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPer
         </button>
       </div>
 
+      {/* Buscador */}
+      <form onSubmit={e => e.preventDefault()} className="relative mb-4">
+        <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+        </svg>
+        <input
+          type="text"
+          value={localSearch}
+          onChange={e => setLocalSearch(e.target.value)}
+          placeholder="Buscar por nombre o correo..."
+          autoComplete="off"
+          className="w-full pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500 transition-colors"
+        />
+      </form>
+
       <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
         <table className="w-full">
           <thead className="bg-slate-700/50">
@@ -44,8 +67,7 @@ export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPer
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700">
-            {admins.map((admin) => (
-              <tr key={admin.id} className="hover:bg-slate-700/30 transition-colors">
+            {admins.map((admin) => (              <tr key={admin.id} className="hover:bg-slate-700/30 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-4">
                     <p className="text-sm font-black text-white uppercase tracking-tighter truncate group-hover:text-red-400 transition-colors">{admin.fullName}</p>
@@ -100,6 +122,11 @@ export function AdminsTab({ admins, openModal, currentPage, totalItems, itemsPer
                 </td>
               </tr>
             ))}
+            {admins.length === 0 && (
+              <tr><td colSpan={4} className="px-6 py-16 text-center text-[10px] text-slate-600 font-black uppercase tracking-widest">
+                {localSearch.trim() ? 'No se encontraron administradores' : 'No hay administradores registrados'}
+              </td></tr>
+            )}
           </tbody>
         </table>
         

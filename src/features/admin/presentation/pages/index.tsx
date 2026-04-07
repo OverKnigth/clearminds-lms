@@ -31,6 +31,9 @@ export default function Admin() {
     students, tutors, admins, courses, groups, stats,
     studentsPage, setStudentsPage, tutorsPage, setTutorsPage, adminsPage, setAdminsPage,
     studentsTotal, tutorsTotal, adminsTotal,
+    studentsSearch, setStudentsSearch,
+    tutorsSearch, setTutorsSearch,
+    adminsSearch, setAdminsSearch,
     isLoading, fetchByRole, limit,
     setCourses,
   } = useAdminData();
@@ -389,7 +392,9 @@ export default function Admin() {
                 currentPage={studentsPage} 
                 totalItems={studentsTotal} 
                 itemsPerPage={limit} 
-                onPageChange={setStudentsPage} 
+                onPageChange={setStudentsPage}
+                search={studentsSearch}
+                onSearch={(q) => { setStudentsSearch(q); setStudentsPage(1); }}
                 onToggleStatus={handleToggleStatus}
                 onDelete={(student) => showConfirm(`¿Eliminar a "${student.fullName}"? Esta acción no se puede deshacer.`, async () => {
                   try { await api.deleteUser(student.id); await fetchByRole('student'); } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
@@ -409,6 +414,8 @@ export default function Admin() {
                 totalItems={tutorsTotal}
                 itemsPerPage={limit}
                 onPageChange={setTutorsPage}
+                search={tutorsSearch}
+                onSearch={(q) => { setTutorsSearch(q); setTutorsPage(1); }}
               />
             )}
 
@@ -424,6 +431,8 @@ export default function Admin() {
                 totalItems={adminsTotal}
                 itemsPerPage={limit}
                 onPageChange={setAdminsPage}
+                search={adminsSearch}
+                onSearch={(q) => { setAdminsSearch(q); setAdminsPage(1); }}
               />
             )}
             

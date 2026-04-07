@@ -13,12 +13,20 @@ interface TutorsTabProps {
   onPageChange: (page: number) => void;
   onToggleStatus: (tutor: Student) => void;
   onDelete?: (tutor: Student) => void;
+  search: string;
+  onSearch: (query: string) => void;
 }
 
-export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPerPage, onPageChange, onToggleStatus, onDelete }: TutorsTabProps) {
+export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPerPage, onPageChange, onToggleStatus, onDelete, search, onSearch }: TutorsTabProps) {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const [subTab, setSubTab] = useState<'list' | 'rules'>('list');
   const { dialog, showAlert, close: closeDialog } = useDialog();
+  const [localSearch, setLocalSearch] = useState(search);
+
+  useEffect(() => {
+    const t = setTimeout(() => onSearch(localSearch), 400);
+    return () => clearTimeout(t);
+  }, [localSearch]);
 
   // ── Global message ────────────────────────────────────────────────────────
   const [globalMessage, setGlobalMessage] = useState('');
@@ -84,6 +92,21 @@ export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPer
 
       {/* ── TUTORS LIST ── */}
       {subTab === 'list' && (
+        <div>
+          {/* Buscador */}
+          <form onSubmit={e => e.preventDefault()} className="relative mb-4">
+            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input
+              type="text"
+              value={localSearch}
+              onChange={e => setLocalSearch(e.target.value)}
+              placeholder="Buscar por nombre o correo..."
+              autoComplete="off"
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500 transition-colors"
+            />
+          </form>
         <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
           <table className="w-full">
             <thead className="bg-slate-700/50">
@@ -148,7 +171,9 @@ export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPer
                 </tr>
               ))}
               {tutors.length === 0 && (
-                <tr><td colSpan={5} className="px-6 py-16 text-center text-[10px] text-slate-600 font-black uppercase tracking-widest">No hay tutores registrados</td></tr>
+                <tr><td colSpan={5} className="px-6 py-16 text-center text-[10px] text-slate-600 font-black uppercase tracking-widest">
+                  {localSearch.trim() ? 'No se encontraron tutores' : 'No hay tutores registrados'}
+                </td></tr>
               )}
             </tbody>
           </table>
@@ -167,6 +192,7 @@ export function TutorsTab({ tutors, openModal, currentPage, totalItems, itemsPer
               </div>
             </div>
           )}
+        </div>
         </div>
       )}
 

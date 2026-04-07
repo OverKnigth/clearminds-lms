@@ -1,6 +1,5 @@
-import type { RefObject } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 import type { Student } from '../../domain/entities';
-import { UserAvatar } from '../../../../shared/components/UserAvatar';
 
 interface StudentsTabProps {
   students: Student[];
@@ -17,6 +16,8 @@ interface StudentsTabProps {
   onPageChange: (page: number) => void;
   onToggleStatus: (student: Student) => void;
   onDelete?: (student: Student) => void;
+  search: string;
+  onSearch: (query: string) => void;
 }
 
 export function StudentsTab({
@@ -33,8 +34,18 @@ export function StudentsTab({
   itemsPerPage,
   onPageChange,
   onToggleStatus,
-  onDelete
+  onDelete,
+  search,
+  onSearch,
 }: StudentsTabProps) {
+  const [localSearch, setLocalSearch] = useState(search);
+
+  // Debounce: espera 400ms antes de disparar la búsqueda al backend
+  useEffect(() => {
+    const t = setTimeout(() => onSearch(localSearch), 400);
+    return () => clearTimeout(t);
+  }, [localSearch]);
+
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   // getParallelNames — available for future use
@@ -127,6 +138,21 @@ export function StudentsTab({
         </div>
       </div>
 
+      {/* Buscador */}
+      <form onSubmit={e => e.preventDefault()} className="relative mb-4">
+        <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+        </svg>
+        <input
+          type="text"
+          value={localSearch}
+          onChange={e => setLocalSearch(e.target.value)}
+          placeholder="Buscar por nombre o correo..."
+          autoComplete="off"
+          className="w-full pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500 transition-colors"
+        />
+      </form>
+
       <div className="bg-slate-800 rounded-lg border border-slate-700/50 overflow-hidden shadow-xl">
         <table className="w-full">
           <thead className="bg-slate-900/60 border-b border-slate-700/50">
@@ -218,7 +244,9 @@ export function StudentsTab({
             {students.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-6 py-16 text-center">
-                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">No hay estudiantes registrados</p>
+                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                    {localSearch.trim() ? 'No se encontraron estudiantes' : 'No hay estudiantes registrados'}
+                  </p>
                 </td>
               </tr>
             )}

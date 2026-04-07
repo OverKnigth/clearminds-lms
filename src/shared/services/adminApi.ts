@@ -10,11 +10,12 @@ import type {
 
 export const adminApi = {
   // ─── Users ──────────────────────────────────────────────────────────────────
-  getAllUsers: async (role?: string, page = 1, limit = 10) => {
+  getAllUsers: async (role?: string, page = 1, limit = 10, search?: string) => {
     const params = new URLSearchParams();
     if (role) params.append('role', role);
     params.append('page', page.toString());
     params.append('limit', limit.toString());
+    if (search?.trim()) params.append('search', search.trim());
     const response = await apiClient.get(`/users?${params.toString()}`);
     return response.data;
   },
