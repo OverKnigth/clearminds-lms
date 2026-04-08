@@ -58,10 +58,10 @@ export default function Landing() {
           </div>
 
           <div className="relative">
-            <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-6 lg:p-10 border border-slate-700/50 shadow-2xl overflow-hidden group">
+            <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-2 lg:p-4 border border-slate-700/50 shadow-2xl overflow-hidden group">
               <div className="absolute -top-10 -right-10 w-40 h-40 bg-red-500/20 rounded-full blur-3xl group-hover:bg-red-500/30 transition-colors"></div>
               <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-red-600/20 rounded-full blur-3xl group-hover:bg-red-600/30 transition-colors"></div>
-              <img src={krakedevLogo} alt="KrakeDev" className="w-full h-auto relative z-10 drop-shadow-2xl scale-95 group-hover:scale-100 transition-transform duration-500" />
+              <img src={krakedevLogo} alt="KrakeDev" className="w-full h-auto relative z-10 drop-shadow-2xl scale-100 group-hover:scale-105 transition-transform duration-500" />
             </div>
             
             {/* Background elements */}

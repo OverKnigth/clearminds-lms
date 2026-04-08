@@ -58,7 +58,7 @@ export const tutorApi = {
   },
 
   markAllTutorNotificationsRead: async () => {
-    const response = await apiClient.patch('/tutor/notifications/read');
+    const response = await apiClient.patch('/tutor/notifications/read_all');
     return response.data;
   },
 

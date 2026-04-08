@@ -28,12 +28,17 @@ export function useStudentData() {
 
       if (coursesRes.status === 'fulfilled' && coursesRes.value.success) {
         const list: Course[] = coursesRes.value.data;
+
+        // Fetch individual progress per course — uses /progress/course/:id endpoint
+        // which has title-based fallback and works correctly with current production backend
         const withProgress = await Promise.all(
           list.map(async (c) => {
             try {
               const pr = await api.getCourseProgress(c.id);
               return { ...c, progress: pr.success ? pr.data : { total: 0, completed: 0, pct: 0 } };
-            } catch { return { ...c, progress: { total: 0, completed: 0, pct: 0 } }; }
+            } catch {
+              return { ...c, progress: { total: 0, completed: 0, pct: 0 } };
+            }
           })
         );
         setCourses(withProgress);

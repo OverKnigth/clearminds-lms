@@ -21,7 +21,8 @@ export default function Sidebar({ user }: SidebarProps) {
   const [hovered, setHovered] = useState(false);
 
 
-  const userRole = localStorage.getItem('userRole') || 'student';
+  const userRoleRaw = localStorage.getItem('userRole') || 'student';
+  const userRole = userRoleRaw.toLowerCase();
   const isAdmin = userRole === 'admin';
 
   const { notifications, unreadCount, isOpen: notifOpen, setIsOpen: setNotifOpen, markRead, markAllRead, deleteNotif } = useNotifications();
@@ -138,6 +139,20 @@ export default function Sidebar({ user }: SidebarProps) {
               </div>
               <span className={`text-sm font-bold transition-opacity duration-300 whitespace-nowrap ${expanded ? 'opacity-100' : 'opacity-0'}`}>
                 Notificaciones
+              </span>
+            </button>
+          )}
+
+          {!isAdmin && userRole === 'student' && (
+            <button
+              onClick={() => navigate('/update-password')}
+              className="w-full flex items-center gap-4 px-3 py-3 rounded-xl text-slate-400 hover:bg-slate-700/50 hover:text-white transition-all mb-1"
+            >
+              <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <span className={`text-sm font-bold transition-opacity duration-300 whitespace-nowrap ${expanded ? 'opacity-100' : 'opacity-0'}`}>
+                Seguridad
               </span>
             </button>
           )}

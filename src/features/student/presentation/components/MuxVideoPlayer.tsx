@@ -93,25 +93,34 @@ export function MuxVideoPlayer({ playbackId, title, startTime, onProgress, onPla
     };
   }, [playbackId]);
 
-  // Progress tracking
+  // Progress tracking — only report when video ends (100%) or reaches 90%
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    const handleEnded = () => {
+      onProgress?.(100);
+    };
+
     const handleTimeUpdate = () => {
       if (!video.duration) return;
       const pct = (video.currentTime / video.duration) * 100;
-      onProgress?.(pct);
+      // Only report when reaching 90% threshold (to mark as completed)
+      if (pct >= 90) {
+        onProgress?.(pct);
+      }
     };
 
     const handlePlay = () => {
       onPlay?.();
     };
 
+    video.addEventListener('ended', handleEnded);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
 
     return () => {
+      video.removeEventListener('ended', handleEnded);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
     };

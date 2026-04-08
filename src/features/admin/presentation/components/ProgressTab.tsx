@@ -19,7 +19,13 @@ export function ProgressTab() {
   const [studentList, setStudentList] = useState<any[]>([]);
   const [viewingStudent, setViewingStudent] = useState(false);
   
-  // Modal states
+  // Pagination for Group Report
+  const [groupPage, setGroupPage] = useState(1);
+  const GROUP_PAGE_SIZE = 20;
+
+  // Pagination for Student List
+  const [studentPage, setStudentPage] = useState(1);
+  const STUDENT_PAGE_SIZE = 20;
   const [modal, setModal] = useState<{show: boolean, type: 'confirm' | 'success' | 'error', msg: string}>({
     show: false, type: 'success', msg: ''
   });
@@ -78,6 +84,7 @@ export function ProgressTab() {
       if (res.success) {
         setStudentList(res.data);
         setViewingStudent(false);
+        setStudentPage(1);
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -214,7 +221,10 @@ export function ProgressTab() {
                   <select
                     className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm font-bold focus:ring-2 ring-red-500/50 outline-none transition-all"
                     value={selectedGroup}
-                    onChange={(e) => setSelectedGroup(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedGroup(e.target.value);
+                      setGroupPage(1);
+                    }}
                   >
                     <option value="" disabled>Seleccione un grupo...</option>
                     {groups.map(g => <option key={g.id} value={g.id}>{g.name} - {g.cohort}</option>)}
@@ -222,75 +232,127 @@ export function ProgressTab() {
                 </div>
 
                 <div className="bg-slate-900/60 rounded-2xl border border-slate-700/50 overflow-hidden shadow-2xl">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-800/70">
-                        <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Estudiante</th>
-                        <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Curso</th>
-                        <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Progreso</th>
-                        <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Bloques</th>
-                        <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Tutorías</th>
-                        <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Insignias</th>
-                        <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Nota</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/50">
-                      {groupData.length > 0 ? groupData.map((row, i) => (
-                        <tr key={i} className="hover:bg-slate-800/30 transition-colors group">
-                          <td className="px-6 py-4">
-                            <div className="font-bold text-white group-hover:text-red-400 transition-colors">{row.studentName}</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-xs text-slate-300 font-medium">{row.courseName || '-'}</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="text-sm font-black text-white">{row.progress}%</div>
-                              <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                <div className="h-full bg-red-600 transition-all duration-1000" style={{ width: `${row.progress}%` }}></div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-wrap justify-center gap-1">
-                              {row.blocks && row.blocks.length > 0 ? row.blocks.map((b: any, bi: number) => (
-                                <span key={bi} className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-tighter flex flex-col items-center gap-0.5 ${b.approved ? 'bg-green-500/10 text-green-400 border border-green-500/30' : 'bg-slate-700/30 text-slate-500 border border-slate-700/30'}`}>
-                                  <span>{b.name}</span>
-                                  <span className={`text-[7px] ${b.approved ? 'text-green-500' : 'text-slate-600'}`}>{b.approved ? 'Aprobado' : 'Pendiente'}</span>
-                                </span>
-                              )) : <span className="text-slate-600 text-xs">-</span>}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <div className="text-xs font-bold text-slate-300">{row.tutorings.length}</div>
-                            <div className="text-[9px] text-slate-500 font-bold uppercase">Sesiones</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex justify-center gap-1">
-                              {row.badges.map((b: any, bi: number) => (
-                                <div key={bi} title={b} className="w-6 h-6 bg-yellow-500/10 rounded-full flex items-center justify-center border border-yellow-500/30">
-                                  <svg className="w-3.5 h-3.5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                                  </svg>
-                                </div>
-                              ))}
-                              {row.badges.length === 0 && <span className="text-slate-600">-</span>}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <span className={`text-sm font-black ${row.grade >= 7 ? 'text-green-500' : 'text-red-500'}`}>
-                              {row.grade ? row.grade.toFixed(1) : '-'}
+                  {(() => {
+                    const totalPages = Math.ceil(groupData.length / GROUP_PAGE_SIZE);
+                    const currentData = groupData.slice((groupPage - 1) * GROUP_PAGE_SIZE, groupPage * GROUP_PAGE_SIZE);
+                    
+                    return (
+                      <>
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-800/70">
+                              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Estudiante</th>
+                              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Curso</th>
+                              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Progreso</th>
+                              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Bloques</th>
+                              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Tutorías</th>
+                              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Insignias</th>
+                              <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Nota</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/50">
+                            {currentData.length > 0 ? currentData.map((row, i) => (
+                              <tr key={i} className="hover:bg-slate-800/30 transition-colors group">
+                                <td className="px-6 py-4">
+                                  <div className="font-bold text-white group-hover:text-red-400 transition-colors">{row.studentName}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="text-xs text-slate-300 font-medium">{row.courseName || '-'}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex flex-col items-center gap-2">
+                                    <div className="text-sm font-black text-white">{row.progress}%</div>
+                                    <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                      <div className="h-full bg-red-600 transition-all duration-1000" style={{ width: `${row.progress}%` }}></div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex flex-wrap justify-center gap-1">
+                                    {row.blocks && row.blocks.length > 0 ? row.blocks.map((b: any, bi: number) => (
+                                      <span key={bi} className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-tighter flex flex-col items-center gap-0.5 ${b.approved ? 'bg-green-500/10 text-green-400 border border-green-500/30' : 'bg-slate-700/30 text-slate-500 border border-slate-700/30'}`}>
+                                        <span>{b.name}</span>
+                                        <span className={`text-[7px] ${b.approved ? 'text-green-500' : 'text-slate-600'}`}>{b.approved ? 'Aprobado' : 'Pendiente'}</span>
+                                      </span>
+                                    )) : <span className="text-slate-600 text-xs">-</span>}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                  <div className="text-xs font-bold text-slate-300">{row.tutorings.length}</div>
+                                  <div className="text-[9px] text-slate-500 font-bold uppercase">Sesiones</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex justify-center gap-1">
+                                    {row.badges.map((b: any, bi: number) => (
+                                      <div key={bi} title={b} className="w-6 h-6 bg-yellow-500/10 rounded-full flex items-center justify-center border border-yellow-500/30">
+                                        <svg className="w-3.5 h-3.5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                                        </svg>
+                                      </div>
+                                    ))}
+                                    {row.badges.length === 0 && <span className="text-slate-600">-</span>}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                  <span className={`text-sm font-black ${row.grade >= 7 ? 'text-green-500' : 'text-red-500'}`}>
+                                    {row.grade ? row.grade.toFixed(1) : '-'}
+                                  </span>
+                                </td>
+                              </tr>
+                            )) : (
+                              <tr><td colSpan={7} className="px-6 py-16 text-center text-slate-500 font-bold uppercase tracking-[0.2em] text-xs">No hay estudiantes registrados en este grupo</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                        
+                        {totalPages > 1 && (
+                          <div className="px-6 py-4 bg-slate-900/40 border-t border-slate-700/50 flex items-center justify-between">
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                              Mostrando {currentData.length} de {groupData.length} registros
                             </span>
-                          </td>
-                        </tr>
-                      )) : (
-                        <tr><td colSpan={7} className="px-6 py-16 text-center text-slate-500 font-bold uppercase tracking-[0.2em] text-xs">No hay estudiantes registrados en este grupo</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+                            <div className="flex items-center gap-2">
+                              <button
+                                disabled={groupPage === 1}
+                                onClick={() => setGroupPage(p => p - 1)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${groupPage === 1 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 text-white hover:bg-slate-600'}`}
+                              >
+                                ← Anterior
+                              </button>
+                              <div className="flex items-center gap-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                                  if (page === 1 || page === totalPages || (page >= groupPage - 1 && page <= groupPage + 1)) {
+                                    return (
+                                      <button
+                                        key={page}
+                                        onClick={() => setGroupPage(page)}
+                                        className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${groupPage === page ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg' : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white'}`}
+                                      >
+                                        {page}
+                                      </button>
+                                    );
+                                  } else if (page === groupPage - 2 || page === groupPage + 2) {
+                                    return <span key={page} className="text-slate-600 text-xs">…</span>;
+                                  }
+                                  return null;
+                                })}
+                              </div>
+                              <button
+                                disabled={groupPage === totalPages}
+                                onClick={() => setGroupPage(p => p + 1)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${groupPage === totalPages ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 text-white hover:bg-slate-600'}`}
+                              >
+                                Siguiente →
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}
+
 
             {/* 22.2 REPORT POR ESTUDIANTE */}
             {activeReport === 'student' && (
@@ -330,7 +392,7 @@ export function ProgressTab() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/50">
-                        {studentList.length > 0 ? studentList.map((s) => (
+                        {studentList.slice((studentPage - 1) * STUDENT_PAGE_SIZE, studentPage * STUDENT_PAGE_SIZE).map((s) => (
                           <tr key={s.id} className="hover:bg-slate-800/10 transition-colors">
                             <td className="px-6 py-4">
                               <div className="text-sm font-black text-white uppercase tracking-tighter">{s.name}</div>
@@ -352,11 +414,53 @@ export function ProgressTab() {
                               </button>
                             </td>
                           </tr>
-                        )) : (
-                          <tr><td colSpan={4} className="px-6 py-16 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No hay estudiantes registrados con este criterio</td></tr>
-                        )}
+                        ))}
                       </tbody>
                     </table>
+                    {studentList.length > 0 && (
+                      <div className="px-6 py-4 bg-slate-900/40 border-t border-slate-700/50 flex items-center justify-between">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                          Mostrando {Math.min(studentPage * STUDENT_PAGE_SIZE, studentList.length)} de {studentList.length} estudiantes
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            disabled={studentPage === 1}
+                            onClick={() => setStudentPage(p => p - 1)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${studentPage === 1 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 text-white hover:bg-slate-600'}`}
+                          >
+                            ← Anterior
+                          </button>
+                          <div className="flex items-center gap-1">
+                            {(() => {
+                              const total = Math.ceil(studentList.length / STUDENT_PAGE_SIZE);
+                              return Array.from({ length: total }, (_, i) => i + 1).map((page) => {
+                                if (page === 1 || page === total || (page >= studentPage - 1 && page <= studentPage + 1)) {
+                                  return (
+                                    <button
+                                      key={page}
+                                      onClick={() => setStudentPage(page)}
+                                      className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${studentPage === page ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg' : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white'}`}
+                                    >
+                                      {page}
+                                    </button>
+                                  );
+                                } else if (page === studentPage - 2 || page === studentPage + 2) {
+                                  return <span key={page} className="text-slate-600 text-xs">…</span>;
+                                }
+                                return null;
+                              });
+                            })()}
+                          </div>
+                          <button
+                            disabled={studentPage === Math.ceil(studentList.length / STUDENT_PAGE_SIZE)}
+                            onClick={() => setStudentPage(p => p + 1)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${studentPage === Math.ceil(studentList.length / STUDENT_PAGE_SIZE) ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-700 text-white hover:bg-slate-600'}`}
+                          >
+                            Siguiente →
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

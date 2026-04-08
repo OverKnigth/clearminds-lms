@@ -10,7 +10,7 @@ import ContentView from '@/features/student/presentation/pages/ContentView';
 import Admin from '@/features/admin/presentation/pages/index.tsx';
 import Tutor from '@/features/tutor/presentation/pages/index.tsx';
 import Meetings from '@/features/student/presentation/pages/Meetings';
-import Profile from '@/features/student/presentation/pages/Profile';
+import UpdatePassword from '@/features/student/presentation/pages/UpdatePassword';
 import MainLayout from '@/shared/layouts/MainLayout';
 
 export default function AppRoutes() {
@@ -27,7 +27,7 @@ export default function AppRoutes() {
           <Route path="/course/:courseSlug" element={<CourseView />} />
           <Route path="/course/:courseSlug/content/:contentSlug" element={<ContentView />} />
           <Route path="/meetings" element={<Meetings />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/update-password" element={<UpdatePassword />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/tutor" element={<Tutor />} />
         </Route>

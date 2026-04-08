@@ -63,7 +63,7 @@ export default function ContentView() {
     }
   };
 
-  // Helper: verifica si todos los contenidos del bloque están completados
+  // Helper: verifica si todos los contenidos del bloque están completados/entregados
   const isBlockCompleted = (courseData: any, topic: any): boolean => {
     if (!topic?.blockId || !courseData) return false;
     const blockContents: any[] = [];
@@ -74,11 +74,11 @@ export default function ContentView() {
     }
     if (blockContents.length === 0) return false;
     
-    // Verificar que TODOS los contenidos del bloque estén completados
+    // Para retos: basta con que haya sido ENTREGADO (submission existe)
+    // Para videos/documentos: que estén completados
     return blockContents.every((c: any) => {
       if (c.type === 'challenge') {
-        // En el frontend, el submission ya trae el grade si está calificado. Se requiere grade >= 7 (regla unificada).
-        return c.submission?.status === 'reviewed' && (c.submission.grade || 0) >= 7;
+        return !!c.submission; // entregado es suficiente para solicitar tutoría
       }
       return (c.progress?.status === 'completed' || c.progress?.pctWatched >= (c.minProgressToComplete || 90));
     });
@@ -98,23 +98,21 @@ export default function ContentView() {
     }
     if (blockContents.length === 0) return;
 
-    // 2. Verificar que el contenido actual sea el ÚLTIMO del bloque
+    // 2. El contenido actual debe ser el ÚLTIMO del bloque
     const lastContent = blockContents[blockContents.length - 1];
     if (lastContent.id !== contentId) return;
 
-    // 3. Verificar si el bloque entero está completado
+    // 3. Verificar si el bloque entero está completado/entregado
     if (!isBlockCompleted(courseData, topic)) return;
 
-    // 4. Si el bloque NO requiere tutoría, no mostrar
-    if (courseData.blocks?.[0]?.tutor_required === false) {
-      const block = courseData.blocks?.find((b: any) => b.id === blockId);
-      if (block && !block.tutor_required) return;
-    }
+    // 4. Verificar si el bloque requiere tutoría
+    const block = courseData.blocks?.find((b: any) => b.id === blockId);
+    if (block && block.tutor_required === false) return;
 
     // 5. Verificar que no tenga ya una sesión activa o aprobada
     const hasActiveOrApproved = activeSessions.some((s: any) =>
       ((s.block_id || s.block?.id) === blockId) &&
-      (['requested', 'confirmed', 'rescheduled'].includes(s.status) || (s.status === 'executed' && (s.grade || 0) >= 7))
+      ['requested', 'confirmed', 'rescheduled', 'executed'].includes(s.status)
     );
     if (hasActiveOrApproved) return;
 

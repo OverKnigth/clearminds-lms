@@ -5,5 +5,5 @@ export const STUDENT_ROUTES = {
   course: (slug: string) => `/course/${slug}`,
   content: (courseSlug: string, contentSlug: string) => `/course/${courseSlug}/content/${contentSlug}`,
   meetings: '/meetings',
-  profile: '/profile',
+  updatePassword: '/update-password',
 };

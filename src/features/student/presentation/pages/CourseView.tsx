@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactPlayerImport from 'react-player';
 const ReactPlayer = ReactPlayerImport as any;
@@ -21,6 +21,7 @@ interface Content {
   durationMinutes: number | null;
   deadline: string | null;
   allowDownload: boolean;
+  minProgressToComplete?: number;
   progress: { status: string; pctWatched: number; completedAt: string | null };
   submission: {
     id: string;
@@ -88,14 +89,20 @@ export default function CourseView() {
   const [submittingChallenge, setSubmittingChallenge] = useState(false);
   const [gitUrl, setGitUrl] = useState('');
   const [comment, setComment] = useState('');
-  const [lastSavedProgress, setLastSavedProgress] = useState(0);
+  const [, setLastSavedProgress] = useState(0);
   const [_markingDone] = useState(false);
   const [tutorRating, setTutorRating] = useState(0);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [pendingRatingSubmission, setPendingRatingSubmission] = useState<{ id: string; tutorName: string } | null>(null);
   const [showTutoringModal, setShowTutoringModal] = useState(false);
-  const [dismissedBlockIds, setDismissedBlockIds] = useState<Set<string>>(new Set());
+  const DISMISSED_KEY = `dismissed_blocks_${courseSlug}`;
+  const [dismissedBlockIds, setDismissedBlockIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(`dismissed_blocks_${courseSlug}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
   const [tutoringObservation, setTutoringObservation] = useState('');
   const [tutoringDate, setTutoringDate] = useState(new Date().toISOString().split('T')[0]);
   const [requestingTutoring, setRequestingTutoring] = useState(false);
@@ -132,21 +139,25 @@ export default function CourseView() {
     }
   }, [tutoringSessions]);
 
-  // Detect newly earned badges
+  // Detect newly earned badges — persisted in localStorage so modal shows once per badge
   useEffect(() => {
     if (!course?.badges) return;
     const currentEarned = course.badges.filter((b: any) => b.state === 'earned');
-    
-    // First run initialization (don't alert for already earned badges on load)
+    const storageKey = `shown_badges_${courseSlug}`;
+
+    // First run: initialize in-memory set from localStorage
     if (seenBadgeIds.current === null) {
-      seenBadgeIds.current = new Set(currentEarned.map((b: any) => b.id));
-      return;
+      try {
+        const stored = localStorage.getItem(storageKey);
+        seenBadgeIds.current = stored ? new Set(JSON.parse(stored)) : new Set();
+      } catch { seenBadgeIds.current = new Set(); }
     }
 
     const newlyEarned = currentEarned.filter((b: any) => !seenBadgeIds.current!.has(b.id));
     if (newlyEarned.length > 0) {
       setNewBadge(newlyEarned[0]);
       newlyEarned.forEach((b: any) => seenBadgeIds.current!.add(b.id));
+      try { localStorage.setItem(storageKey, JSON.stringify([...seenBadgeIds.current!])); } catch {}
     }
   }, [course?.badges]);
 
@@ -206,11 +217,23 @@ export default function CourseView() {
   const markContentCompleted = (contentId: string) => {
     setCourse(prev => {
       if (!prev) return prev;
+      
+      // Check if this content is already marked completed locally to prevent double-counting
+      let isAlreadyCompleted = false;
+      for (const t of prev.topics) {
+        for (const c of t.contents) {
+          if (c.id === contentId && c.progress.status === 'completed') {
+            isAlreadyCompleted = true;
+          }
+        }
+      }
+      if (isAlreadyCompleted) return prev;
+
       const completed = prev.progress.completed + 1;
       const pct = prev.progress.total > 0 ? Math.round((completed / prev.progress.total) * 100) : 0;
       return {
         ...prev,
-        progress: { ...prev.progress, completed, pct },
+        progress: { ...prev.progress, completed, pct: Math.min(pct, 100) }, // cap at 100% just in case
         topics: prev.topics.map(t => ({
           ...t,
           contents: t.contents.map(c =>
@@ -246,23 +269,26 @@ export default function CourseView() {
         return;
       }
 
-      // 1. Obtener contenidos del bloque para verificar cual es el último
+      // 1. Obtener contenidos del bloque ordenados correctamente
       const blockContents: any[] = [];
-      for (const t of course.topics) {
+      for (const t of course.topics.slice().sort((a, b) => a.order - b.order)) {
         if (t.blockId === blockId) {
-          blockContents.push(...t.contents);
+          blockContents.push(...t.contents.slice().sort((a: any, b: any) => a.order - b.order));
         }
       }
       if (blockContents.length === 0) return;
 
       // 2. Solo activar si el contenido seleccionado es el ÚLTIMO del bloque
       const lastContent = blockContents[blockContents.length - 1];
-      if (lastContent.id !== selectedContent.id) return;
+      if (lastContent.id !== selectedContent.id) {
+        setShowGoalModal(false);
+        return;
+      }
 
-      // 3. Verificar si el bloque entero está completado (reglas: reto >=7, videos >=90%)
+      // 3. Verificar si el bloque entero está completado (reglas: reto entregado, videos >=90%)
       const isCompleted = blockContents.every((c: any) => {
         if (c.type === 'challenge') {
-          return c.submission?.status === 'reviewed' && (c.submission.grade || 0) >= 7;
+          return !!c.submission; // entregado es suficiente para solicitar tutoría
         }
         return (c.progress?.status === 'completed' || c.progress?.pctWatched >= (c.minProgressToComplete || 90));
       });
@@ -278,6 +304,13 @@ export default function CourseView() {
           setCurrentBlockId(blockId);
           setShowGoalModal(true);
         } else {
+          // Si ya tiene sesión, limpiar del dismissed para no mostrar el botón
+          if (dismissedBlockIds.has(blockId)) {
+            const next = new Set(dismissedBlockIds);
+            next.delete(blockId);
+            setDismissedBlockIds(next);
+            try { localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next])); } catch {}
+          }
           setShowGoalModal(false);
         }
       } else {
@@ -287,6 +320,8 @@ export default function CourseView() {
       setShowGoalModal(false);
     }
   }, [course, selectedTopic, selectedContent, tutoringSessions, dismissedBlockIds]);
+
+  // Video progress blocked if the video URL is not available
 
   if (isLoading) return (
     <div className="min-h-screen bg-slate-900 pt-16 flex items-center justify-center">
@@ -346,7 +381,8 @@ export default function CourseView() {
   const handleVideoProgress = async (state: { played: number }) => {
     if (!selectedContent || selectedContent.progress.status === 'completed') return;
     const currentPct = Math.round(state.played * 100);
-    if (currentPct >= lastSavedProgress + 5 || currentPct >= 90) {
+    const minPct = selectedContent.minProgressToComplete ?? 90;
+    if (currentPct >= minPct) {
       try {
         setLastSavedProgress(currentPct);
         const res = await api.updateProgress(selectedContent.id, currentPct);
@@ -359,6 +395,8 @@ export default function CourseView() {
 
   const handleYouTubeProgress = async (contentId: string, pct: number) => {
     if (!selectedContent || selectedContent.progress.status === 'completed') return;
+    const minPct = (selectedContent as any).minProgressToComplete ?? 90;
+    if (pct < minPct) return;
     try {
       const res = await api.updateProgress(contentId, pct);
       if (res.success && res.data.status === 'completed') {
@@ -375,7 +413,10 @@ export default function CourseView() {
     setSubmittingChallenge(true);
     try {
       await api.submitChallenge(selectedContent.id, { gitUrl, comment });
-      navigate('/meetings', { state: { preselectedBlockId: selectedTopic?.blockId } });
+      // Recargar para que el useEffect de progreso detecte si es el último contenido y muestre el modal correcto
+      if (courseSlug) {
+        reloadCourse(courseSlug);
+      }
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSubmittingChallenge(false); }
   };
@@ -383,11 +424,13 @@ export default function CourseView() {
   const handleRateTutor = async (sessionId: string, rating: number) => {
     setRatingSubmitting(true);
     try {
-      await api.rateTutoring(sessionId, rating, undefined); // Currently no feedback text passed in this modal call but could add
+      await api.rateTutoring(sessionId, rating, undefined);
       setShowRatingModal(false);
       setPendingRatingSubmission(null);
       setTutorRating(0);
-      loadTutoring(); // Refresh sessions to clear flag
+      loadTutoring();
+      // Reset seenBadgeIds so any newly earned badge is detected after reload
+      seenBadgeIds.current = null;
       if (courseSlug) reloadCourse(courseSlug);
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setRatingSubmitting(false); }
@@ -713,9 +756,6 @@ export default function CourseView() {
                             setLastSavedProgress(pct);
                             handleYouTubeProgress(selectedContent.id, pct);
                           }}
-                          onPlay={() => {
-                            if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
-                          }}
                         />
                       ) : getYouTubeId(selectedContent.url!) ? (
                         /* YouTube — IFrame API para rastrear progreso real */
@@ -725,9 +765,7 @@ export default function CourseView() {
                             setLastSavedProgress(pct);
                             handleYouTubeProgress(selectedContent.id, pct);
                           }}
-                          onStart={() => {
-                            if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
-                          }}
+                          onStart={() => {}}
                           initialProgress={selectedContent.progress.pctWatched || 0}
                         />
                       ) : (
@@ -738,11 +776,8 @@ export default function CourseView() {
                           width="100%"
                           height="100%"
                           controls
-                          onProgress={handleVideoProgress}
+                          onEnded={() => handleVideoProgress({ played: 1 })}
                           onError={(e: any) => console.error('ReactPlayer Error:', e)}
-                          onStart={() => {
-                            if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
-                          }}
                           config={{
                             vimeo: { playerOptions: { autopause: true } }
                           }}
@@ -751,7 +786,7 @@ export default function CourseView() {
                     </div>
                   ) : (
                     <div className="aspect-video bg-slate-800 rounded-2xl flex items-center justify-center border border-slate-700">
-                      <p className="text-slate-400">URL del video no disponible</p>
+                      <p className="text-slate-400 text-sm">Vídeo en progreso</p>
                     </div>
                   )}
                   {/* Indicador de completado automático */}
@@ -996,8 +1031,7 @@ export default function CourseView() {
 
                       {/* Already rated or pending — handled by mandatory modal */}
                     </div>
-                  ) : (
-                    <form onSubmit={handleSubmitChallenge} className="bg-slate-800 p-8 rounded-2xl border border-slate-700 space-y-6">
+                  ) : (                    <form onSubmit={handleSubmitChallenge} className="bg-slate-800 p-8 rounded-2xl border border-slate-700 space-y-6">
                       <h3 className="text-xl font-bold text-white">Entregar Reto</h3>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">URL del Repositorio (GitHub/GitLab)</label>
@@ -1016,6 +1050,66 @@ export default function CourseView() {
                 </div>
               )}
             </div>
+
+            {/* Botón de solicitar tutoría — visible solo si el usuario dio "Continuar más tarde" */}
+            {(() => {
+              if (!selectedTopic?.blockId) return null;
+              const blockId = selectedTopic.blockId;
+
+              // Solo mostrar si el usuario descartó el modal (dio "Continuar más tarde")
+              if (!dismissedBlockIds.has(blockId)) return null;
+
+              // Verificar si hay sesión activa o bloque ya aprobado
+              const hasActiveOrApproved = tutoringSessions.some(s =>
+                (s.block_id ?? s.block?.id) === blockId &&
+                (['requested', 'confirmed', 'rescheduled'].includes(s.status) ||
+                  (s.status === 'executed' && (s.grade || 0) >= 7))
+              );
+              if (hasActiveOrApproved) return null;
+
+              // Verificar si el bloque requiere tutoría
+              const block = course?.blocks?.find((b: any) => b.id === blockId);
+              if (block?.tutor_required === false) return null;
+
+              // Verificar si el contenido actual es el último del bloque
+              const blockContents: any[] = [];
+              for (const t of (course?.topics || []).slice().sort((a: any, b: any) => a.order - b.order)) {
+                if (t.blockId === blockId) blockContents.push(...t.contents.slice().sort((a: any, b: any) => a.order - b.order));
+              }
+              if (blockContents.length === 0) return null;
+              const lastContent = blockContents[blockContents.length - 1];
+              if (lastContent.id !== selectedContent?.id) return null;
+
+              // Verificar si el bloque está completado (retos entregados, videos vistos)
+              const isReady = blockContents.every((c: any) => {
+                if (c.type === 'challenge') return !!c.submission;
+                return c.progress?.status === 'completed' || c.progress?.pctWatched >= (c.minProgressToComplete || 90);
+              });
+              if (!isReady) return null;
+
+              return (
+                <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <svg className="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-black text-blue-300 uppercase tracking-widest">Bloque completado</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Ya puedes solicitar tu tutoría de validación.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={openTutoringModal}
+                    className="shrink-0 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Solicitar Tutoría
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="flex-1 w-full relative overflow-hidden">
@@ -1169,7 +1263,9 @@ export default function CourseView() {
       <GoalReachedModal 
         onClose={() => {
           setShowGoalModal(false);
-          setDismissedBlockIds(prev => new Set([...prev, currentBlockId]));
+          const next = new Set([...dismissedBlockIds, currentBlockId]);
+          setDismissedBlockIds(next);
+          try { localStorage.setItem(DISMISSED_KEY, JSON.stringify([...next])); } catch {}
         }}
         onConfirm={() => navigate('/meetings', { state: { preselectedBlockId: currentBlockId } })}
       />
@@ -1340,29 +1436,11 @@ function YouTubePlayer({
     }
   };
 
-  const startTracking = useCallback(() => {
-    clearTracking();
-    intervalRef.current = setInterval(() => {
-      const player = playerRef.current;
-      if (!player || typeof player.getCurrentTime !== 'function') return;
-      const duration = player.getDuration?.() || 0;
-      if (duration <= 0) return;
-      const current = player.getCurrentTime();
-      const pct = Math.round((current / duration) * 100);
-      // Report every 5% or when >= 90%
-      if (pct >= lastReportedRef.current + 5 || (pct >= 90 && lastReportedRef.current < 90)) {
-        lastReportedRef.current = pct;
-        onProgress(pct);
-      }
-    }, 3000);
-  }, [onProgress]);
-
   useEffect(() => {
     let isMounted = true;
 
     const initPlayer = () => {
       if (!containerRef.current || !isMounted) return;
-      // Destroy previous player if any
       if (playerRef.current) {
         try { playerRef.current.destroy(); } catch (_) {}
         playerRef.current = null;
@@ -1384,23 +1462,11 @@ function YouTubePlayer({
                 startedRef.current = true;
                 onStart();
               }
-              startTracking();
-            } else if (
-              event.data === YT.PlayerState.PAUSED ||
-              event.data === YT.PlayerState.ENDED
-            ) {
-              clearTracking();
-              // Report final position on pause/end
-              const duration = playerRef.current?.getDuration?.() || 0;
-              const current = playerRef.current?.getCurrentTime?.() || 0;
-              if (duration > 0) {
-                const pct = event.data === YT.PlayerState.ENDED
-                  ? 100
-                  : Math.round((current / duration) * 100);
-                if (pct > lastReportedRef.current) {
-                  lastReportedRef.current = pct;
-                  onProgress(pct);
-                }
+            } else if (event.data === YT.PlayerState.ENDED) {
+              // Only report progress when video fully ends
+              if (lastReportedRef.current < 100) {
+                lastReportedRef.current = 100;
+                onProgress(100);
               }
             }
           },

@@ -42,12 +42,21 @@ export const studentApi = {
   },
 
   markStudentNotificationRead: async (id: string) => {
+    const response = await apiClient.patch(`/student/notifications/${id}/read`);
+    return response.data;
+  },
+
+  deleteStudentNotification: async (id: string) => {
     const response = await apiClient.delete(`/student/notifications/${id}`);
     return response.data;
   },
 
   markAllStudentNotificationsRead: async () => {
-    const response = await apiClient.delete('/student/notifications');
+    const response = await apiClient.patch('/student/notifications/read_all');
+    return response.data;
+  },
+  updateStudentPassword: async (currentPassword: string, newPassword: string) => {
+    const response = await apiClient.post('/student/password', { currentPassword, newPassword });
     return response.data;
   },
 };

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { api } from '../services/api';
+import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '../services/httpClient';
 
 export interface Notification {
   id: string;
@@ -10,90 +10,103 @@ export interface Notification {
   created_at: string | null;
 }
 
-const POLL_INTERVAL = 30_000; // Increased to 30s to avoid race conditions during updates
+const POLL_INTERVAL = 30_000;
+
+const getRole = () => localStorage.getItem('userRole') || 'student';
+
+const sessionDeletedIds = new Set<string>();
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Memoize roles as they are used in hook dependencies
-  const userRole = localStorage.getItem('userRole') || 'student';
-  const roleInfo = useMemo(() => ({
-    isStudent: userRole === 'student',
-    isTutor: userRole === 'tutor' || userRole === 'admin',
-    isAdmin: userRole === 'admin'
-  }), [userRole]);
-
   const fetchNotifications = useCallback(async () => {
     const token = localStorage.getItem('authToken');
     if (!token) return;
-    
     try {
-      const res = roleInfo.isTutor
-        ? await api.getTutorNotifications()
-        : (roleInfo.isStudent ? await api.getStudentNotifications() : null);
-      
-      if (res?.success) {
-        // Solo mostrar notificaciones no leídas
-        setNotifications((res.data ?? []).filter((n: Notification) => !n.read));
+      const role = getRole();
+      const url = role === 'student' ? '/student/notifications' : '/tutor/notifications';
+      const res = await apiClient.get(url);
+      if (res.data?.success) {
+        // Filter out notifications we just deleted locally but haven't synced yet
+        const raw = res.data.data ?? [];
+        setNotifications(raw.filter((n: Notification) => !sessionDeletedIds.has(n.id)));
       }
-    } catch (error) {
-      console.error('[useNotifications] Poll error:', error);
+    } catch (e) {
+      console.error('[useNotifications] fetch error:', e);
     }
-  }, [roleInfo.isStudent, roleInfo.isTutor]);
+  }, []);
 
   useEffect(() => {
     fetchNotifications();
-    const intervalId = setInterval(fetchNotifications, POLL_INTERVAL);
-    return () => clearInterval(intervalId);
+    const id = setInterval(fetchNotifications, POLL_INTERVAL);
+    return () => clearInterval(id);
   }, [fetchNotifications]);
 
-  const markRead = async (id: string) => {
-    if (!id) return;
-    // 1. Optimistic removal (immediate UI response)
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  const deleteNotif = async (notifId: string) => {
+    if (!notifId) return;
     
+    // Optimistic UI update
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+    sessionDeletedIds.add(notifId);
+
     try {
-      if (roleInfo.isTutor) await api.markTutorNotificationRead(id);
-      else if (roleInfo.isStudent) await api.markStudentNotificationRead(id);
+      const role = getRole();
+      const url = role === 'student'
+        ? `/student/notifications/${notifId}`
+        : `/tutor/notifications/${notifId}`;
       
-      // 2. We don't call fetchNotifications immediately to avoid "race condition" 
-      // where the server might not have finished the deletion if it's very fast.
-      // But since we did an optimistic update, the user is happy.
-    } catch (error) {
-      console.error('[useNotifications] MarkRead error:', error);
-      // fallback: refresh if error
-      fetchNotifications();
+      await apiClient.delete(url);
+      await fetchNotifications();
+    } catch (e) {
+      console.error('[deleteNotif] error:', e);
     }
   };
 
-  const deleteNotif = async (id: string) => {
-    if (!id) return;
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  const markRead = async (notifId: string) => {
+    if (!notifId) return;
+    
+    // Optimistic UI update
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+    sessionDeletedIds.add(notifId);
+
     try {
-      if (roleInfo.isTutor) {
-        if (api.deleteNotification) await api.deleteNotification(id);
-        else await api.markTutorNotificationRead(id);
-      }
-      else if (roleInfo.isStudent) await api.markStudentNotificationRead(id);
-    } catch (error) {
-      console.error('[useNotifications] Delete error:', error);
-      fetchNotifications();
+      const role = getRole();
+      const url = role === 'student'
+        ? `/student/notifications/${notifId}/read`
+        : `/tutor/notifications/${notifId}/read`;
+      
+      await apiClient.patch(url);
+      await fetchNotifications();
+    } catch (e) {
+      console.error('[markRead] error:', e);
     }
   };
 
   const markAllRead = async () => {
+    if (notifications.length === 0) return;
+
+    // Track all current notification IDs
+    const ids = notifications.map(n => n.id);
+    ids.forEach(id => sessionDeletedIds.add(id));
+    
+    // Optimistic UI update
     setNotifications([]);
+
     try {
-      if (roleInfo.isTutor) await api.markAllTutorNotificationsRead();
-      else if (roleInfo.isStudent) await api.markAllStudentNotificationsRead();
-    } catch (error) {
-      console.error('[useNotifications] MarkAllRead error:', error);
-      fetchNotifications();
+      const role = getRole();
+      const url = role === 'student'
+        ? '/student/notifications/read_all'
+        : '/tutor/notifications/read_all';
+      
+      await apiClient.patch(url);
+      await fetchNotifications();
+    } catch (e) {
+      console.error('[markAllRead] error:', e);
     }
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.length; // Use all shown notifications as they are filtered as unread for now
 
   return { 
     notifications, 

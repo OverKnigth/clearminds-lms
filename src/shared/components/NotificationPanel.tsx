@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { Notification } from '../hooks/useNotifications';
 
@@ -41,18 +41,6 @@ export default function NotificationPanel({
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (panelRef.current && !panelRef.current.contains(t)) {
-        onToggle();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [isOpen, onToggle]);
-
   const panel = (
     <div 
       className="fixed inset-0 z-[100] flex justify-start"
@@ -68,6 +56,7 @@ export default function NotificationPanel({
       {/* Panel */}
       <div
         ref={panelRef}
+        onClick={(e) => e.stopPropagation()}
         style={{ 
           marginLeft: offset, 
           pointerEvents: 'auto',
@@ -143,7 +132,7 @@ export default function NotificationPanel({
                     {!n.read && <div className="w-2 h-2 rounded-full bg-red-600 shadow-[0_0_10px_rgba(220,38,38,0.5)] flex-shrink-0" />}
                     <button 
                       onClick={(e) => { e.stopPropagation(); onDelete(n.id); }}
-                      className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/10 rounded-xl transition-all text-slate-600 hover:text-red-500"
+                      className="p-2 hover:bg-red-500/10 rounded-xl transition-all text-slate-600 hover:text-red-500"
                       title="Eliminar notificación"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
