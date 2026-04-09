@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/shared/services/api';
+import * as XLSX from 'xlsx';
 
 type ReportType = 'group' | 'student' | 'tutoring' | 'daily_snapshot' | 'daily_view';
 
@@ -149,6 +150,49 @@ export function ProgressTab() {
     }
   };
 
+  const exportGroupToExcel = () => {
+    if (!groupData || groupData.length === 0) {
+      setModal({ show: true, type: 'error', msg: 'No hay datos para exportar en este grupo.' });
+      return;
+    }
+
+    const wsData = groupData.map((row) => {
+      const blocksStr = row.blocks?.map((b: any) => `${b.name} (${b.approved ? 'Aprobado' : 'Pendiente'})`).join(', ') || 'Sin bloques';
+      const badgesStr = row.badges?.map((b: any) => b.name ? b.name : b).join(', ') || 'Sin insignias';
+
+      return {
+        'Estudiante': row.studentName,
+        'Curso': row.courseName || '-',
+        'Progreso (%)': `${row.progress}%`,
+        'Bloques': blocksStr,
+        'Sesiones de Tutoría': row.tutorings?.length || 0,
+        'Insignias': badgesStr,
+        'Nota': typeof row.grade === 'number' ? row.grade.toFixed(1) : '-'
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(wsData);
+    
+    // Configurar el ancho de las columnas para visualizar mejor el contenido
+    ws['!cols'] = [
+      { wch: 35 }, // Estudiante
+      { wch: 45 }, // Curso
+      { wch: 15 }, // Progreso
+      { wch: 55 }, // Bloques
+      { wch: 20 }, // Sesiones de Tutoría
+      { wch: 40 }, // Insignias
+      { wch: 10 }  // Nota
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reporte Grupo");
+
+    const groupInfo = groups.find(g => g.id === selectedGroup);
+    const filename = `Reporte-${groupInfo ? groupInfo.name.replace(/\s+/g, '-') : 'Grupo'}.xlsx`;
+
+    XLSX.writeFile(wb, filename);
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER */}
@@ -216,19 +260,26 @@ export function ProgressTab() {
             {/* 22.1 REPORT POR GRUPO */}
             {activeReport === 'group' && (
               <div className="space-y-6">
-                <div className="flex items-center gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-                  <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">Seleccionar Grupo:</span>
-                  <select
-                    className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm font-bold focus:ring-2 ring-red-500/50 outline-none transition-all"
-                    value={selectedGroup}
-                    onChange={(e) => {
-                      setSelectedGroup(e.target.value);
-                      setGroupPage(1);
-                    }}
-                  >
-                    <option value="" disabled>Seleccione un grupo...</option>
-                    {groups.map(g => <option key={g.id} value={g.id}>{g.name} - {g.cohort}</option>)}
-                  </select>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+                  <div className="flex items-center gap-4">
+                    <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">Seleccionar Grupo:</span>
+                    <select
+                      className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm font-bold focus:ring-2 ring-red-500/50 outline-none transition-all"
+                      value={selectedGroup}
+                      onChange={(e) => {
+                        setSelectedGroup(e.target.value);
+                        setGroupPage(1);
+                      }}
+                    >
+                      <option value="" disabled>Seleccione un grupo...</option>
+                      {groups.map(g => <option key={g.id} value={g.id}>{g.name} - {g.cohort}</option>)}
+                    </select>
+                  </div>
+                  
+                  <button onClick={exportGroupToExcel} className="flex items-center gap-2 px-4 py-2.5 bg-green-600/10 text-green-500 hover:bg-green-600 hover:text-white rounded-lg font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all border border-green-500/30 shadow-lg cursor-pointer pointer-events-auto">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    Exportar Excel
+                  </button>
                 </div>
 
                 <div className="bg-slate-900/60 rounded-2xl border border-slate-700/50 overflow-hidden shadow-2xl">
