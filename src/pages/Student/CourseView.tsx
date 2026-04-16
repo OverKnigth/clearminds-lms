@@ -7,6 +7,7 @@ import Footer from '../../components/Footer';
 import { StudentBadges } from './components';
 import { useDialog } from '../../hooks/useDialog';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import MuxPlayer from '@mux/mux-player-react';
 
 interface Content {
   id: string;
@@ -34,6 +35,20 @@ interface Content {
       rating: number | null;
       feedback: string | null;
     } | null;
+    attempts?: {
+      attemptNumber: number;
+      gitUrl: string;
+      comment: string | null;
+      status: string;
+      grade: number | null;
+      observations: string | null;
+      tutorRating: number | null;
+      tutorFeedback: string | null;
+      gradedByTutor: {
+        names: string;
+        lastNames: string;
+      } | null;
+    }[];
   } | null;
 }
 
@@ -81,12 +96,13 @@ export default function CourseView() {
   const [showBadges, setShowBadges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [tutoringSessions, setTutoringSessions] = useState<TutoringSession[]>([]);
-  
+
   // States for content logic
   const [submittingChallenge, setSubmittingChallenge] = useState(false);
   const [gitUrl, setGitUrl] = useState('');
   const [comment, setComment] = useState('');
   const [lastSavedProgress, setLastSavedProgress] = useState(0);
+  const lastReportedPctRef = useRef(0);
   const [_markingDone] = useState(false);
   const [tutorRating, setTutorRating] = useState(0);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
@@ -96,6 +112,7 @@ export default function CourseView() {
   const [tutoringObservation, setTutoringObservation] = useState('');
   const [tutoringDate, setTutoringDate] = useState(new Date().toISOString().split('T')[0]);
   const [requestingTutoring, setRequestingTutoring] = useState(false);
+  const [isResubmitting, setIsResubmitting] = useState(false);
   const [newBadge, setNewBadge] = useState<any | null>(null);
   const seenBadgeIds = useRef<Set<string> | null>(null);
   const { dialog, showAlert, close: closeDialog } = useDialog();
@@ -107,26 +124,29 @@ export default function CourseView() {
     }
   }, [courseSlug]);
 
-  // Auto-show rating modal if there's a pending tutor rating
+  // Auto-show rating modal 5 seconds after viewing a graded challenge
   useEffect(() => {
-    if (!course) return;
-    for (const topic of course.topics) {
-      for (const content of topic.contents) {
-        if (content.submission?.tutoring && content.submission.grade !== null && !content.submission.tutoring.rating) {
-          setPendingRatingSubmission({ id: content.submission.tutoring.id, tutorName: content.submission.tutoring.tutorName });
-          setShowRatingModal(true);
-          setTutorRating(0);
-          return;
-        }
-      }
+    if (!course || !selectedTopicId || !selectedContentId) return;
+    
+    const topic = course.topics.find(t => t.id === selectedTopicId);
+    const content = topic?.contents.find(c => c.id === selectedContentId);
+
+    if (content?.type === 'challenge' && content.submission?.tutoring && content.submission.grade !== null && !content.submission.tutoring.rating) {
+      const timer = setTimeout(() => {
+        setPendingRatingSubmission({ id: content.submission.tutoring.id, tutorName: content.submission.tutoring.tutorName });
+        setShowRatingModal(true);
+        setTutorRating(0);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [course]);
+  }, [course, selectedTopicId, selectedContentId]);
 
   // Detect newly earned badges
   useEffect(() => {
     if (!course?.badges) return;
     const currentEarned = course.badges.filter((b: any) => b.state === 'earned');
-    
+
     // First run initialization (don't alert for already earned badges on load)
     if (seenBadgeIds.current === null) {
       seenBadgeIds.current = new Set(currentEarned.map((b: any) => b.id));
@@ -207,9 +227,9 @@ export default function CourseView() {
 
   const selectedTopic = course.topics.find(t => t.id === selectedTopicId);
   const selectedContent = selectedTopic?.contents.find(c => c.id === selectedContentId);
-  
-  const blockSessions = selectedTopic?.blockId 
-    ? tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === selectedTopic.blockId) 
+
+  const blockSessions = selectedTopic?.blockId
+    ? tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === selectedTopic.blockId)
     : [];
   const activeSession = blockSessions.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
   const currentBlock = course.blocks?.find(b => b.id === selectedTopic?.blockId);
@@ -243,6 +263,10 @@ export default function CourseView() {
 
   const getCleanVideoUrl = (url: string | null) => {
     if (!url) return '';
+    if (url.startsWith('mux:')) {
+      const muxId = url.replace('mux:', '');
+      return `https://stream.mux.com/${muxId}.m3u8`;
+    }
     const ytId = getYouTubeId(url);
     if (ytId) return `https://www.youtube.com/watch?v=${ytId}`;
     const vimeoId = getVimeoId(url);
@@ -253,8 +277,13 @@ export default function CourseView() {
   const handleVideoProgress = async (state: { played: number }) => {
     if (!selectedContent || selectedContent.progress.status === 'completed') return;
     const currentPct = Math.round(state.played * 100);
-    if (currentPct >= lastSavedProgress + 5 || currentPct >= 90) {
+    
+    // Evitar llamadas en loop si ya reportamos el mismo % o cruzamos 90
+    if (currentPct >= 90 && lastReportedPctRef.current >= 90) return;
+    
+    if (currentPct >= lastReportedPctRef.current + 5 || currentPct >= 90) {
       try {
+        lastReportedPctRef.current = currentPct;
         setLastSavedProgress(currentPct);
         const res = await api.updateProgress(selectedContent.id, currentPct);
         if (res.success && res.data.status === 'completed') {
@@ -358,10 +387,10 @@ export default function CourseView() {
     if (!course) return true;
     const flat = getFlattenedContents();
     const idx = flat.findIndex(c => c.id === contentId);
-    
+
     // El primero siempre está desbloqueado
     if (idx === 0) return false;
-    
+
     // Un contenido está bloqueado si el anterior no está completado
     // (pero un challenge con tutoría activa/pendiente no bloquea el siguiente)
     const prev = flat[idx - 1];
@@ -370,676 +399,768 @@ export default function CourseView() {
 
   return (
     <>
-    <div className="h-screen flex overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-84 bg-slate-800 border-r border-slate-700 overflow-y-auto flex-shrink-0 hidden md:flex flex-col">
-        <div className="p-5 flex-1">
-          <button onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors text-sm font-medium">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Volver al Dashboard
-          </button>
-          
-          <div className="mb-6">
-            <h2 className="text-lg font-bold text-white mb-2 leading-tight">{course.name}</h2>
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-red-600 rounded-full transition-all duration-500"
-                  style={{ width: `${course.progress.pct}%` }} />
-              </div>
-              <span className="text-[10px] font-bold text-slate-400">{Math.round(course.progress.pct)}%</span>
-            </div>
-          </div>
-
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4 px-1">Curriculum</p>
-          <div className="space-y-4">
-            {/* Badges Link */}
-            <button
-              onClick={() => {
-                setShowBadges(true);
-                setSelectedTopicId(null);
-                setSelectedContentId(null);
-              }}
-              className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${showBadges ? 'bg-red-600/20 text-red-500 border border-red-500/30 shadow-lg shadow-red-900/10' : 'text-slate-400 hover:text-slate-200'}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-5 h-5 flex items-center justify-center rounded border-2 ${showBadges ? 'border-red-500 bg-red-500/10' : 'border-slate-700'}`}>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                </div>
-                <p className="text-xs font-bold uppercase tracking-wide">Mis Insignias</p>
-              </div>
-              <span className="text-[10px] font-bold opacity-50">
-                {course.badges?.filter((b: any) => b.state === 'earned').length || 0}/{course.badges?.length || 0}
-              </span>
+      <div className="h-screen flex overflow-hidden">
+        {/* Sidebar */}
+        <div className="w-84 bg-slate-800 border-r border-slate-700 overflow-y-auto flex-shrink-0 hidden md:flex flex-col">
+          <div className="p-5 flex-1">
+            <button onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors text-sm font-medium">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Volver al Dashboard
             </button>
 
-            {course.topics.map(topic => {
-              const completed = topic.contents.filter(c => c.progress.status === 'completed').length;
-              const isTopicActive = selectedTopicId === topic.id;
-              
-              return (
-                <div key={topic.id} className="space-y-1">
-                  <button onClick={() => {
-                    setShowBadges(false);
-                    setSelectedTopicId(topic.id);
-                    if (!isTopicActive && topic.contents.length > 0) {
-                      setSelectedContentId(null);
-                    }
-                  }}
-                    className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${isTopicActive ? 'bg-slate-700/50 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <span className={`text-[10px] font-black w-5 h-5 rounded flex items-center justify-center border-2 ${isTopicActive ? 'border-red-500 text-red-500' : 'border-slate-700 text-slate-600'}`}>
-                        {topic.order}
-                      </span>
-                      <p className="text-xs font-bold truncate uppercase tracking-wide">{topic.title}</p>
-                    </div>
-                    <span className="text-[9px] font-bold opacity-50">{completed}/{topic.contents.length}</span>
-                  </button>
-
-                  {(isTopicActive || true) && (
-                    <div className="ml-8 space-y-1 border-l-2 border-slate-700/50 pl-3 py-1">
-                      {topic.contents.map(content => {
-                        const isContentActive = selectedContentId === content.id;
-                        const status = getContentStatus(content);
-                        const locked = isContentLocked(content.id);
-                        // Check if this failed challenge has an active tutoring (spec 13.10)
-                        // hasPendingTutoring check omitted — status 'failed' not in type
-                        return (
-                          <button key={content.id} 
-                            disabled={locked}
-                            onClick={() => {
-                              setShowBadges(false);
-                              setSelectedTopicId(topic.id);
-                              setSelectedContentId(content.id);
-                              setLastSavedProgress(content.progress.pctWatched || 0);
-                            }}
-                            className={`w-full text-left py-2 px-3 rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${
-                              locked ? 'opacity-40 cursor-not-allowed filter grayscale' : 
-                              isContentActive ? 'bg-red-600/10 text-red-500 border border-red-500/20' : 
-                              'text-slate-500 hover:text-slate-300 hover:bg-slate-700/30'
-                            }`}>
-                            {locked ? (
-                               <svg className="w-3 h-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                               </svg>
-                            ) : status === 'completed' ? (
-                               <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                               </svg>
-                            ) : (
-                               <div className={`w-3 h-3 rounded-full border-2 ${isContentActive ? 'border-red-500' : 'border-slate-700'}`} />
-                            )}
-                            <span className="truncate">{content.title}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-white mb-2 leading-tight">{course.name}</h2>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-red-600 rounded-full transition-all duration-500"
+                    style={{ width: `${course.progress.pct}%` }} />
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto bg-slate-900/50 flex flex-col">
-        {showBadges && course ? (
-          <div className="max-w-6xl w-full mx-auto p-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
-            <div className="mb-10">
-              <h1 className="text-4xl font-black text-white mb-2">Colección del Curso</h1>
-              <p className="text-slate-400">Gana insignias exclusivas al completar los hitos de {course.name}</p>
-            </div>
-            
-            <StudentBadges badges={course.badges || []} />
-            
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center mb-4">
-                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                </div>
-                <h4 className="text-white font-bold mb-1 uppercase tracking-tighter text-xs">Bloqueada</h4>
-                <p className="text-[10px] text-slate-500">Aún no alcanzas el avance mínimo requerido para este bloque.</p>
-              </div>
-              <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center mb-4">
-                  <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                </div>
-                <h4 className="text-white font-bold mb-1 uppercase tracking-tighter text-xs">Disponible por obtener</h4>
-                <p className="text-[10px] text-slate-500">¡Meta de avance cumplida! Aprueba tu tutoría para reclamarla.</p>
-              </div>
-              <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center mb-4">
-                  <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
-                <h4 className="text-white font-bold mb-1 uppercase tracking-tighter text-xs">Obtenida</h4>
-                <p className="text-[10px] text-slate-500">Logro desbloqueado y visible en tu perfil público.</p>
+                <span className="text-[10px] font-bold text-slate-400">{Math.round(course.progress.pct)}%</span>
               </div>
             </div>
-          </div>
-        ) : selectedContent ? (
-          <div className="max-w-5xl w-full mx-auto p-6 md:p-10 flex-1">
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="px-2 py-0.5 bg-red-600/10 text-red-500 text-[10px] font-bold uppercase tracking-widest rounded border border-red-500/20">
-                      {selectedContent.type === 'video' ? 'Video' : selectedContent.type === 'document' ? 'Documento' : 'Reto'}
-                    </span>
-                    {selectedContent.progress.status === 'completed' && (
-                      <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                        Completado
-                      </span>
+
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4 px-1">Curriculum</p>
+            <div className="space-y-4">
+              {/* Badges Link */}
+              <button
+                onClick={() => {
+                  setShowBadges(true);
+                  setSelectedTopicId(null);
+                  setSelectedContentId(null);
+                }}
+                className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${showBadges ? 'bg-red-600/20 text-red-500 border border-red-500/30 shadow-lg shadow-red-900/10' : 'text-slate-400 hover:text-slate-200'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-5 h-5 flex items-center justify-center rounded border-2 ${showBadges ? 'border-red-500 bg-red-500/10' : 'border-slate-700'}`}>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <p className="text-xs font-bold uppercase tracking-wide">Mis Insignias</p>
+                </div>
+                <span className="text-[10px] font-bold opacity-50">
+                  {course.badges?.filter((b: any) => b.state === 'earned').length || 0}/{course.badges?.length || 0}
+                </span>
+              </button>
+
+              {course.topics.map(topic => {
+                const completed = topic.contents.filter(c => c.progress.status === 'completed').length;
+                const isTopicActive = selectedTopicId === topic.id;
+
+                return (
+                  <div key={topic.id} className="space-y-1">
+                    <button onClick={() => {
+                      setShowBadges(false);
+                      setSelectedTopicId(topic.id);
+                      if (!isTopicActive && topic.contents.length > 0) {
+                        setSelectedContentId(null);
+                      }
+                    }}
+                      className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${isTopicActive ? 'bg-slate-700/50 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <span className={`text-[10px] font-black w-5 h-5 rounded flex items-center justify-center border-2 ${isTopicActive ? 'border-red-500 text-red-500' : 'border-slate-700 text-slate-600'}`}>
+                          {topic.order}
+                        </span>
+                        <p className="text-xs font-bold truncate uppercase tracking-wide">{topic.title}</p>
+                      </div>
+                      <span className="text-[9px] font-bold opacity-50">{completed}/{topic.contents.length}</span>
+                    </button>
+
+                    {(isTopicActive || true) && (
+                      <div className="ml-8 space-y-1 border-l-2 border-slate-700/50 pl-3 py-1">
+                        {topic.contents.map(content => {
+                          const isContentActive = selectedContentId === content.id;
+                          const status = getContentStatus(content);
+                          const locked = isContentLocked(content.id);
+                          // Check if this failed challenge has an active tutoring (spec 13.10)
+                          // hasPendingTutoring check omitted — status 'failed' not in type
+                          return (
+                            <button key={content.id}
+                              disabled={locked}
+                              onClick={() => {
+                                setShowBadges(false);
+                                setSelectedTopicId(topic.id);
+                                setSelectedContentId(content.id);
+                                const initPct = content.progress.pctWatched || 0;
+                                setLastSavedProgress(initPct);
+                                lastReportedPctRef.current = initPct;
+                                setIsResubmitting(false);
+                              }}
+                              className={`w-full text-left py-2 px-3 rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${locked ? 'opacity-40 cursor-not-allowed filter grayscale' :
+                                  isContentActive ? 'bg-red-600/10 text-red-500 border border-red-500/20' :
+                                    'text-slate-500 hover:text-slate-300 hover:bg-slate-700/30'
+                                }`}>
+                              {locked ? (
+                                <svg className="w-3 h-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                              ) : status === 'completed' ? (
+                                <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              ) : (
+                                <div className={`w-3 h-3 rounded-full border-2 ${isContentActive ? 'border-red-500' : 'border-slate-700'}`} />
+                              )}
+                              <span className="truncate">{content.title}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                  <h1 className="text-3xl font-extrabold text-white leading-tight">{selectedContent.title}</h1>
-                </div>
-                
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto bg-slate-900/50 flex flex-col">
+          {showBadges && course ? (
+            <div className="max-w-6xl w-full mx-auto p-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
+              <div className="mb-10">
+                <h1 className="text-4xl font-black text-white mb-2">Colección del Curso</h1>
+                <p className="text-slate-400">Gana insignias exclusivas al completar los hitos de {course.name}</p>
               </div>
 
-              {/* Block tutoring status banner — spec 13.10 */}
-              {selectedTopic?.blockId && (() => {
-                const blockSess = tutoringSessions.filter(
-                  s => (s.block_id ?? s.block?.id) === selectedTopic.blockId
-                );
-                const pending = blockSess.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
-                const lastExecuted = blockSess
-                  .filter(s => s.status === 'executed')
-                  .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
-                const isApproved = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade >= 7;
-                const isFailed = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade < 7 && !pending;
+              <StudentBadges badges={course.badges || []} />
 
-                if (isApproved) return (
-                  <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
-                    <svg className="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p className="text-xs text-green-400 font-bold uppercase tracking-widest">Bloque aprobado — insignia desbloqueada</p>
+              <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                  <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center mb-4">
+                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                   </div>
-                );
-
-                if (pending) return (
-                  <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                    <svg className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <p className="text-xs text-blue-400 font-bold uppercase tracking-widest">Tutoría en espera de confirmación</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Puedes seguir avanzando. La insignia se entregará cuando el tutor apruebe este bloque.</p>
-                    </div>
+                  <h4 className="text-white font-bold mb-1 uppercase tracking-tighter text-xs">Bloqueada</h4>
+                  <p className="text-[10px] text-slate-500">Aún no alcanzas el avance mínimo requerido para este bloque.</p>
+                </div>
+                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                  <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center mb-4">
+                    <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                   </div>
-                );
-
-                if (isFailed) return (
-                  <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                    <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <div>
-                      <p className="text-xs text-amber-400 font-bold uppercase tracking-widest">Bloque no aprobado — reagenda tu tutoría</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Puedes seguir avanzando, pero la insignia estará bloqueada hasta aprobar.</p>
-                    </div>
+                  <h4 className="text-white font-bold mb-1 uppercase tracking-tighter text-xs">Disponible por obtener</h4>
+                  <p className="text-[10px] text-slate-500">¡Meta de avance cumplida! Aprueba tu tutoría para reclamarla.</p>
+                </div>
+                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                  <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center mb-4">
+                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   </div>
-                );
-
-                return null;
-              })()}
-
-              {/* VIEWERS */}
-              {selectedContent.type === 'video' && (
-                <div className="space-y-6">
-                  {selectedContent.url ? (
-                    <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800 relative">
-                      {getYouTubeId(selectedContent.url) ? (
-                        /* YouTube — IFrame API para rastrear progreso real */
-                        <YouTubePlayer
-                          videoId={getYouTubeId(selectedContent.url)!}
-                          onProgress={(pct) => {
-                            setLastSavedProgress(pct);
-                            handleYouTubeProgress(selectedContent.id, pct);
-                          }}
-                          onStart={() => {
-                            if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
-                          }}
-                          initialProgress={selectedContent.progress.pctWatched || 0}
-                        />
-                      ) : (
-                        /* Vimeo / otros — ReactPlayer */
-                        <ReactPlayer
-                          key={getCleanVideoUrl(selectedContent.url)}
-                          url={getCleanVideoUrl(selectedContent.url)}
-                          width="100%"
-                          height="100%"
-                          controls
-                          onProgress={handleVideoProgress}
-                          onError={(e: any) => console.error('ReactPlayer Error:', e)}
-                          onStart={() => {
-                            if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
-                          }}
-                          config={{
-                            vimeo: { playerOptions: { autopause: true } }
-                          }}
-                        />
+                  <h4 className="text-white font-bold mb-1 uppercase tracking-tighter text-xs">Obtenida</h4>
+                  <p className="text-[10px] text-slate-500">Logro desbloqueado y visible en tu perfil público.</p>
+                </div>
+              </div>
+            </div>
+          ) : selectedContent ? (
+            <div className="max-w-5xl w-full mx-auto p-6 md:p-10 flex-1">
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="px-2 py-0.5 bg-red-600/10 text-red-500 text-[10px] font-bold uppercase tracking-widest rounded border border-red-500/20">
+                        {selectedContent.type === 'video' ? 'Video' : selectedContent.type === 'document' ? 'Documento' : 'Reto'}
+                      </span>
+                      {selectedContent.progress.status === 'completed' && (
+                        <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                          Completado
+                        </span>
                       )}
                     </div>
-                  ) : (
-                    <div className="aspect-video bg-slate-800 rounded-2xl flex items-center justify-center border border-slate-700">
-                      <p className="text-slate-400">URL del video no disponible</p>
-                    </div>
-                  )}
-                  {/* Indicador de completado automático */}
-                  {selectedContent.progress.status === 'completed' && (
-                    <div className="flex items-center gap-2 px-4 py-2.5 bg-green-500/10 border border-green-500/20 rounded-xl">
-                      <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <h1 className="text-3xl font-extrabold text-white leading-tight">{selectedContent.title}</h1>
+                  </div>
+
+
+                </div>
+
+                {/* Block tutoring status banner — spec 13.10 */}
+                {selectedTopic?.blockId && (() => {
+                  const blockSess = tutoringSessions.filter(
+                    s => (s.block_id ?? s.block?.id) === selectedTopic.blockId
+                  );
+                  const pending = blockSess.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
+                  const lastExecuted = blockSess
+                    .filter(s => s.status === 'executed')
+                    .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
+                  const isApproved = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade >= 7;
+                  const isFailed = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade < 7 && !pending;
+
+                  if (isApproved) return (
+                    <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
+                      <svg className="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Video completado</span>
+                      <p className="text-xs text-green-400 font-bold uppercase tracking-widest">Bloque aprobado — insignia desbloqueada</p>
                     </div>
-                  )}
-                </div>
-              )}
+                  );
 
-              {selectedContent.type === 'document' && (
-                <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 text-center space-y-6">
-                  <div className="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center mx-auto">
-                    <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  </div>
-                  <h2 className="text-xl font-bold text-white">{selectedContent.title}</h2>
-                  <div className="flex justify-center gap-4">
-                    <a href={selectedContent.url || '#'} target="_blank" className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all">Abrir Documento</a>
-                    {selectedContent.allowDownload && <a href={selectedContent.url || '#'} download className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all">Descargar</a>}
-                  </div>
-                </div>
-              )}
-
-              {selectedContent.type === 'challenge' && (
-                <div className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
-                       <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Instrucciones</h3>
-                       <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedContent.description || 'Sin instrucciones adicionales'}</p>
-                    </div>
-                    <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
-                       <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Material de Apoyo</h3>
-                       {selectedContent.url ? (
-                         <a href={selectedContent.url} target="_blank" className="flex items-center gap-3 p-3 bg-slate-900/50 rounded-xl hover:bg-slate-900 transition-colors text-slate-300">
-                           <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4" /></svg>
-                           <span className="text-xs font-bold uppercase">Ver Recursos</span>
-                         </a>
-                       ) : <p className="text-xs text-slate-500 italic">No hay archivos adjuntos</p>}
-                    </div>
-                  </div>
-
-                  {selectedContent.submission ? (
-                    <div className="bg-slate-800 p-8 rounded-2xl border border-green-500/20 relative overflow-hidden space-y-4">
-                      <div className="absolute top-0 right-0 p-4 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest border-l border-b border-green-500/20 rounded-bl-xl">Entregado</div>
-                      <h3 className="text-lg font-bold text-white">Tu Entrega</h3>
-
-                      {/* Repo & comment */}
-                      <div className="p-4 bg-slate-900 rounded-xl border border-slate-700">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Repositorio</label>
-                        <a href={selectedContent.submission.gitUrl} target="_blank" className="text-sm text-blue-400 font-medium break-all">{selectedContent.submission.gitUrl}</a>
+                  if (pending) return (
+                    <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                      <svg className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <p className="text-xs text-blue-400 font-bold uppercase tracking-widest">Tutoría en espera de confirmación</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">Puedes seguir avanzando. La insignia se entregará cuando el tutor apruebe este bloque.</p>
                       </div>
-                      {selectedContent.submission.comment && (
+                    </div>
+                  );
+
+                  if (isFailed) return (
+                    <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                      <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <div>
+                        <p className="text-xs text-amber-400 font-bold uppercase tracking-widest">Bloque no aprobado — reagenda tu tutoría</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">Puedes seguir avanzando, pero la insignia estará bloqueada hasta aprobar.</p>
+                      </div>
+                    </div>
+                  );
+
+                  return null;
+                })()}
+
+                {/* VIEWERS */}
+                {selectedContent.type === 'video' && (
+                  <div className="space-y-6">
+                    {selectedContent.url ? (
+                      <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800 relative">
+                        {selectedContent.url?.startsWith('mux:') ? (
+                          <MuxPlayer
+                            playbackId={selectedContent.url.replace('mux:', '')}
+                            metadata={{ video_id: selectedContent.id, video_title: selectedContent.title }}
+                            className="w-full h-full"
+                            onTimeUpdate={(e: any) => {
+                              const el = e.target;
+                              if (el && el.duration > 0) {
+                                handleVideoProgress({ played: el.currentTime / el.duration });
+                              }
+                            }}
+                            onPlay={() => {
+                              if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
+                            }}
+                          />
+                        ) : getYouTubeId(selectedContent.url) ? (
+                          /* YouTube — IFrame API para rastrear progreso real */
+                          <YouTubePlayer
+                            videoId={getYouTubeId(selectedContent.url)!}
+                            onProgress={(pct) => {
+                              setLastSavedProgress(pct);
+                              handleYouTubeProgress(selectedContent.id, pct);
+                            }}
+                            onStart={() => {
+                              if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
+                            }}
+                            initialProgress={selectedContent.progress.pctWatched || 0}
+                          />
+                        ) : (
+                          /* Vimeo / otros — ReactPlayer */
+                          <ReactPlayer
+                            key={getCleanVideoUrl(selectedContent.url)}
+                            url={getCleanVideoUrl(selectedContent.url)}
+                            width="100%"
+                            height="100%"
+                            controls
+                            onProgress={handleVideoProgress}
+                            onError={(e: any) => console.error('ReactPlayer Error:', e)}
+                            onStart={() => {
+                              if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
+                            }}
+                            config={{
+                              vimeo: { playerOptions: { autopause: true } }
+                            }}
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="aspect-video bg-slate-800 rounded-2xl flex items-center justify-center border border-slate-700">
+                        <p className="text-slate-400">URL del video no disponible</p>
+                      </div>
+                    )}
+                    {/* Indicador de completado automático */}
+                    {selectedContent.progress.status === 'completed' && (
+                      <div className="flex items-center gap-2 px-4 py-2.5 bg-green-500/10 border border-green-500/20 rounded-xl">
+                        <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Video completado</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {selectedContent.type === 'document' && (
+                  <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 text-center space-y-6">
+                    <div className="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center mx-auto">
+                      <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-white">{selectedContent.title}</h2>
+                    <div className="flex justify-center gap-4">
+                      <a href={selectedContent.url || '#'} target="_blank" className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all">Abrir Documento</a>
+                      {selectedContent.allowDownload && <a href={selectedContent.url || '#'} download className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all">Descargar</a>}
+                    </div>
+                  </div>
+                )}
+
+                {selectedContent.type === 'challenge' && (
+                  <div className="space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
+                        <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Instrucciones</h3>
+                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedContent.description || 'Sin instrucciones adicionales'}</p>
+                      </div>
+                      <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
+                        <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Material de Apoyo</h3>
+                        {selectedContent.url ? (
+                          <a href={selectedContent.url} target="_blank" className="flex items-center gap-3 p-3 bg-slate-900/50 rounded-xl hover:bg-slate-900 transition-colors text-slate-300">
+                            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4" /></svg>
+                            <span className="text-xs font-bold uppercase">Ver Recursos</span>
+                          </a>
+                        ) : <p className="text-xs text-slate-500 italic">No hay archivos adjuntos</p>}
+                      </div>
+                    </div>
+
+                    {selectedContent.submission && !isResubmitting ? (
+                      <div className="bg-slate-800 p-8 rounded-2xl border border-green-500/20 relative overflow-hidden space-y-4">
+                        <div className="absolute top-0 right-0 p-4 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest border-l border-b border-green-500/20 rounded-bl-xl">Entregado</div>
+                        <h3 className="text-lg font-bold text-white">Tu Entrega</h3>
+
+                        {/* Repo & comment */}
                         <div className="p-4 bg-slate-900 rounded-xl border border-slate-700">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Comentario</label>
-                          <p className="text-sm text-slate-300">{selectedContent.submission.comment}</p>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Repositorio</label>
+                          <a href={selectedContent.submission.gitUrl} target="_blank" className="text-sm text-blue-400 font-medium break-all">{selectedContent.submission.gitUrl}</a>
                         </div>
-                      )}
+                        {selectedContent.submission.comment && (
+                          <div className="p-4 bg-slate-900 rounded-xl border border-slate-700">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Comentario</label>
+                            <p className="text-sm text-slate-300">{selectedContent.submission.comment}</p>
+                          </div>
+                        )}
 
-                      {/* Tutor grade & observations */}
-                      {selectedContent.submission.grade !== null && (
-                        <div className={`p-4 rounded-xl border ${selectedContent.submission.grade >= 7 ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Calificación del Tutor</label>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-2xl font-black ${selectedContent.submission.grade >= 7 ? 'text-green-400' : 'text-red-400'}`}>
-                                {selectedContent.submission.grade}/10
-                              </span>
-                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${selectedContent.submission.grade >= 7 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                {selectedContent.submission.grade >= 7 ? '✓ Aprobado' : '✗ No aprobado'}
-                              </span>
+                        {/* Tutor grade & observations */}
+                        {selectedContent.submission.grade !== null && (
+                          <div className={`p-4 rounded-xl border ${selectedContent.submission.grade >= 7 ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Calificación del Tutor</label>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-2xl font-black ${selectedContent.submission.grade >= 7 ? 'text-green-400' : 'text-red-400'}`}>
+                                  {selectedContent.submission.grade}/10
+                                </span>
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${selectedContent.submission.grade >= 7 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                  {selectedContent.submission.grade >= 7 ? '✓ Aprobado' : '✗ No aprobado'}
+                                </span>
+                              </div>
+                            </div>
+                            {selectedContent.submission.observations && (
+                              <p className="text-sm text-slate-300 mt-2 italic">"{selectedContent.submission.observations}"</p>
+                            )}
+                            {selectedContent.submission.tutoring?.tutorName && (
+                              <p className="text-[10px] text-slate-500 mt-1">— {selectedContent.submission.tutoring.tutorName}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Reagendar button — when not approved and no active session */}
+                        {selectedContent.submission.grade !== null &&
+                          selectedContent.submission.grade < 7 &&
+                          !activeSession &&
+                          selectedTopic?.blockId &&
+                          !blockSessions.some(s => s.status === 'executed' && s.grade !== null && s.grade >= 7) && (
+                            <div className="p-4 bg-slate-900/50 border border-slate-700 rounded-xl space-y-3">
+                              <div className="flex items-start gap-3">
+                                <svg className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <div>
+                                  <p className="text-sm font-black text-white mb-0.5">Bloque no aprobado</p>
+                                  <p className="text-xs text-slate-400">Puedes solicitar una nueva tutoría para volver a presentar este bloque.</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={openTutoringModal}
+                                className="w-full py-2.5 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Reagendar Tutoría
+                              </button>
+                            </div>
+                          )}
+
+                        {/* Historial de intentos del bloque */}
+                        {selectedTopic?.blockId && blockSessions.filter(s => s.status === 'executed').length > 0 && (
+                          <div className="border border-slate-700 rounded-xl overflow-hidden">
+                            <div className="px-4 py-2.5 bg-slate-700/30 border-b border-slate-700">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historial de Intentos</p>
+                            </div>
+                            <table className="w-full text-xs">
+                              <thead className="bg-slate-800/50">
+                                <tr>
+                                  <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">#</th>
+                                  <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Fecha</th>
+                                  <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Nota</th>
+                                  <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-700/50">
+                                {blockSessions
+                                  .filter(s => s.status === 'executed')
+                                  .sort((a, b) => a.attempt_number - b.attempt_number)
+                                  .map(s => (
+                                    <tr key={s.id} className="hover:bg-slate-700/20">
+                                      <td className="px-3 py-2 text-slate-400 font-bold">{s.attempt_number}</td>
+                                      <td className="px-3 py-2 text-slate-400">{s.executed_at ? new Date(s.executed_at).toLocaleDateString('es-ES') : '—'}</td>
+                                      <td className="px-3 py-2 text-center">
+                                        <span className={`font-black ${s.grade !== null ? (s.grade >= 7 ? 'text-green-400' : 'text-red-400') : 'text-slate-500'}`}>
+                                          {s.grade !== null ? `${s.grade}/10` : '—'}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2 text-center">
+                                        <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${s.grade !== null ? (s.grade >= 7 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400') : 'bg-slate-700 text-slate-500'}`}>
+                                          {s.grade !== null ? (s.grade >= 7 ? 'Aprobado' : 'No aprobado') : 'Pendiente'}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Historial de Intentos del Reto (Challenge Attempts) */}
+                        {selectedContent.submission.attempts && selectedContent.submission.attempts.length > 0 && (
+                          <div className="border border-slate-700 rounded-xl overflow-hidden mt-6">
+                            <div className="px-4 py-2.5 bg-slate-700/30 border-b border-slate-700">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historial de Calificaciones</p>
+                            </div>
+                            <div className="divide-y divide-slate-700/50">
+                              {selectedContent.submission.attempts.map((attempt) => (
+                                <div key={attempt.attemptNumber} className="p-4 hover:bg-slate-700/10 transition-colors">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-black text-slate-300 bg-slate-700/50 px-2 py-0.5 rounded">
+                                        Intento #{attempt.attemptNumber}
+                                      </span>
+                                      <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded-full ${attempt.grade !== null ? (attempt.grade >= 7 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400') : 'bg-slate-700 text-slate-500'}`}>
+                                        {attempt.grade !== null ? (attempt.grade >= 7 ? 'Aprobado' : 'No aprobado') : 'Pendiente'}
+                                      </span>
+                                    </div>
+                                    {attempt.grade !== null && (
+                                      <span className={`font-black text-lg ${attempt.grade >= 7 ? 'text-green-400' : 'text-red-400'}`}>
+                                        {attempt.grade}/10
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="space-y-1.5">
+                                    <p className="text-xs text-slate-400 line-clamp-1">
+                                      <span className="font-bold">URL:</span> <a href={attempt.gitUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">{attempt.gitUrl}</a>
+                                    </p>
+                                    {attempt.comment && (
+                                      <p className="text-xs text-slate-400">
+                                        <span className="font-bold">Comentario:</span> {attempt.comment}
+                                      </p>
+                                    )}
+                                    {attempt.observations && (
+                                      <div className="mt-2 p-2 bg-slate-900 border border-slate-700 rounded-lg">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                                          Feedback de {attempt.gradedByTutor ? `${attempt.gradedByTutor.names} ${attempt.gradedByTutor.lastNames}` : 'Tutor'}
+                                        </p>
+                                        <p className="text-xs text-slate-300">{attempt.observations}</p>
+                                      </div>
+                                    )}
+                                    {attempt.tutorRating && (
+                                      <div className="flex items-center gap-2 mt-2">
+                                        <span className="text-yellow-400 text-xs">{'★'.repeat(attempt.tutorRating)}{'☆'.repeat(5 - attempt.tutorRating)}</span>
+                                        <span className="text-[10px] text-slate-500 italic">Evaluaste al tutor</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                          {selectedContent.submission.observations && (
-                            <p className="text-sm text-slate-300 mt-2 italic">"{selectedContent.submission.observations}"</p>
-                          )}
-                          {selectedContent.submission.tutoring?.tutorName && (
-                            <p className="text-[10px] text-slate-500 mt-1">— {selectedContent.submission.tutoring.tutorName}</p>
-                          )}
-                        </div>
-                      )}
+                        )}
 
-                      {/* Reagendar button — when not approved and no active session */}
-                      {selectedContent.submission.grade !== null &&
-                       selectedContent.submission.grade < 7 &&
-                       !activeSession &&
-                       selectedTopic?.blockId &&
-                       !blockSessions.some(s => s.status === 'executed' && s.grade !== null && s.grade >= 7) && (
-                        <div className="p-4 bg-slate-900/50 border border-slate-700 rounded-xl space-y-3">
-                          <div className="flex items-start gap-3">
-                            <svg className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            <div>
-                              <p className="text-sm font-black text-white mb-0.5">Bloque no aprobado</p>
-                              <p className="text-xs text-slate-400">Puedes solicitar una nueva tutoría para volver a presentar este bloque.</p>
-                            </div>
+                        {/* Rate tutor — handled by mandatory modal */}
+
+                        {/* Already rated */}
+                        {selectedContent.submission.tutoring?.rating && (
+                          <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-center gap-2 mt-4">
+                            <span className="text-yellow-400 text-sm">{'★'.repeat(selectedContent.submission.tutoring.rating)}{'☆'.repeat(5 - selectedContent.submission.tutoring.rating)}</span>
+                            <span className="text-[10px] text-slate-400 uppercase font-black">Ya calificaste a tu tutor</span>
                           </div>
-                          <button
-                            onClick={openTutoringModal}
-                            className="w-full py-2.5 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2"
+                        )}
+
+                        {selectedContent.submission.grade !== null && selectedContent.submission.grade < 7 && (
+                          <button 
+                            onClick={() => {
+                              setGitUrl(selectedContent.submission!.gitUrl || '');
+                              setComment('');
+                              setIsResubmitting(true);
+                            }}
+                            className="mt-4 w-full py-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            Reagendar Tutoría
+                            Volver a intentar (Reenviar Código)
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <form onSubmit={handleSubmitChallenge} className="bg-slate-800 p-8 rounded-2xl border border-slate-700 space-y-6">
+                        <h3 className="text-xl font-bold text-white">Entregar Reto</h3>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">URL del Repositorio (GitHub/GitLab)</label>
+                          <input type="url" required value={gitUrl} onChange={e => setGitUrl(e.target.value)} placeholder="https://github.com/tu-usuario/proyecto" className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Comentario (opcional)</label>
+                          <textarea rows={3} value={comment} onChange={e => setComment(e.target.value)} placeholder="Notas para tu tutor..." className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50" />
+                        </div>
+                        <div className="flex gap-3">
+                          {isResubmitting && (
+                            <button type="button" onClick={() => setIsResubmitting(false)} className="flex-1 py-4 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all shadow-xl">
+                              Cancelar
+                            </button>
+                          )}
+                          <button type="submit" disabled={submittingChallenge} className="flex-[2] py-4 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all shadow-xl shadow-red-900/20 flex items-center justify-center gap-3">
+                            {submittingChallenge && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                            Confirmar Entrega
                           </button>
                         </div>
-                      )}
-
-                      {/* Historial de intentos del bloque */}
-                      {selectedTopic?.blockId && blockSessions.filter(s => s.status === 'executed').length > 0 && (
-                        <div className="border border-slate-700 rounded-xl overflow-hidden">
-                          <div className="px-4 py-2.5 bg-slate-700/30 border-b border-slate-700">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historial de Intentos</p>
-                          </div>
-                          <table className="w-full text-xs">
-                            <thead className="bg-slate-800/50">
-                              <tr>
-                                <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">#</th>
-                                <th className="px-3 py-2 text-left text-[9px] font-black text-slate-500 uppercase tracking-widest">Fecha</th>
-                                <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Nota</th>
-                                <th className="px-3 py-2 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest">Estado</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-700/50">
-                              {blockSessions
-                                .filter(s => s.status === 'executed')
-                                .sort((a, b) => a.attempt_number - b.attempt_number)
-                                .map(s => (
-                                  <tr key={s.id} className="hover:bg-slate-700/20">
-                                    <td className="px-3 py-2 text-slate-400 font-bold">{s.attempt_number}</td>
-                                    <td className="px-3 py-2 text-slate-400">{s.executed_at ? new Date(s.executed_at).toLocaleDateString('es-ES') : '—'}</td>
-                                    <td className="px-3 py-2 text-center">
-                                      <span className={`font-black ${s.grade !== null ? (s.grade >= 7 ? 'text-green-400' : 'text-red-400') : 'text-slate-500'}`}>
-                                        {s.grade !== null ? `${s.grade}/10` : '—'}
-                                      </span>
-                                    </td>
-                                    <td className="px-3 py-2 text-center">
-                                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full ${s.grade !== null ? (s.grade >= 7 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400') : 'bg-slate-700 text-slate-500'}`}>
-                                        {s.grade !== null ? (s.grade >= 7 ? 'Aprobado' : 'No aprobado') : 'Pendiente'}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-
-                      {/* Rate tutor — handled by mandatory modal */}
-
-                      {/* Already rated */}
-                      {selectedContent.submission.tutoring?.rating && (
-                        <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-center gap-2">
-                          <span className="text-yellow-400 text-sm">{'★'.repeat(selectedContent.submission.tutoring.rating)}{'☆'.repeat(5 - selectedContent.submission.tutoring.rating)}</span>
-                          <span className="text-[10px] text-slate-400 uppercase font-black">Ya calificaste a tu tutor</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <form onSubmit={handleSubmitChallenge} className="bg-slate-800 p-8 rounded-2xl border border-slate-700 space-y-6">
-                      <h3 className="text-xl font-bold text-white">Entregar Reto</h3>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">URL del Repositorio (GitHub/GitLab)</label>
-                        <input type="url" required value={gitUrl} onChange={e => setGitUrl(e.target.value)} placeholder="https://github.com/tu-usuario/proyecto" className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Comentario (opcional)</label>
-                        <textarea rows={3} value={comment} onChange={e => setComment(e.target.value)} placeholder="Notas para tu tutor..." className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50" />
-                      </div>
-                      <button type="submit" disabled={submittingChallenge} className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all shadow-xl shadow-red-900/20 flex items-center justify-center gap-3">
-                        {submittingChallenge && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                        Confirmar Entrega
-                      </button>
-                    </form>
-                  )}
+                      </form>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 w-full relative">
+              {course.imageUrl ? (
+                <img
+                  src={course.imageUrl}
+                  alt={course.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-red-600 to-red-900 flex items-center justify-center">
+                  <svg className="w-32 h-32 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
                 </div>
               )}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-10">
+                <h1 className="text-4xl md:text-5xl font-black text-white mb-2 drop-shadow-lg">{course.name}</h1>
+                {course.description && (
+                  <p className="text-slate-300 text-base max-w-2xl mb-4">{course.description}</p>
+                )}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
+                    <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <span className="text-white text-sm font-bold">{Math.round(course.progress.pct)}% completado</span>
+                  </div>
+                  <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
+                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <span className="text-white text-sm font-bold">{course.topics.length} temas</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <Footer />
+        </div>
+      </div>
+
+      {/* ── Badge Earned Modal ── */}
+      {newBadge && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center animate-in zoom-in-95 duration-300">
+            {/* Confetti-like decoration */}
+            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+              <div className="absolute top-0 left-1/4 w-1 h-8 bg-yellow-400/30 rotate-12" />
+              <div className="absolute top-2 right-1/3 w-1 h-6 bg-red-400/30 -rotate-12" />
+              <div className="absolute top-1 right-1/4 w-1 h-10 bg-blue-400/30 rotate-6" />
+            </div>
+
+            <div className="relative mb-6">
+              <div className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border-2 border-yellow-500/40 flex items-center justify-center overflow-hidden shadow-xl shadow-yellow-900/20">
+                {newBadge.imageUrl || newBadge.image_url ? (
+                  <img src={newBadge.imageUrl || newBadge.image_url} alt={newBadge.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-5xl">🏆</span>
+                )}
+              </div>
+              <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-white text-lg shadow-lg">
+                ✓
+              </div>
+            </div>
+
+            <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2">¡Insignia Obtenida!</p>
+            <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">{newBadge.name}</h2>
+            {newBadge.description && (
+              <p className="text-sm text-slate-400 mb-6 italic">"{newBadge.description}"</p>
+            )}
+
+            <button
+              onClick={() => setNewBadge(null)}
+              className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black text-sm uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-yellow-900/20"
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tutoring Request Modal ── */}
+      {showTutoringModal && selectedTopic && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <div className="mb-6">
+              <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Solicitar Tutoría</h2>
+              <p className="text-xs text-slate-500">Completa los datos para solicitar tu sesión de validación.</p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Bloque */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bloque</label>
+                <div className="px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm font-bold">
+                  {currentBlock?.name ?? selectedTopic.blockName ?? 'Bloque actual'}
+                </div>
+              </div>
+
+              {/* Fecha de solicitud */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
+                <input
+                  type="date"
+                  value={tutoringDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={e => setTutoringDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+
+              {/* Observación */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                  Observación <span className="text-slate-600 normal-case font-medium">(opcional)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={tutoringObservation}
+                  onChange={(e) => setTutoringObservation(e.target.value)}
+                  placeholder="Ej: Tengo dudas sobre el tema X, me gustaría reforzar..."
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none placeholder-slate-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowTutoringModal(false)}
+                className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={requestingTutoring}
+                onClick={handleRequestTutoring}
+                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {requestingTutoring && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                Solicitar Tutoría
+              </button>
             </div>
           </div>
-        ) : (
-          <div className="flex-1 w-full relative">
-            {course.imageUrl ? (
-              <img 
-                src={course.imageUrl} 
-                alt={course.name} 
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-red-600 to-red-900 flex items-center justify-center">
-                <svg className="w-32 h-32 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </div>
+      )}
+
+      {/* ── New Badge Modal ── */}
+      {newBadge && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-8 w-full max-w-sm shadow-2xl shadow-yellow-900/20 text-center animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center overflow-hidden">
+              {newBadge.imageUrl
+                ? <img src={newBadge.imageUrl} alt={newBadge.name} className="w-full h-full object-cover" />
+                : <span className="text-4xl">🏅</span>
+              }
+            </div>
+            <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">¡Insignia obtenida!</p>
+            <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-2">{newBadge.name}</h2>
+            {newBadge.description && (
+              <p className="text-sm text-slate-400 mb-6">{newBadge.description}</p>
+            )}
+            <button
+              onClick={() => setNewBadge(null)}
+              className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-black text-sm uppercase tracking-widest rounded-xl transition-all"
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mandatory Tutor Rating Modal ── */}
+      {showRatingModal && pendingRatingSubmission && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-yellow-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
               </div>
+              <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Califica a tu Tutor</h2>
+              <p className="text-sm text-slate-400">Tu tutor <span className="text-white font-bold">{pendingRatingSubmission.tutorName}</span> ya calificó tu reto.</p>
+              <p className="text-xs text-slate-500 mt-1">Debes calificarlo para continuar.</p>
+            </div>
+
+            <div className="flex items-center justify-center gap-3 mb-6">
+              {[1, 2, 3, 4, 5].map(star => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setTutorRating(star)}
+                  className={`text-4xl transition-all hover:scale-110 ${star <= tutorRating ? 'text-yellow-400 drop-shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+
+            {tutorRating > 0 && (
+              <p className="text-center text-sm text-slate-400 mb-4">
+                {['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'][tutorRating]}
+                {' '}— {tutorRating}/5
+              </p>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-10">
-              <h1 className="text-4xl md:text-5xl font-black text-white mb-2 drop-shadow-lg">{course.name}</h1>
-              {course.description && (
-                <p className="text-slate-300 text-base max-w-2xl mb-4">{course.description}</p>
-              )}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
-                  <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  <span className="text-white text-sm font-bold">{Math.round(course.progress.pct)}% completado</span>
-                </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
-                  <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                  <span className="text-white text-sm font-bold">{course.topics.length} temas</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        <Footer />
-      </div>
-    </div>
 
-    {/* ── Badge Earned Modal ── */}
-    {newBadge && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-        <div className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center animate-in zoom-in-95 duration-300">
-          {/* Confetti-like decoration */}
-          <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-            <div className="absolute top-0 left-1/4 w-1 h-8 bg-yellow-400/30 rotate-12" />
-            <div className="absolute top-2 right-1/3 w-1 h-6 bg-red-400/30 -rotate-12" />
-            <div className="absolute top-1 right-1/4 w-1 h-10 bg-blue-400/30 rotate-6" />
-          </div>
-
-          <div className="relative mb-6">
-            <div className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border-2 border-yellow-500/40 flex items-center justify-center overflow-hidden shadow-xl shadow-yellow-900/20">
-              {newBadge.imageUrl || newBadge.image_url ? (
-                <img src={newBadge.imageUrl || newBadge.image_url} alt={newBadge.name} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-5xl">🏆</span>
-              )}
-            </div>
-            <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-white text-lg shadow-lg">
-              ✓
-            </div>
-          </div>
-
-          <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-2">¡Insignia Obtenida!</p>
-          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">{newBadge.name}</h2>
-          {newBadge.description && (
-            <p className="text-sm text-slate-400 mb-6 italic">"{newBadge.description}"</p>
-          )}
-
-          <button
-            onClick={() => setNewBadge(null)}
-            className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black text-sm uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-yellow-900/20"
-          >
-            Aceptar
-          </button>
-        </div>
-      </div>
-    )}
-
-    {/* ── Tutoring Request Modal ── */}
-    {showTutoringModal && selectedTopic && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl">
-          <div className="mb-6">
-            <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Solicitar Tutoría</h2>
-            <p className="text-xs text-slate-500">Completa los datos para solicitar tu sesión de validación.</p>
-          </div>
-
-          <div className="space-y-4">
-            {/* Bloque */}
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bloque</label>
-              <div className="px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm font-bold">
-                {currentBlock?.name ?? selectedTopic.blockName ?? 'Bloque actual'}
-              </div>
-            </div>
-
-            {/* Fecha de solicitud */}
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
-              <input
-                type="date"
-                value={tutoringDate}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={e => setTutoringDate(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-            </div>
-
-            {/* Observación */}
-            <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-                Observación <span className="text-slate-600 normal-case font-medium">(opcional)</span>
-              </label>
-              <textarea
-                rows={3}
-                value={tutoringObservation}
-                onChange={(e) => setTutoringObservation(e.target.value)}
-                placeholder="Ej: Tengo dudas sobre el tema X, me gustaría reforzar..."
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none placeholder-slate-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 mt-6">
             <button
-              type="button"
-              onClick={() => setShowTutoringModal(false)}
-              className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
+              disabled={tutorRating === 0 || ratingSubmitting}
+              onClick={() => handleRateTutor(pendingRatingSubmission!.id, tutorRating)}
+              className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black text-sm uppercase tracking-widest rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Cancelar
-            </button>
-            <button
-              disabled={requestingTutoring}
-              onClick={handleRequestTutoring}
-              className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {requestingTutoring && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-              Solicitar Tutoría
+              {ratingSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {tutorRating === 0 ? 'Selecciona una calificación' : 'Enviar Calificación'}
             </button>
           </div>
         </div>
-      </div>
-    )}
-
-    {/* ── New Badge Modal ── */}
-    {newBadge && (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-        <div className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-8 w-full max-w-sm shadow-2xl shadow-yellow-900/20 text-center animate-in zoom-in-95 duration-300">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center overflow-hidden">
-            {newBadge.imageUrl
-              ? <img src={newBadge.imageUrl} alt={newBadge.name} className="w-full h-full object-cover" />
-              : <span className="text-4xl">🏅</span>
-            }
-          </div>
-          <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">¡Insignia obtenida!</p>
-          <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-2">{newBadge.name}</h2>
-          {newBadge.description && (
-            <p className="text-sm text-slate-400 mb-6">{newBadge.description}</p>
-          )}
-          <button
-            onClick={() => setNewBadge(null)}
-            className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-black text-sm uppercase tracking-widest rounded-xl transition-all"
-          >
-            Aceptar
-          </button>
-        </div>
-      </div>
-    )}
-
-    {/* ── Mandatory Tutor Rating Modal ── */}
-    {showRatingModal && pendingRatingSubmission && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-yellow-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Califica a tu Tutor</h2>
-            <p className="text-sm text-slate-400">Tu tutor <span className="text-white font-bold">{pendingRatingSubmission.tutorName}</span> ya calificó tu reto.</p>
-            <p className="text-xs text-slate-500 mt-1">Debes calificarlo para continuar.</p>
-          </div>
-
-          <div className="flex items-center justify-center gap-3 mb-6">
-            {[1, 2, 3, 4, 5].map(star => (
-              <button
-                key={star}
-                type="button"
-                onClick={() => setTutorRating(star)}
-                className={`text-4xl transition-all hover:scale-110 ${star <= tutorRating ? 'text-yellow-400 drop-shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
-              >
-                ★
-              </button>
-            ))}
-          </div>
-
-          {tutorRating > 0 && (
-            <p className="text-center text-sm text-slate-400 mb-4">
-              {['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'][tutorRating]}
-              {' '}— {tutorRating}/5
-            </p>
-          )}
-
-          <button
-            disabled={tutorRating === 0 || ratingSubmitting}
-            onClick={() => handleRateTutor(pendingRatingSubmission!.id, tutorRating)}
-            className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black text-sm uppercase tracking-widest rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {ratingSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-            {tutorRating === 0 ? 'Selecciona una calificación' : 'Enviar Calificación'}
-          </button>
-        </div>
-      </div>
-    )}
-    <ConfirmDialog
-      isOpen={dialog.isOpen}
-      title={dialog.title}
-      message={dialog.message}
-      confirmLabel={dialog.confirmLabel}
-      onConfirm={dialog.onConfirm}
-      onCancel={closeDialog}
-    />
+      )}
+      <ConfirmDialog
+        isOpen={dialog.isOpen}
+        title={dialog.title}
+        message={dialog.message}
+        confirmLabel={dialog.confirmLabel}
+        onConfirm={dialog.onConfirm}
+        onCancel={closeDialog}
+      />
     </>
   );
 }
@@ -1101,7 +1222,7 @@ function YouTubePlayer({
       if (!containerRef.current || !isMounted) return;
       // Destroy previous player if any
       if (playerRef.current) {
-        try { playerRef.current.destroy(); } catch (_) {}
+        try { playerRef.current.destroy(); } catch (_) { }
         playerRef.current = null;
       }
       clearTracking();
@@ -1166,7 +1287,7 @@ function YouTubePlayer({
       isMounted = false;
       clearTracking();
       if (playerRef.current) {
-        try { playerRef.current.destroy(); } catch (_) {}
+        try { playerRef.current.destroy(); } catch (_) { }
         playerRef.current = null;
       }
     };
