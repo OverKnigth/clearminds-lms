@@ -110,7 +110,11 @@ export default function CourseView() {
   const [pendingRatingSubmission, setPendingRatingSubmission] = useState<{ id: string; tutorName: string } | null>(null);
   const [showTutoringModal, setShowTutoringModal] = useState(false);
   const [tutoringObservation, setTutoringObservation] = useState('');
-  const [tutoringDate, setTutoringDate] = useState(new Date().toISOString().split('T')[0]);
+  const [tutoringDate, setTutoringDate] = useState(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  });
   const [requestingTutoring, setRequestingTutoring] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [newBadge, setNewBadge] = useState<any | null>(null);
@@ -132,8 +136,11 @@ export default function CourseView() {
     const content = topic?.contents.find(c => c.id === selectedContentId);
 
     if (content?.type === 'challenge' && content.submission?.tutoring && content.submission.grade !== null && !content.submission.tutoring.rating) {
+      const submissionId = content.submission.tutoring.id;
+      const tutorName = content.submission.tutoring.tutorName;
+
       const timer = setTimeout(() => {
-        setPendingRatingSubmission({ id: content.submission.tutoring.id, tutorName: content.submission.tutoring.tutorName });
+        setPendingRatingSubmission({ id: submissionId, tutorName });
         setShowRatingModal(true);
         setTutorRating(0);
       }, 5000);
@@ -307,13 +314,32 @@ export default function CourseView() {
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedContent) return;
+    if (!selectedContent || !selectedTopic) return;
     setSubmittingChallenge(true);
     try {
       await api.submitChallenge(selectedContent.id, { gitUrl, comment });
-      navigate('/meetings', { state: { preselectedBlockId: selectedTopic?.blockId } });
+      
+      // Identificar si es el último reto del bloque
+      const challenges = selectedTopic.contents.filter(c => c.type === 'challenge').sort((a, b) => a.order - b.order);
+      const isLastChallenge = challenges.length > 0 && challenges[challenges.length - 1].id === selectedContent.id;
+
+      if (isLastChallenge) {
+        // Forzar solicitud de tutoría para el último reto
+        openTutoringModal();
+      } else {
+        navigate('/meetings', { state: { preselectedBlockId: selectedTopic?.blockId } });
+      }
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSubmittingChallenge(false); }
+  };
+
+  const handleDocumentClick = async (contentId: string) => {
+    try {
+      const res = await api.updateProgress(contentId, 100);
+      if (res.success) {
+        markContentCompleted(contentId);
+      }
+    } catch (e) { console.error('Error marking document as completed:', e); }
   };
 
   const handleRateTutor = async (submissionId: string, rating: number) => {
@@ -339,7 +365,8 @@ export default function CourseView() {
     if (!selectedTopic?.blockId) return;
     setRequestingTutoring(true);
     try {
-      await (api as any).requestTutoring(selectedTopic.blockId, tutoringObservation || undefined);
+      const isoDate = new Date(tutoringDate).toISOString();
+      await (api as any).requestTutoring(selectedTopic.blockId, tutoringObservation || undefined, isoDate);
       setShowTutoringModal(false);
       setTutoringObservation('');
       loadTutoring();
@@ -352,7 +379,9 @@ export default function CourseView() {
 
   const openTutoringModal = () => {
     setTutoringObservation('');
-    setTutoringDate(new Date().toISOString().split('T')[0]);
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    setTutoringDate(now.toISOString().slice(0, 16));
     setShowTutoringModal(true);
   };
 
@@ -696,8 +725,24 @@ export default function CourseView() {
                     </div>
                     <h2 className="text-xl font-bold text-white">{selectedContent.title}</h2>
                     <div className="flex justify-center gap-4">
-                      <a href={selectedContent.url || '#'} target="_blank" className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all">Abrir Documento</a>
-                      {selectedContent.allowDownload && <a href={selectedContent.url || '#'} download className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all">Descargar</a>}
+                      <a 
+                        href={selectedContent.url || '#'} 
+                        target="_blank" 
+                        onClick={() => handleDocumentClick(selectedContent.id)}
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all"
+                      >
+                        Abrir Documento
+                      </a>
+                      {selectedContent.allowDownload && (
+                        <a 
+                          href={selectedContent.url || '#'} 
+                          download 
+                          onClick={() => handleDocumentClick(selectedContent.id)}
+                          className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all"
+                        >
+                          Descargar
+                        </a>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1038,9 +1083,9 @@ export default function CourseView() {
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={tutoringDate}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={new Date().toISOString().slice(0, 16)}
                   onChange={e => setTutoringDate(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 />

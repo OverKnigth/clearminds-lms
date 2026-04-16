@@ -360,7 +360,11 @@ function CalendarView({
 function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: { courses: Course[]; initialBlockId?: string; onClose: () => void; onSuccess: () => void; onError: (msg: string) => void }) {
   const [blockId, setBlockId] = useState(initialBlockId || '');
   const [observations, setObservations] = useState('');
-  const [requestDate, setRequestDate] = useState(new Date().toISOString().split('T')[0]);
+  const [requestDate, setRequestDate] = useState(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -381,7 +385,8 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: 
     if (!blockId) return;
     setSubmitting(true);
     try {
-      await (api as any).requestTutoring(blockId, observations || undefined);
+      const isoDate = new Date(requestDate).toISOString();
+      await (api as any).requestTutoring(blockId, observations || undefined, isoDate);
       onSuccess();
       onClose();
     } catch (e: any) { 
@@ -425,9 +430,9 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: 
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
             <input
-              type="date"
+              type="datetime-local"
               value={requestDate}
-              min={new Date().toISOString().split('T')[0]}
+              min={new Date().toISOString().slice(0, 16)}
               onChange={e => setRequestDate(e.target.value)}
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             />

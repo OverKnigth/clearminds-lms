@@ -603,8 +603,8 @@ export const api = {
     return response.data;
   },
 
-  requestTutoring: async (blockId: string, observations?: string) => {
-    const response = await apiClient.post('/student/tutoring', { blockId, observations });
+  requestTutoring: async (blockId: string, observations?: string, scheduledAt?: string) => {
+    const response = await apiClient.post('/student/tutoring', { blockId, observations, scheduledAt });
     return response.data;
   },
 
@@ -629,7 +629,7 @@ export const api = {
   },
 
   markAllStudentNotificationsRead: async () => {
-    const response = await apiClient.post('/student/notifications/mark-all-read');
+    const response = await apiClient.patch('/student/notifications/read_all');
     return response.data;
   },
 
@@ -644,7 +644,7 @@ export const api = {
   },
 
   markAllTutorNotificationsRead: async () => {
-    const response = await apiClient.post('/tutor/notifications/mark-all-read');
+    const response = await apiClient.patch('/tutor/notifications/read_all');
     return response.data;
   },
 
