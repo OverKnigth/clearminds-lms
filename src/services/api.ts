@@ -690,6 +690,13 @@ export const api = {
     return response.data;
   },
 
+  downloadTutorTutoringReport: async (type: 'tutorias' | 'retos' = 'tutorias') => {
+    const response = await apiClient.get(`/tutor/reports/tutoring/download?type=${type}`, {
+      responseType: 'blob'
+    });
+    return response;
+  },
+
   // ─── Admin - Groups ─────────────────────────────────────────────────────
   getGroups: async (): Promise<any> => {
     try {

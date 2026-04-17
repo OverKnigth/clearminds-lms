@@ -12,6 +12,30 @@ export default function Tutor() {
   const activeTab = (queryParams.get('tab') as TutorTab) || 'dashboard';
   const { pending, upcoming, completed, students, challenges, stats, isLoading, fetchSessions, fetchAll } = useTutorData();
   const [globalMessage, setGlobalMessage] = useState('');
+  const [reportType, setReportType] = useState<'tutorias' | 'retos'>('tutorias');
+
+  const handleDownloadReport = async () => {
+    try {
+      const response = await api.downloadTutorTutoringReport(reportType);
+      const disposition = response.headers?.['content-disposition'] as string | undefined;
+      const matched = disposition?.match(/filename="?([^"]+)"?/i);
+      const filename = matched?.[1] || `reporte_${reportType}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error descargando reporte', error);
+      window.alert('No se pudo descargar el reporte. Intenta nuevamente.');
+    }
+  };
 
   useEffect(() => {
     api.getTutoringConfig().then(res => {
@@ -52,8 +76,28 @@ export default function Tutor() {
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
             <div className="bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4">
-              <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Dashboard</h1>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-0.5">Resumen de tu actividad como tutor</p>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h1 className="text-2xl font-black text-white uppercase tracking-tighter">Dashboard</h1>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-0.5">Resumen de tu actividad como tutor</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={reportType}
+                    onChange={(e) => setReportType(e.target.value as 'tutorias' | 'retos')}
+                    className="bg-slate-900 border border-slate-600 text-slate-200 text-xs font-bold uppercase tracking-wider rounded-md px-3 py-2"
+                  >
+                    <option value="tutorias">Tutorias</option>
+                    <option value="retos">Retos</option>
+                  </select>
+                  <button
+                    onClick={handleDownloadReport}
+                    className="inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider px-4 py-2 rounded-md transition-colors"
+                  >
+                    Descargar reporte
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* 6 stat cards — spec 20 */}
