@@ -588,6 +588,16 @@ export const api = {
     return response.data;
   },
 
+  getStudentCourseMinimal: async (courseId: string) => {
+    const response = await apiClient.get(`/student/courses/${courseId}/minimal`);
+    return response.data;
+  },
+
+  getStudentCourseContentDetail: async (courseId: string, contentId: string) => {
+    const response = await apiClient.get(`/student/courses/${courseId}/content/${contentId}`);
+    return response.data;
+  },
+
   getStudentBadges: async () => {
     const response = await apiClient.get('/student/badges');
     return response.data;

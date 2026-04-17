@@ -24,9 +24,9 @@ export default function AppRoutes() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<Student />} />
-          <Route path="/courses" element={<StudentCoursesPage />} />
-          <Route path="/course/:courseSlug" element={<CourseView />} />
-          <Route path="/course/:courseSlug/content/:contentSlug" element={<ContentView />} />
+          <Route path="/student/courses" element={<StudentCoursesPage />} />
+          <Route path="/student/courses/:courseSlug" element={<CourseView />} />
+          <Route path="/student/courses/:courseSlug/content/:contentId" element={<CourseView />} />
           <Route path="/meetings" element={<Meetings />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />

@@ -41,7 +41,7 @@ export default function Student() {
           </p>
           <div className="flex gap-3 flex-wrap">
             {courses[0] && (
-              <button onClick={() => navigate(`/course/${courses[0].slug || courses[0].id}`)}
+              <button onClick={() => navigate(`/student/courses/${courses[0].slug || courses[0].id}`)}
                 className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all">
                 Continuar Aprendiendo
               </button>
@@ -175,7 +175,7 @@ export default function Student() {
             {courses.map((course: any) => {
               const pct = course.progress?.pct ?? 0;
               return (
-                <button key={course.id} onClick={() => navigate(`/course/${course.slug || course.id}`)}
+                <button key={course.id} onClick={() => navigate(`/student/courses/${course.slug || course.id}`)}
                   className="bg-slate-800 rounded-xl border border-slate-700 hover:border-red-500/50 transition-all text-left overflow-hidden group">
                   {course.imageUrl && (
                     <div className="h-28 overflow-hidden">

@@ -14,12 +14,16 @@ interface Content {
   type: 'video' | 'document' | 'challenge';
   title: string;
   description: string | null;
+  instructions?: string | null;
+  evaluationCriteria?: string | null;
   url: string | null;
+  supportUrl?: string | null;
   slug: string | null;
   order: number;
   durationMinutes: number | null;
   deadline: string | null;
   allowDownload: boolean;
+  minProgressToComplete?: number;
   progress: { status: string; pctWatched: number; completedAt: string | null };
   submission: {
     id: string;
@@ -52,27 +56,25 @@ interface Content {
   } | null;
 }
 
-interface Topic {
+interface Block {
   id: string;
-  title: string;
-  description: string | null;
-  order: number;
-  blockId: string | null;
-  blockName: string | null;
-  contents: Content[];
+  name: string;
+  contents: {
+    id: string;
+    slug: string;
+    title: string;
+    type: 'video' | 'document' | 'challenge';
+    status: string;
+  }[];
 }
 
 interface CourseDetail {
   id: string;
   slug: string;
   name: string;
-  description: string | null;
-  imageUrl: string | null;
-  tutors: any[];
-  topics: Topic[];
-  blocks: any[];
+  progressPct: number;
+  blocks: Block[];
   badges: any[];
-  progress: { total: number; completed: number; pct: number };
 }
 
 interface TutoringSession {
@@ -88,11 +90,13 @@ interface TutoringSession {
 }
 
 export default function CourseView() {
-  const { courseSlug } = useParams<{ courseSlug: string }>();
+  const { courseSlug, contentId } = useParams<{ courseSlug: string; contentId?: string }>();
   const navigate = useNavigate();
   const [course, setCourse] = useState<CourseDetail | null>(null);
-  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
+  const [selectedContent, setSelectedContent] = useState<Content | null>(null);
+  const [isContentLoading, setIsContentLoading] = useState(false);
   const [showBadges, setShowBadges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [tutoringSessions, setTutoringSessions] = useState<TutoringSession[]>([]);
@@ -130,14 +134,11 @@ export default function CourseView() {
 
   // Auto-show rating modal 5 seconds after viewing a graded challenge
   useEffect(() => {
-    if (!course || !selectedTopicId || !selectedContentId) return;
+    if (!selectedContent) return;
     
-    const topic = course.topics.find(t => t.id === selectedTopicId);
-    const content = topic?.contents.find(c => c.id === selectedContentId);
-
-    if (content?.type === 'challenge' && content.submission?.tutoring && content.submission.grade !== null && !content.submission.tutoring.rating) {
-      const submissionId = content.submission.tutoring.id;
-      const tutorName = content.submission.tutoring.tutorName;
+    if (selectedContent.type === 'challenge' && selectedContent.submission?.tutoring && selectedContent.submission.grade !== null && !selectedContent.submission.tutoring.rating) {
+      const submissionId = selectedContent.submission.tutoring.id;
+      const tutorName = selectedContent.submission.tutoring.tutorName;
 
       const timer = setTimeout(() => {
         setPendingRatingSubmission({ id: submissionId, tutorName });
@@ -147,7 +148,7 @@ export default function CourseView() {
       
       return () => clearTimeout(timer);
     }
-  }, [course, selectedTopicId, selectedContentId]);
+  }, [selectedContent]);
 
   // Detect newly earned badges
   useEffect(() => {
@@ -177,46 +178,98 @@ export default function CourseView() {
   const loadCourse = async (idOrSlug: string) => {
     setIsLoading(true);
     try {
-      const res = await api.getStudentCourseDetail(idOrSlug);
+      const res = await api.getStudentCourseMinimal(idOrSlug);
       if (res.success) {
-        const courseData = res.data;
-        if (idOrSlug === courseData.id && courseData.slug) {
-          navigate(`/course/${courseData.slug}`, { replace: true });
-          return;
+        setCourse(res.data);
+        
+        // If there's a contentId in the URL, try to find and select it
+        if (contentId) {
+          const allContents = res.data.blocks.flatMap((b: any) => b.contents);
+          const match = allContents.find((c: any) => c.id === contentId);
+          if (match) {
+            setSelectedContentId(match.id);
+            // Also find and activate the correct block
+            const parentBlock = res.data.blocks.find((b: any) => b.contents.some((c: any) => c.id === match.id));
+            if (parentBlock) setActiveBlockId(parentBlock.id);
+          }
+        } else if (res.data.blocks.length > 0) {
+          setActiveBlockId(res.data.blocks[0].id);
         }
-        setCourse(courseData);
-        if (courseData.topics.length > 0) setSelectedTopicId(courseData.topics[0].id);
       }
     } catch (e) { console.error(e); }
     finally { setIsLoading(false); }
   };
 
-  // Recarga silenciosa — sin spinner, para actualizar datos tras acciones del usuario
-  const reloadCourse = async (idOrSlug: string) => {
+  const loadContentDetail = async (contentId: string) => {
+    if (!course) return;
+    setIsContentLoading(true);
     try {
-      const res = await api.getStudentCourseDetail(idOrSlug);
-      if (res.success) setCourse(res.data);
+      const res = await api.getStudentCourseContentDetail(course.id, contentId);
+      if (res.success) {
+        setSelectedContent(res.data);
+      }
+    } catch (e: any) { 
+      console.error(e);
+      showAlert(e.response?.data?.message || "Error al cargar el contenido. Por favor intenta de nuevo.");
+    } finally {
+      setIsContentLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // If we have an ID to load, and we have the course context
+    if (selectedContentId && course) {
+      loadContentDetail(selectedContentId);
+    } else if (!selectedContentId) {
+      setSelectedContent(null);
+    }
+  }, [selectedContentId, course?.id]);
+
+  // Sync state when URL contentId changes
+  useEffect(() => {
+    if (course && contentId) {
+      if (contentId !== selectedContentId) {
+        setSelectedContentId(contentId);
+        const parentBlock = course.blocks.find(b => b.contents.some(c => c.id === contentId));
+        if (parentBlock) setActiveBlockId(parentBlock.id);
+      }
+    }
+  }, [contentId, course]);
+
+  const reloadCourse = async (slug: string) => {
+    try {
+      const res = await api.getStudentCourseMinimal(slug);
+      if (res.success) {
+        setCourse(res.data);
+      }
     } catch (e) { console.error(e); }
   };
 
   // Actualiza el progreso de un contenido localmente sin recargar el curso completo
   const markContentCompleted = (contentId: string) => {
+    // Actualizar en la lista de bloques
     setCourse(prev => {
       if (!prev) return prev;
-      const completed = prev.progress.completed + 1;
-      const pct = prev.progress.total > 0 ? Math.round((completed / prev.progress.total) * 100) : 0;
       return {
         ...prev,
-        progress: { ...prev.progress, completed, pct },
-        topics: prev.topics.map(t => ({
-          ...t,
-          contents: t.contents.map(c =>
-            c.id === contentId
-              ? { ...c, progress: { status: 'completed', pctWatched: 100, completedAt: new Date().toISOString() } }
-              : c
+        blocks: prev.blocks.map(b => ({
+          ...b,
+          contents: b.contents.map(c =>
+            c.id === contentId ? { ...c, status: 'completed', completed: true } : c
           )
         }))
       };
+    });
+
+    // Actualizar también el objeto actualmente seleccionado si coincide
+    setSelectedContent(prev => {
+      if (prev && prev.id === contentId) {
+        return {
+          ...prev,
+          progress: { ...prev.progress, status: 'completed', pctWatched: 100 }
+        };
+      }
+      return prev;
     });
   };
 
@@ -232,14 +285,12 @@ export default function CourseView() {
     </div>
   );
 
-  const selectedTopic = course.topics.find(t => t.id === selectedTopicId);
-  const selectedContent = selectedTopic?.contents.find(c => c.id === selectedContentId);
+  const currentBlock = course.blocks.find(b => b.id === activeBlockId);
 
-  const blockSessions = selectedTopic?.blockId
-    ? tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === selectedTopic.blockId)
+  const blockSessions = activeBlockId
+    ? tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === activeBlockId)
     : [];
   const activeSession = blockSessions.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
-  const currentBlock = course.blocks?.find(b => b.id === selectedTopic?.blockId);
 
   // Lógica de habilitación de tutoría (13.2)
   // canRequestTutoring — available for future use
@@ -293,7 +344,8 @@ export default function CourseView() {
         lastReportedPctRef.current = currentPct;
         setLastSavedProgress(currentPct);
         const res = await api.updateProgress(selectedContent.id, currentPct);
-        if (res.success && res.data.status === 'completed') {
+        // Optimistic UI: If pct >= 90, consider it completed for the student's view
+        if (res.success && (res.data.status === 'completed' || currentPct >= 90)) {
           markContentCompleted(selectedContent.id);
         }
       } catch (e) { console.error(e); }
@@ -304,7 +356,8 @@ export default function CourseView() {
     if (!selectedContent || selectedContent.progress.status === 'completed') return;
     try {
       const res = await api.updateProgress(contentId, pct);
-      if (res.success && res.data.status === 'completed') {
+      // Optimistic UI: If pct >= 90, consider it completed for the student's view
+      if (res.success && (res.data.status === 'completed' || pct >= 90)) {
         markContentCompleted(contentId);
       }
     } catch (e) { console.error(e); }
@@ -314,10 +367,26 @@ export default function CourseView() {
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submittingChallenge || !selectedContent || !selectedTopic) return;
+    if (submittingChallenge || !selectedContent || !activeBlockId) return;
     setSubmittingChallenge(true);
     try {
-      await api.submitChallenge(selectedContent.id, { gitUrl, comment });
+      const res = await api.submitChallenge(selectedContent.id, { gitUrl, comment });
+      
+      if (res.success) {
+        // Update local state to 'submitted' (yellow)
+        setCourse(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            blocks: prev.blocks.map(b => ({
+              ...b,
+              contents: b.contents.map(c =>
+                c.id === selectedContent.id ? { ...c, status: 'submitted', completed: false } : c
+              )
+            }))
+          };
+        });
+      }
       
       if (courseSlug) {
         await reloadCourse(courseSlug);
@@ -355,18 +424,19 @@ export default function CourseView() {
     finally { setRatingSubmitting(false); }
   };
 
-  const handleRequestTutoring = async () => {
-    if (!selectedTopic?.blockId) return;
-    setRequestingTutoring(true);
+  const handleSubmitTutoringRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeBlockId) return;
+
     try {
-      const isoDate = new Date(tutoringDate).toISOString();
-      await (api as any).requestTutoring(selectedTopic.blockId, tutoringObservation || undefined, isoDate);
-      setShowTutoringModal(false);
-      setTutoringObservation('');
+      const date = new Date(tutoringDate);
+      const isoDate = date.toISOString();
+      await (api as any).requestTutoring(activeBlockId, tutoringObservation || undefined, isoDate);
+      showAlert("Solicitud de tutoría enviada con éxito.");
       loadTutoring();
-    } catch (e: any) {
-      showAlert(e.response?.data?.message || e.message);
-    } finally {
+      setShowTutoringModal(false);
+    } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
+    finally {
       setRequestingTutoring(false);
     }
   };
@@ -379,21 +449,8 @@ export default function CourseView() {
     setShowTutoringModal(true);
   };
 
-  const getContentStatus = (c: Content) => {
-    if (c.type === 'challenge') {
-      if (c.submission) {
-        // Un reto está 'completed' solo si tiene nota >= 7.
-        // Si tiene nota < 7 está 'failed'.
-        // Si no tiene nota está 'submitted'.
-        const grade = c.submission.grade;
-        if (grade !== null && grade !== undefined) {
-          return grade >= 7 ? 'completed' : 'failed';
-        }
-        return 'submitted';
-      }
-      return 'pending';
-    }
-    return c.progress.status === 'completed' ? 'completed' : 'pending';
+  const getContentStatus = (c: any) => {
+    return c.status || 'pending';
   };
 
   // Per spec 13.10 (revised): a failed challenge ONLY unlocks subsequent content
@@ -401,7 +458,7 @@ export default function CourseView() {
   // (requested / confirmed / rescheduled) for that block.
   // A past executed session with a failing grade does NOT unlock — the student must
   // explicitly request a new tutoring first.
-  const isContentUnlockedForProgress = (c: Content): boolean => {
+  const isContentUnlockedForProgress = (c: any): boolean => {
     const status = getContentStatus(c);
     if (status === 'completed' || status === 'submitted' || status === 'failed') return true;
     return false;
@@ -410,9 +467,7 @@ export default function CourseView() {
   // Lógica de bloqueo secuencial
   const getFlattenedContents = () => {
     if (!course) return [];
-    return course.topics
-      .sort((a, b) => a.order - b.order)
-      .flatMap(topic => topic.contents.sort((a, b) => a.order - b.order));
+    return course.blocks.flatMap(block => block.contents);
   };
 
   const isContentLocked = (contentId: string) => {
@@ -423,11 +478,24 @@ export default function CourseView() {
     // El primero siempre está desbloqueado
     if (idx === 0) return false;
 
-    // Un contenido está bloqueado si el anterior no está completado
-    // (pero un challenge con tutoría activa/pendiente no bloquea el siguiente)
+    // Un contenido está bloqueado si el anterior está en gris (pendiente)
     const prev = flat[idx - 1];
-    return !isContentUnlockedForProgress(prev);
+    const prevStatus = getContentStatus(prev);
+    const prevCompleted = prev.completed === true || prevStatus === 'completed';
+    
+    // "Si no está en verde (completed), amarillo (submitted) o rojo (failed) no debe dejar pasar"
+    const prevIsActive = prevCompleted || prevStatus === 'submitted' || prevStatus === 'failed';
+    
+    return !prevIsActive;
   };
+
+  if (isLoading || !course) {
+    return (
+      <div className="h-screen bg-slate-900 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -448,22 +516,22 @@ export default function CourseView() {
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                   <div className="h-full bg-red-600 rounded-full transition-all duration-500"
-                    style={{ width: `${course.progress.pct}%` }} />
+                    style={{ width: `${course.progressPct}%` }} />
                 </div>
-                <span className="text-[10px] font-bold text-slate-400">{Math.round(course.progress.pct)}%</span>
+                <span className="text-[10px] font-bold text-slate-400">{Math.round(course.progressPct)}%</span>
               </div>
             </div>
 
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-4 px-1">Curriculum</p>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Badges Link */}
               <button
                 onClick={() => {
                   setShowBadges(true);
-                  setSelectedTopicId(null);
                   setSelectedContentId(null);
+                  setSelectedContent(null);
                 }}
-                className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${showBadges ? 'bg-red-600/20 text-red-500 border border-red-500/30 shadow-lg shadow-red-900/10' : 'text-slate-400 hover:text-slate-200'}`}
+                className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${showBadges ? 'bg-red-600/20 text-red-500 border border-red-500/30' : 'text-slate-400 hover:text-slate-200'}`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-5 h-5 flex items-center justify-center rounded border-2 ${showBadges ? 'border-red-500 bg-red-500/10' : 'border-slate-700'}`}>
@@ -472,52 +540,46 @@ export default function CourseView() {
                   <p className="text-xs font-bold uppercase tracking-wide">Mis Insignias</p>
                 </div>
                 <span className="text-[10px] font-bold opacity-50">
-                  {course.badges?.filter((b: any) => b.state === 'earned').length || 0}/{course.badges?.length || 0}
+                  {course.badges?.filter((b: any) => b.earned).length || 0}/{course.badges?.length || 0}
                 </span>
               </button>
 
-              {course.topics.map(topic => {
-                const completed = topic.contents.filter(c => c.progress.status === 'completed').length;
-                const isTopicActive = selectedTopicId === topic.id;
+              {course.blocks.map((block, bIdx) => {
+                const completedCount = block.contents.filter(c => c.status === 'completed').length;
+                const isBlockActive = activeBlockId === block.id;
 
                 return (
-                  <div key={topic.id} className="space-y-1">
+                  <div key={block.id} className="space-y-1">
                     <button onClick={() => {
                       setShowBadges(false);
-                      setSelectedTopicId(topic.id);
-                      if (!isTopicActive && topic.contents.length > 0) {
-                        setSelectedContentId(null);
-                      }
+                      setActiveBlockId(block.id);
                     }}
-                      className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${isTopicActive ? 'bg-slate-700/50 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
+                      className={`w-full text-left p-2.5 rounded-lg transition-all flex items-center justify-between group ${isBlockActive ? 'bg-slate-700/50 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
                       <div className="flex items-center gap-3 overflow-hidden">
-                        <span className={`text-[10px] font-black w-5 h-5 rounded flex items-center justify-center border-2 ${isTopicActive ? 'border-red-500 text-red-500' : 'border-slate-700 text-slate-600'}`}>
-                          {topic.order}
+                        <span className={`text-[10px] font-black w-5 min-w-[20px] h-5 rounded flex items-center justify-center border-2 ${isBlockActive ? 'border-red-500 text-red-500' : 'border-slate-700 text-slate-600'}`}>
+                          {bIdx + 1}
                         </span>
-                        <p className="text-xs font-bold truncate uppercase tracking-wide">{topic.title}</p>
+                        <p className="text-xs font-bold truncate uppercase tracking-wide">{block.name}</p>
                       </div>
-                      <span className="text-[9px] font-bold opacity-50">{completed}/{topic.contents.length}</span>
+                      <span className="text-[9px] font-bold opacity-50">{completedCount}/{block.contents.length}</span>
                     </button>
 
-                    {(isTopicActive || true) && (
+                    {isBlockActive && (
                       <div className="ml-8 space-y-1 border-l-2 border-slate-700/50 pl-3 py-1">
-                        {topic.contents.map(content => {
+                        {block.contents.map(content => {
                           const isContentActive = selectedContentId === content.id;
                           const status = getContentStatus(content);
                           const locked = isContentLocked(content.id);
-                          // Check if this failed challenge has an active tutoring (spec 13.10)
-                          // hasPendingTutoring check omitted — status 'failed' not in type
+
                           return (
                             <button key={content.id}
                               disabled={locked}
                               onClick={() => {
                                 setShowBadges(false);
-                                setSelectedTopicId(topic.id);
+                                setActiveBlockId(block.id);
                                 setSelectedContentId(content.id);
-                                const initPct = content.progress.pctWatched || 0;
-                                setLastSavedProgress(initPct);
-                                lastReportedPctRef.current = initPct;
                                 setIsResubmitting(false);
+                                navigate(`/student/courses/${courseSlug}/content/${content.id}`);
                               }}
                               className={`w-full text-left py-2 px-3 rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${locked ? 'opacity-40 cursor-not-allowed filter grayscale' :
                                   isContentActive ? 'bg-red-600/10 text-red-500 border border-red-500/20' :
@@ -527,22 +589,22 @@ export default function CourseView() {
                                 <svg className="w-3 h-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
-                              ) : status === 'completed' ? (
+                              ) : (status === 'completed' || content.completed) ? (
                                 <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                               ) : status === 'submitted' ? (
-                                <svg className="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20" title="Entregado, pendiente de calificación">
+                                <svg className="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                               ) : status === 'failed' ? (
-                                <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20" title="No aprobado">
+                                <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                               ) : (
-                                <div className={`w-3 h-3 rounded-full border-2 ${isContentActive ? 'border-red-500' : 'border-slate-700'}`} />
+                                <div className={`w-3 h-3 rounded-full border-2 ${locked ? 'border-slate-700 bg-slate-800' : 'border-slate-500 bg-slate-700/50'}`} />
                               )}
-                              <span className="truncate">{content.title}</span>
+                              <span className="truncate">{content.title || content.name}</span>
                             </button>
                           );
                         })}
@@ -590,6 +652,10 @@ export default function CourseView() {
                 </div>
               </div>
             </div>
+          ) : isContentLoading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="w-8 h-8 border-3 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
+            </div>
           ) : selectedContent ? (
             <div className="max-w-5xl w-full mx-auto p-6 md:p-10 flex-1">
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -622,17 +688,17 @@ export default function CourseView() {
                         return null;
                       })()}
                     </div>
-                    <h1 className="text-3xl font-extrabold text-white leading-tight">{selectedContent.title}</h1>
+                    <h1 className="text-3xl font-extrabold text-white leading-tight">{selectedContent.title || selectedContent.name}</h1>
                   </div>
 
 
                 </div>
 
                 {/* Block tutoring status banner — spec 13.10 */}
-                {selectedTopic?.blockId && (() => {
-                  const blockSess = tutoringSessions.filter(
-                    s => (s.block_id ?? s.block?.id) === selectedTopic.blockId
-                  );
+                 {activeBlockId && (() => {
+                   const blockSess = tutoringSessions.filter(
+                     s => (s.block_id ?? s.block?.id) === activeBlockId
+                   );
                   const pending = blockSess.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
                   const lastExecuted = blockSess
                     .filter(s => s.status === 'executed')
@@ -695,6 +761,10 @@ export default function CourseView() {
                             onPlay={() => {
                               if (lastSavedProgress === 0) api.updateProgress(selectedContent.id, 1);
                             }}
+                            onEnded={() => {
+                              api.updateProgress(selectedContent.id, 100);
+                              markContentCompleted(selectedContent.id);
+                            }}
                           />
                         ) : getYouTubeId(selectedContent.url) ? (
                           /* YouTube — IFrame API para rastrear progreso real */
@@ -750,7 +820,10 @@ export default function CourseView() {
                     <div className="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center mx-auto">
                       <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                     </div>
-                    <h2 className="text-xl font-bold text-white">{selectedContent.title}</h2>
+                    <h2 className="text-xl font-bold text-white mb-2">{selectedContent.title}</h2>
+                    {selectedContent.description && (
+                      <p className="text-sm text-slate-400 max-w-lg mx-auto mb-6">{selectedContent.description}</p>
+                    )}
                     <div className="flex justify-center gap-4">
                       <a 
                         href={selectedContent.url || '#'} 
@@ -776,19 +849,58 @@ export default function CourseView() {
 
                 {selectedContent.type === 'challenge' && (
                   <div className="space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
-                        <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Instrucciones</h3>
-                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedContent.description || 'Sin instrucciones adicionales'}</p>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div className="lg:col-span-2 space-y-6">
+                        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
+                          <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Instrucciones del Reto</h3>
+                          <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap prose prose-invert max-w-none">
+                            {selectedContent.instructions || selectedContent.description || 'Sin instrucciones adicionales'}
+                          </div>
+                        </div>
+
+                        {selectedContent.evaluationCriteria && (
+                          <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
+                            <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest mb-4">Criterios de Evaluación</h3>
+                            <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap prose prose-invert max-w-none">
+                              {selectedContent.evaluationCriteria}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
-                        <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Material de Apoyo</h3>
-                        {selectedContent.url ? (
-                          <a href={selectedContent.url} target="_blank" className="flex items-center gap-3 p-3 bg-slate-900/50 rounded-xl hover:bg-slate-900 transition-colors text-slate-300">
-                            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4" /></svg>
-                            <span className="text-xs font-bold uppercase">Ver Recursos</span>
-                          </a>
-                        ) : <p className="text-xs text-slate-500 italic">No hay archivos adjuntos</p>}
+
+                      <div className="space-y-6">
+                        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Recursos del Proyecto</h4>
+                          <div className="space-y-3">
+                            {selectedContent.supportUrl ? (
+                              <a href={selectedContent.supportUrl} target="_blank" className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl hover:bg-slate-900 transition-all group border border-slate-700/50">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                  </div>
+                                  <span className="text-xs font-bold text-slate-300 group-hover:text-white">Archivos Base</span>
+                                </div>
+                                <svg className="w-4 h-4 text-slate-600 group-hover:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4" /></svg>
+                              </a>
+                            ) : null}
+
+                             {selectedContent.url ? (
+                              <a href={selectedContent.url} target="_blank" className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl hover:bg-slate-900 transition-all group border border-slate-700/50">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.826L7.04 9.348a4 4 0 005.656 0l4-4a4 4 0 10-5.656-5.656l-1.1 1.1" /></svg>
+                                  </div>
+                                  <span className="text-xs font-bold text-slate-300 group-hover:text-white">Link de Interés</span>
+                                </div>
+                                <svg className="w-4 h-4 text-slate-600 group-hover:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4" /></svg>
+                              </a>
+                            ) : null}
+
+                            {!selectedContent.supportUrl && !selectedContent.url && (
+                              <p className="text-xs text-slate-600 italic px-2">No se han adjuntado archivos para este reto.</p>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -836,7 +948,7 @@ export default function CourseView() {
                         {selectedContent.submission.grade !== null &&
                           selectedContent.submission.grade < 7 &&
                           !activeSession &&
-                          selectedTopic?.blockId &&
+                          activeBlockId &&
                           !blockSessions.some(s => s.status === 'executed' && s.grade !== null && s.grade >= 7) && (
                             <div className="p-4 bg-slate-900/50 border border-slate-700 rounded-xl space-y-3">
                               <div className="flex items-start gap-3">
@@ -861,7 +973,7 @@ export default function CourseView() {
                           )}
 
                         {/* Historial de intentos del bloque */}
-                        {selectedTopic?.blockId && blockSessions.filter(s => s.status === 'executed').length > 0 && (
+                        {activeBlockId && blockSessions.filter(s => s.status === 'executed').length > 0 && (
                           <div className="border border-slate-700 rounded-xl overflow-hidden">
                             <div className="px-4 py-2.5 bg-slate-700/30 border-b border-slate-700">
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historial de Intentos</p>
@@ -1032,13 +1144,13 @@ export default function CourseView() {
                     <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
-                    <span className="text-white text-sm font-bold">{Math.round(course.progress.pct)}% completado</span>
+                    <span className="text-white text-sm font-bold">{Math.round(course.progressPct)}% completado</span>
                   </div>
                   <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
                     <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    <span className="text-white text-sm font-bold">{course.topics.length} temas</span>
+                    <span className="text-white text-sm font-bold">{course.blocks.length} bloques</span>
                   </div>
                 </div>
               </div>
@@ -1048,17 +1160,92 @@ export default function CourseView() {
         </div>
       </div>
 
+      {/* ── Tutoring Request Modal ── */}
+      {showTutoringModal && currentBlock && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-black text-white">Solicitar Tutoría</h3>
+                  <p className="text-slate-400 text-xs mt-1">{currentBlock.name}</p>
+                </div>
+                <button
+                  onClick={() => setShowTutoringModal(false)}
+                  className="p-2 text-slate-500 hover:text-white transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Bloque */}
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bloque</label>
+                  <div className="px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm font-bold">
+                    {currentBlock.name}
+                  </div>
+                </div>
+
+                {/* Fecha de solicitud */}
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
+                  <input
+                    type="datetime-local"
+                    value={tutoringDate}
+                    min={(() => {
+                      const now = new Date();
+                      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                      return now.toISOString().slice(0, 16);
+                    })()}
+                    onChange={e => setTutoringDate(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+
+                {/* Observación */}
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                    Observación <span className="text-slate-600 normal-case font-medium">(opcional)</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={tutoringObservation}
+                    onChange={(e) => setTutoringObservation(e.target.value)}
+                    placeholder="Ej: Tengo dudas sobre el tema X, me gustaría reforzar..."
+                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none placeholder-slate-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowTutoringModal(false)}
+                  className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={requestingTutoring}
+                  onClick={handleSubmitTutoringRequest}
+                  className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {requestingTutoring && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                  Solicitar Tutoría
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Badge Earned Modal ── */}
       {newBadge && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center animate-in zoom-in-95 duration-300">
-            {/* Confetti-like decoration */}
-            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-              <div className="absolute top-0 left-1/4 w-1 h-8 bg-yellow-400/30 rotate-12" />
-              <div className="absolute top-2 right-1/3 w-1 h-6 bg-red-400/30 -rotate-12" />
-              <div className="absolute top-1 right-1/4 w-1 h-10 bg-blue-400/30 rotate-6" />
-            </div>
-
             <div className="relative mb-6">
               <div className="w-32 h-32 mx-auto rounded-2xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border-2 border-yellow-500/40 flex items-center justify-center overflow-hidden shadow-xl shadow-yellow-900/20">
                 {newBadge.imageUrl || newBadge.image_url ? (
@@ -1081,101 +1268,6 @@ export default function CourseView() {
             <button
               onClick={() => setNewBadge(null)}
               className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white font-black text-sm uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-yellow-900/20"
-            >
-              Aceptar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Tutoring Request Modal ── */}
-      {showTutoringModal && selectedTopic && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl">
-            <div className="mb-6">
-              <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Solicitar Tutoría</h2>
-              <p className="text-xs text-slate-500">Completa los datos para solicitar tu sesión de validación.</p>
-            </div>
-
-            <div className="space-y-4">
-              {/* Bloque */}
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bloque</label>
-                <div className="px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm font-bold">
-                  {currentBlock?.name ?? selectedTopic.blockName ?? 'Bloque actual'}
-                </div>
-              </div>
-
-              {/* Fecha de solicitud */}
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
-                <input
-                  type="datetime-local"
-                  value={tutoringDate}
-                  min={(() => {
-                    const now = new Date();
-                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                    return now.toISOString().slice(0, 16);
-                  })()}
-                  onChange={e => setTutoringDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-              </div>
-
-              {/* Observación */}
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
-                  Observación <span className="text-slate-600 normal-case font-medium">(opcional)</span>
-                </label>
-                <textarea
-                  rows={3}
-                  value={tutoringObservation}
-                  onChange={(e) => setTutoringObservation(e.target.value)}
-                  placeholder="Ej: Tengo dudas sobre el tema X, me gustaría reforzar..."
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none placeholder-slate-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                type="button"
-                onClick={() => setShowTutoringModal(false)}
-                className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                disabled={requestingTutoring}
-                onClick={handleRequestTutoring}
-                className="flex-1 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {requestingTutoring && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                Solicitar Tutoría
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── New Badge Modal ── */}
-      {newBadge && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-800 border border-yellow-500/30 rounded-2xl p-8 w-full max-w-sm shadow-2xl shadow-yellow-900/20 text-center animate-in zoom-in-95 duration-300">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center overflow-hidden">
-              {newBadge.imageUrl
-                ? <img src={newBadge.imageUrl} alt={newBadge.name} className="w-full h-full object-cover" />
-                : <span className="text-4xl">🏅</span>
-              }
-            </div>
-            <p className="text-[10px] font-black text-yellow-400 uppercase tracking-widest mb-1">¡Insignia obtenida!</p>
-            <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-2">{newBadge.name}</h2>
-            {newBadge.description && (
-              <p className="text-sm text-slate-400 mb-6">{newBadge.description}</p>
-            )}
-            <button
-              onClick={() => setNewBadge(null)}
-              className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-slate-900 font-black text-sm uppercase tracking-widest rounded-xl transition-all"
             >
               Aceptar
             </button>

@@ -18,7 +18,7 @@ export function StudentCourses({ courses }: { courses: Course[] }) {
       <h2 className="text-2xl font-bold text-white mb-5">Mis Cursos</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {courses.map(course => (
-          <button key={course.id} onClick={() => navigate(`/course/${course.slug || course.id}`)}
+          <button key={course.id} onClick={() => navigate(`/student/courses/${course.slug || course.id}`)}
             className="text-left bg-slate-800 rounded-xl overflow-hidden border border-slate-700 hover:border-red-500/50 transition-all hover:scale-105 hover:shadow-xl flex flex-col h-full">
             {course.imageUrl ? (
               <img src={course.imageUrl} alt={course.name} className="w-full h-40 object-cover" />
