@@ -15,6 +15,7 @@ interface Content {
   title: string;
   description: string | null;
   url: string | null;
+  supportUrl?: string | null;
   slug: string | null;
   order: number;
   durationMinutes: number | null;
@@ -713,6 +714,25 @@ export default function CourseView() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Video completado</span>
+                      </div>
+                    )}
+
+                    {selectedContent.supportUrl && (
+                      <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                          Recurso del contenido
+                        </p>
+                        <a
+                          href={selectedContent.supportUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wide rounded-lg transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          Ver documento de recurso
+                        </a>
                       </div>
                     )}
                   </div>

@@ -690,6 +690,16 @@ export const api = {
     return response.data;
   },
 
+  createMuxUploadUrl: async (title?: string) => {
+    const response = await apiClient.post('/admin/mux/upload-url', { title });
+    return response.data;
+  },
+
+  getMuxUploadStatus: async (uploadId: string) => {
+    const response = await apiClient.get(`/admin/mux/upload/${uploadId}`);
+    return response.data;
+  },
+
   downloadTutorTutoringReport: async (type: 'tutorias' | 'retos' = 'tutorias') => {
     const response = await apiClient.get(`/tutor/reports/tutoring/download?type=${type}`, {
       responseType: 'blob'

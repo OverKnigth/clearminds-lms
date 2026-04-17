@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../../../services/api';
 import type { CourseData } from '../types';
 import Modal from '../../../components/Modal';
@@ -23,6 +23,7 @@ interface Content {
   instructions: string | null;
   evaluationCriteria: string | null;
   url: string | null;
+  supportUrl: string | null;
   order: number;
   durationMinutes: number | null;
   deadline: string | null;
@@ -78,6 +79,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     instructions: '',
     evaluationCriteria: '',
     url: '',
+    supportUrl: '',
     order: 1,
     durationMinutes: 0,
     deadline: '',
@@ -86,6 +88,11 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
   });
   const [savingContent, setSavingContent] = useState(false);
   const [fetchingMeta, setFetchingMeta] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadMessage, setUploadMessage] = useState('');
+  const videoFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     loadTopics();
@@ -300,9 +307,12 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     setContentForm({ 
       type: 'video', title: '', description: '', 
       instructions: '', evaluationCriteria: '',
-      url: '', order: existing.length + 1, durationMinutes: 0, 
+      url: '', supportUrl: '', order: existing.length + 1, durationMinutes: 0, 
       deadline: '', allowDownload: false, minProgressToComplete: 90 
     });
+    setVideoFile(null);
+    setUploadProgress(0);
+    setUploadMessage('');
     setContentModal({ open: true, topicId, editing: null });
   };
 
@@ -310,12 +320,69 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
     setContentForm({
       type: c.type, title: c.title, description: c.description || '',
       instructions: c.instructions || '', evaluationCriteria: c.evaluationCriteria || '',
-      url: c.url || '', order: c.order, durationMinutes: c.durationMinutes || 0,
+      url: c.url || '', supportUrl: c.supportUrl || '', order: c.order, durationMinutes: c.durationMinutes || 0,
       deadline: c.deadline ? new Date(c.deadline).toISOString().slice(0, 16) : '',
       allowDownload: c.allowDownload || false,
       minProgressToComplete: c.minProgressToComplete || 90,
     });
+    setVideoFile(null);
+    setUploadProgress(0);
+    setUploadMessage('');
     setContentModal({ open: true, topicId, editing: c });
+  };
+
+  const uploadVideoToMux = async (): Promise<string> => {
+    if (!videoFile) {
+      throw new Error('Selecciona un archivo de video primero.');
+    }
+
+    setUploadingVideo(true);
+    setUploadProgress(5);
+    setUploadMessage('Generando URL de carga...');
+
+    const createRes = await api.createMuxUploadUrl(contentForm.title || videoFile.name);
+    if (!createRes?.success || !createRes?.data?.uploadUrl || !createRes?.data?.uploadId) {
+      throw new Error(createRes?.message || 'No se pudo iniciar la carga en Mux');
+    }
+
+    const { uploadUrl, uploadId } = createRes.data;
+    setUploadProgress(20);
+    setUploadMessage('Subiendo archivo a Mux...');
+
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': videoFile.type || 'application/octet-stream' },
+      body: videoFile,
+    });
+
+    if (!putRes.ok) {
+      throw new Error('La carga a Mux falló');
+    }
+
+    setUploadProgress(75);
+    setUploadMessage('Procesando video en Mux...');
+
+    const maxAttempts = 30;
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const statusRes = await api.getMuxUploadStatus(uploadId);
+      const data = statusRes?.data;
+      if (!statusRes?.success || !data) continue;
+
+      if (data.playbackId) {
+        const muxUrl = `mux:${data.playbackId}`;
+        setContentForm(prev => ({
+          ...prev,
+          url: muxUrl,
+          durationMinutes: prev.durationMinutes > 0 ? prev.durationMinutes : 1,
+        }));
+        setUploadProgress(100);
+        setUploadMessage('Video subido correctamente.');
+        return muxUrl;
+      }
+    }
+
+    throw new Error('Mux sigue procesando. Intenta guardar en unos segundos.');
   };
 
   const saveContent = async (e: React.FormEvent) => {
@@ -330,7 +397,19 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       if (contentForm.description.trim()) payload.description = contentForm.description;
       if (contentForm.instructions.trim()) payload.instructions = contentForm.instructions;
       if (contentForm.evaluationCriteria.trim()) payload.evaluationCriteria = contentForm.evaluationCriteria;
-      if (contentForm.url.trim()) payload.url = contentForm.url;
+      if (contentForm.type === 'video') {
+        if (videoFile) {
+          const muxUrl = await uploadVideoToMux();
+          payload.url = muxUrl;
+        } else if (contentForm.url.trim()) {
+          payload.url = contentForm.url.trim();
+        } else {
+          throw new Error('Debes seleccionar un archivo de video para crear el contenido.');
+        }
+      } else if (contentForm.url.trim()) {
+        payload.url = contentForm.url;
+      }
+      if (contentForm.supportUrl.trim()) payload.supportUrl = contentForm.supportUrl.trim();
       if (contentForm.type === 'video' && contentForm.durationMinutes > 0) payload.durationMinutes = contentForm.durationMinutes;
       if (contentForm.deadline) payload.deadline = new Date(contentForm.deadline).toISOString();
       if (contentForm.type !== 'video') payload.allowDownload = contentForm.allowDownload;
@@ -351,6 +430,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
       console.error('[saveContent] error:', e.response?.data || e.message);
       showAlert(e.response?.data?.message || e.message);
     } finally {
+      setUploadingVideo(false);
       setSavingContent(false);
     }
   };
@@ -707,24 +787,95 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1.5">
-              {contentForm.type === 'document' ? 'URL del documento / enlace externo' : contentForm.type === 'challenge' ? 'Documento de apoyo (URL, opcional)' : 'URL del video'}
+              {contentForm.type === 'document' ? 'URL del documento / enlace externo' : contentForm.type === 'challenge' ? 'Documento de apoyo (URL, opcional)' : 'Video (archivo)'}
             </label>
-            <div className="relative">
-              <input className={INPUT_CLS} value={contentForm.url}
-                onChange={e => handleUrlChange(e.target.value)}
-                onBlur={e => contentForm.type === 'video' && fetchVideoDuration(e.target.value)}
-                placeholder={contentForm.type === 'document' ? 'https://drive.google.com/... o https://...' : 'https://...'} />
-              {fetchingMeta && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
+            {contentForm.type === 'video' ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-slate-300 text-sm">
+                    {videoFile
+                      ? videoFile.name
+                      : (contentForm.url.startsWith('mux:') ? 'Video actual en Mux' : 'No hay archivo seleccionado')}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => videoFileInputRef.current?.click()}
+                      className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg border border-slate-600"
+                    >
+                      {videoFile || contentForm.url.startsWith('mux:') ? 'Cambiar archivo' : 'Seleccionar archivo'}
+                    </button>
+                    {videoFile && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVideoFile(null);
+                          if (videoFileInputRef.current) videoFileInputRef.current.value = '';
+                        }}
+                        className="px-3 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-xs font-semibold rounded-lg border border-amber-500/40"
+                      >
+                        Quitar archivo
+                      </button>
+                    )}
+                    {contentForm.url.startsWith('mux:') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setContentForm(f => ({ ...f, url: '' }));
+                          setUploadMessage('');
+                          setUploadProgress(0);
+                        }}
+                        className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs font-semibold rounded-lg border border-red-500/40"
+                      >
+                        Eliminar video actual
+                      </button>
+                    )}
+                  </div>
+                  <label className="hidden">
+                    <input
+                      ref={videoFileInputRef}
+                      type="file"
+                      accept="video/*"
+                      className="hidden"
+                      onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                    />
+                  </label>
                 </div>
-              )}
-            </div>
-            {contentForm.type === 'video' && contentForm.url && (getYouTubeId(contentForm.url) || getVimeoId(contentForm.url)) && (
-              <p className="text-xs text-green-400 mt-1">
-                ✓ {getYouTubeId(contentForm.url) ? 'YouTube' : 'Vimeo'} detectado
-                {getVimeoId(contentForm.url) ? ' — duración obtenida automáticamente' : ' — ingresa la duración manualmente'}
-              </p>
+                {uploadingVideo && (
+                  <div className="space-y-1">
+                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div className="h-full bg-red-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                    <p className="text-xs text-slate-400">{uploadMessage}</p>
+                  </div>
+                )}
+                {contentForm.url.startsWith('mux:') && (
+                  <p className="text-xs text-green-400">Video cargado en Mux correctamente.</p>
+                )}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                    Link de recursos (Drive) - opcional
+                  </label>
+                  <input
+                    className={INPUT_CLS}
+                    value={contentForm.supportUrl}
+                    onChange={e => setContentForm(f => ({ ...f, supportUrl: e.target.value }))}
+                    placeholder="https://drive.google.com/..."
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="relative">
+                <input className={INPUT_CLS} value={contentForm.url}
+                  onChange={e => handleUrlChange(e.target.value)}
+                  onBlur={e => contentForm.type === 'video' && fetchVideoDuration(e.target.value)}
+                  placeholder={contentForm.type === 'document' ? 'https://drive.google.com/... o https://...' : 'https://...'} />
+                {fetchingMeta && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -778,7 +929,11 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
           )}
 
           <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={savingContent} className={`flex-1 py-2.5 ${BTN_PRIMARY} disabled:opacity-50`}>
+            <button
+              type="submit"
+              disabled={savingContent || uploadingVideo || (contentForm.type === 'video' && !videoFile && !contentForm.url.startsWith('mux:'))}
+              className={`flex-1 py-2.5 ${BTN_PRIMARY} disabled:opacity-50`}
+            >
               {savingContent ? 'Guardando...' : contentModal.editing ? 'Guardar cambios' : 'Crear contenido'}
             </button>
             <button type="button" onClick={() => setContentModal({ open: false, topicId: '', editing: null })} className={BTN_GHOST}>Cancelar</button>
