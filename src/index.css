@@ -7,14 +7,20 @@
   }
 }
 @layer utilities {
+  /* Barra de scroll temática — usar con PageScrollArea o en main del layout */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(71 85 105 / 0.85) rgb(15 23 42 / 0.5);
+  }
   .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
+    width: 8px;
   }
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgb(15 23 42 / 0.45);
+    border-radius: 9999px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-700/50 rounded-full hover:bg-red-500/50 transition-colors;
+    @apply rounded-full bg-slate-600/80 hover:bg-red-600/70 transition-colors;
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
