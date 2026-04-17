@@ -432,7 +432,11 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: 
             <input
               type="datetime-local"
               value={requestDate}
-              min={new Date().toISOString().slice(0, 16)}
+              min={(() => {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                return now.toISOString().slice(0, 16);
+              })()}
               onChange={e => setRequestDate(e.target.value)}
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             />

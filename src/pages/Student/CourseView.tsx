@@ -314,21 +314,15 @@ export default function CourseView() {
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedContent || !selectedTopic) return;
+    if (submittingChallenge || !selectedContent || !selectedTopic) return;
     setSubmittingChallenge(true);
     try {
       await api.submitChallenge(selectedContent.id, { gitUrl, comment });
       
-      // Identificar si es el último reto del bloque
-      const challenges = selectedTopic.contents.filter(c => c.type === 'challenge').sort((a, b) => a.order - b.order);
-      const isLastChallenge = challenges.length > 0 && challenges[challenges.length - 1].id === selectedContent.id;
-
-      if (isLastChallenge) {
-        // Forzar solicitud de tutoría para el último reto
-        openTutoringModal();
-      } else {
-        navigate('/meetings', { state: { preselectedBlockId: selectedTopic?.blockId } });
+      if (courseSlug) {
+        await reloadCourse(courseSlug);
       }
+      showAlert("Reto entregado con éxito.");
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSubmittingChallenge(false); }
   };
@@ -386,11 +380,20 @@ export default function CourseView() {
   };
 
   const getContentStatus = (c: Content) => {
-    if (c.progress.status === 'completed' || c.submission) {
-      return 'completed';
+    if (c.type === 'challenge') {
+      if (c.submission) {
+        // Un reto está 'completed' solo si tiene nota >= 7.
+        // Si tiene nota < 7 está 'failed'.
+        // Si no tiene nota está 'submitted'.
+        const grade = c.submission.grade;
+        if (grade !== null && grade !== undefined) {
+          return grade >= 7 ? 'completed' : 'failed';
+        }
+        return 'submitted';
+      }
+      return 'pending';
     }
-    if (c.submission) return 'submitted';
-    return 'pending';
+    return c.progress.status === 'completed' ? 'completed' : 'pending';
   };
 
   // Per spec 13.10 (revised): a failed challenge ONLY unlocks subsequent content
@@ -400,7 +403,7 @@ export default function CourseView() {
   // explicitly request a new tutoring first.
   const isContentUnlockedForProgress = (c: Content): boolean => {
     const status = getContentStatus(c);
-    if (status === 'completed' || status === 'submitted') return true;
+    if (status === 'completed' || status === 'submitted' || status === 'failed') return true;
     return false;
   };
 
@@ -528,6 +531,14 @@ export default function CourseView() {
                                 <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
+                              ) : status === 'submitted' ? (
+                                <svg className="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20" title="Entregado, pendiente de calificación">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              ) : status === 'failed' ? (
+                                <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20" title="No aprobado">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
                               ) : (
                                 <div className={`w-3 h-3 rounded-full border-2 ${isContentActive ? 'border-red-500' : 'border-slate-700'}`} />
                               )}
@@ -588,12 +599,28 @@ export default function CourseView() {
                       <span className="px-2 py-0.5 bg-red-600/10 text-red-500 text-[10px] font-bold uppercase tracking-widest rounded border border-red-500/20">
                         {selectedContent.type === 'video' ? 'Video' : selectedContent.type === 'document' ? 'Documento' : 'Reto'}
                       </span>
-                      {selectedContent.progress.status === 'completed' && (
-                        <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                          Completado
-                        </span>
-                      )}
+                      {(() => {
+                        const status = getContentStatus(selectedContent);
+                        if (status === 'completed') return (
+                          <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                            Completado
+                          </span>
+                        );
+                        if (status === 'submitted') return (
+                          <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            Entregado (Pendiente de Calificación)
+                          </span>
+                        );
+                        if (status === 'failed') return (
+                          <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            No Aprobado (Requiere 7/10)
+                          </span>
+                        );
+                        return null;
+                      })()}
                     </div>
                     <h1 className="text-3xl font-extrabold text-white leading-tight">{selectedContent.title}</h1>
                   </div>
@@ -1085,7 +1112,11 @@ export default function CourseView() {
                 <input
                   type="datetime-local"
                   value={tutoringDate}
-                  min={new Date().toISOString().slice(0, 16)}
+                  min={(() => {
+                    const now = new Date();
+                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                    return now.toISOString().slice(0, 16);
+                  })()}
                   onChange={e => setTutoringDate(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
