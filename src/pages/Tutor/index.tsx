@@ -13,6 +13,20 @@ export default function Tutor() {
   const { pending, upcoming, completed, students, challenges, stats, isLoading, fetchSessions, fetchAll } = useTutorData();
   const [globalMessage, setGlobalMessage] = useState('');
   const [reportType, setReportType] = useState<'tutorias' | 'retos'>('tutorias');
+  const [studentSearch, setStudentSearch] = useState('');
+
+  const normalize = (value?: string | null) => (value ?? '').toLowerCase().trim();
+  const matchesStudent = (names?: string | null, lastNames?: string | null) => {
+    const query = normalize(studentSearch);
+    if (!query) return true;
+    return `${normalize(names)} ${normalize(lastNames)}`.includes(query);
+  };
+
+  const filteredPending = pending.filter(s => matchesStudent(s.student?.names, s.student?.lastNames));
+  const filteredUpcoming = upcoming.filter(s => matchesStudent(s.student?.names, s.student?.lastNames));
+  const filteredCompleted = completed.filter(s => matchesStudent(s.student?.names, s.student?.lastNames));
+  const filteredStudents = students.filter(s => matchesStudent(s.names, s.lastNames));
+  const filteredChallenges = challenges.filter(c => matchesStudent(c.student?.names, c.student?.lastNames));
 
   const handleDownloadReport = async () => {
     try {
@@ -257,36 +271,61 @@ export default function Tutor() {
               </h1>
               <p className="text-slate-400">Gestiona a tus estudiantes y valida su aprendizaje</p>
             </div>
+            <div className="w-full max-w-sm">
+              <div className="relative">
+                <svg className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m1.6-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  placeholder="Buscar estudiante por nombre"
+                  className="w-full pl-9 pr-9 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                />
+                {studentSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setStudentSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-1"
+                    title="Limpiar búsqueda"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         {activeTab === 'pending' && (
-          pending.length > 0 ? (
+          filteredPending.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pending.map(s => <SessionCard key={s.id} session={s} onRefresh={fetchSessions} />)}
+              {filteredPending.map(s => <SessionCard key={s.id} session={s} onRefresh={fetchSessions} />)}
             </div>
           ) : <EmptyState message="No hay tutorías pendientes" />
         )}
 
         {activeTab === 'upcoming' && (
-          upcoming.length > 0 ? (
+          filteredUpcoming.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {upcoming.map(s => <SessionCard key={s.id} session={s} onRefresh={fetchSessions} />)}
+              {filteredUpcoming.map(s => <SessionCard key={s.id} session={s} onRefresh={fetchSessions} />)}
             </div>
           ) : <EmptyState message="No hay tutorías próximas" />
         )}
 
         {activeTab === 'completed' && (
-          completed.length > 0 ? (
+          filteredCompleted.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {completed.map(s => <SessionCard key={s.id} session={s} onRefresh={fetchSessions} />)}
+              {filteredCompleted.map(s => <SessionCard key={s.id} session={s} onRefresh={fetchSessions} />)}
             </div>
           ) : <EmptyState message="No hay tutorías completadas" />
         )}
 
-        {activeTab === 'students' && <StudentsTab students={students} />}
+        {activeTab === 'students' && <StudentsTab students={filteredStudents} />}
 
-        {activeTab === 'challenges' && <ChallengesTab challenges={challenges} onRefresh={fetchAll} />}
+        {activeTab === 'challenges' && <ChallengesTab challenges={filteredChallenges} onRefresh={fetchAll} />}
       </div>
       <Footer />
     </div>
