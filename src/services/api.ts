@@ -694,7 +694,10 @@ export const api = {
   getGroups: async (): Promise<any> => {
     try {
       const response = await apiClient.get(API_ENDPOINTS.GET_GROUPS);
-      return response.data;
+      const body = response.data;
+      if (Array.isArray(body)) return body;
+      if (body && Array.isArray(body.data)) return body.data;
+      return [];
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
@@ -861,6 +864,12 @@ export const api = {
 
   updateTutoringConfig: async (globalMessage: string) => {
     const response = await apiClient.patch('/admin/tutoring/config', { globalMessage });
+    return response.data;
+  },
+
+  /** Todas las sesiones de tutoría (admin): tutores, estudiantes, enlaces y fechas */
+  getAdminTutoringSessions: async () => {
+    const response = await apiClient.get('/admin/tutoring');
     return response.data;
   },
 };
