@@ -38,9 +38,10 @@ export function useAdminModals(_activeTab: Tab) {
     setModalType(type);
     if (type === 'editStudent' && data) {
       setSelectedStudent(data);
+      const nameParts = (data.fullName || '').trim().split(/\s+/).filter(Boolean);
       setFormData({
-        firstName: data.fullName.split(' ')[0],
-        lastName: data.fullName.split(' ').slice(1).join(' '),
+        firstName: nameParts[0] ?? '',
+        lastName: nameParts.slice(1).join(' '),
         email: data.email,
         password: '',
         role: data.role,

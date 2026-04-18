@@ -4,6 +4,29 @@ import { api } from '../../../services/api';
 import type { Student, CourseData, FormData, ContentFormData } from '../types';
 import type { Group, GroupDetail } from '../../../types/group';
 
+function normalizeGroupsList(res: unknown): Group[] {
+  if (Array.isArray(res)) return res as Group[];
+  if (res && typeof res === 'object') {
+    const d = (res as { data?: unknown }).data;
+    const r = (res as { rows?: unknown }).rows;
+    if (Array.isArray(d)) return d as Group[];
+    if (Array.isArray(r)) return r as Group[];
+  }
+  return [];
+}
+
+function normalizeGroupDetail(res: unknown): GroupDetail | null {
+  if (!res || typeof res !== 'object') return null;
+  const o = res as { success?: boolean; data?: unknown };
+  if (o.data !== undefined && o.data !== null && typeof o.data === 'object' && !Array.isArray(o.data)) {
+    return o.data as GroupDetail;
+  }
+  if ('courses' in (res as object) || 'id' in (res as object)) {
+    return res as GroupDetail;
+  }
+  return null;
+}
+
 interface AdminModalsProps {
   isModalOpen: boolean;
   setIsModalOpen: (val: boolean) => void;
@@ -58,7 +81,7 @@ export function AdminModals({
     if (isModalOpen && (modalType === 'addStudent' || modalType === 'addTutor' || modalType === 'addAdmin' || modalType === 'editStudent')) {
       setLoadingGroups(true);
       api.getGroups()
-        .then(setGroupsList)
+        .then((res) => setGroupsList(normalizeGroupsList(res)))
         .catch(() => setGroupsList([]))
         .finally(() => setLoadingGroups(false));
     }
@@ -81,7 +104,7 @@ export function AdminModals({
     setSelectedCourseId('');
     setFormData({ ...formDataRef.current, groupId: selectedGroupId });
     api.getGroupDetail(selectedGroupId)
-      .then(setGroupDetail)
+      .then((res) => setGroupDetail(normalizeGroupDetail(res)))
       .catch(() => setGroupDetail(null))
       .finally(() => setLoadingDetail(false));
   }, [selectedGroupId]);
@@ -160,7 +183,7 @@ export function AdminModals({
                       className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-red-500 font-bold uppercase tracking-tighter text-xs"
                       disabled={loadingDetail}>
                       <option value="">-- Todos los cursos del grupo --</option>
-                      {groupDetail?.courses.map((c: any) => <option key={c.course.id} value={c.course.id}>{c.course.name}</option>)}
+                      {(groupDetail?.courses ?? []).map((c: any) => <option key={c.course.id} value={c.course.id}>{c.course.name}</option>)}
                     </select>
                   </div>
                 )}
@@ -201,7 +224,7 @@ export function AdminModals({
 
             <div className="space-y-2">
               {courses.map(course => {
-                const isSelected = formData.selectedCourses.includes(course.id);
+                const isSelected = (formData.selectedCourses ?? []).includes(course.id);
                 return (
                   <div key={course.id}
                     className={`rounded-lg border transition-all ${isSelected ? 'border-slate-500 bg-slate-800' : 'border-slate-700/50 bg-slate-800/40'}`}>
@@ -848,7 +871,7 @@ function EditStudentForm({
   useEffect(() => {
     setLoadingGroups(true);
     api.getGroups()
-      .then(setGroupsList)
+      .then((res) => setGroupsList(normalizeGroupsList(res)))
       .catch(() => { })
       .finally(() => setLoadingGroups(false));
   }, []);
@@ -866,7 +889,7 @@ function EditStudentForm({
     setSelectedCourseId('');
     setFormData({ ...formDataRef.current, groupId: selectedGroupId });
     api.getGroupDetail(selectedGroupId)
-      .then(setGroupDetail)
+      .then((res) => setGroupDetail(normalizeGroupDetail(res)))
       .catch(() => setGroupDetail(null))
       .finally(() => setLoadingDetail(false));
   }, [selectedGroupId, groupChanged]);
@@ -942,7 +965,7 @@ function EditStudentForm({
             disabled={loadingDetail}
           >
             <option value="">-- Todos los cursos del grupo --</option>
-            {groupDetail?.courses.map((c: any) => (
+            {(groupDetail?.courses ?? []).map((c: any) => (
               <option key={c.course.id} value={c.course.id}>{c.course.name}</option>
             ))}
           </select>
