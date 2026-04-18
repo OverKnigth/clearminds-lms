@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ReactPlayerImport from 'react-player';
 const ReactPlayer = ReactPlayerImport as any;
 import { api } from '../../services/api';
+import { isLastContentInBlock } from '../../utils/blockContentOrder';
+import { toDatetimeLocalValue, datetimeLocalToIsoUtc } from '../../utils/datetimeLocal';
 import Footer from '../../components/Footer';
 import { StudentBadges } from './components';
 import { useDialog } from '../../hooks/useDialog';
@@ -111,15 +113,13 @@ export default function CourseView() {
   const [pendingRatingSubmission, setPendingRatingSubmission] = useState<{ id: string; tutorName: string } | null>(null);
   const [showTutoringModal, setShowTutoringModal] = useState(false);
   const [tutoringObservation, setTutoringObservation] = useState('');
-  const [tutoringDate, setTutoringDate] = useState(() => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
-  });
+  const [tutoringDate, setTutoringDate] = useState(() => toDatetimeLocalValue(new Date()));
   const [requestingTutoring, setRequestingTutoring] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [newBadge, setNewBadge] = useState<any | null>(null);
   const seenBadgeIds = useRef<Set<string> | null>(null);
+  /** Evita abrir el modal de tutoría varias veces por múltiples callbacks de progreso */
+  const tutoringAutoOpenDoneRef = useRef<Set<string>>(new Set());
   const { dialog, showAlert, close: closeDialog } = useDialog();
 
   useEffect(() => {
@@ -128,6 +128,14 @@ export default function CourseView() {
       loadTutoring();
     }
   }, [courseSlug]);
+
+  // Cada reto tiene su propia entrega: no reutilizar URL/comentario del contenido anterior
+  useEffect(() => {
+    setGitUrl('');
+    setComment('');
+    setIsResubmitting(false);
+    tutoringAutoOpenDoneRef.current.clear();
+  }, [selectedContentId]);
 
   // Auto-show rating modal 5 seconds after viewing a graded challenge
   useEffect(() => {
@@ -240,10 +248,64 @@ export default function CourseView() {
     ? tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === selectedTopic.blockId)
     : [];
   const activeSession = blockSessions.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
+  const lastExecutedBlockSession = blockSessions
+    .filter(s => s.status === 'executed')
+    .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
+  const blockTutoringApprovedFlag =
+    !!(lastExecutedBlockSession && lastExecutedBlockSession.grade !== null && lastExecutedBlockSession.grade >= 7);
   const currentBlock = course.blocks?.find(b => b.id === selectedTopic?.blockId);
 
-  // Lógica de habilitación de tutoría (13.2)
-  // canRequestTutoring — available for future use
+  const topicSlicesOrdered = course.topics.map((t) => ({
+    blockId: t.blockId,
+    order: t.order,
+    contents: (t.contents ?? []).map((c) => ({ id: c.id, order: c.order })),
+  }));
+
+  const isLastContentOfBlock =
+    !!selectedContent &&
+    !!selectedTopic?.blockId &&
+    isLastContentInBlock(topicSlicesOrdered, selectedTopic.blockId, selectedContent.id);
+
+  const contentEligibleForTutoringPrompt =
+    !!selectedContent &&
+    (selectedContent.type === 'challenge'
+      ? !!selectedContent.submission
+      : selectedContent.progress.status === 'completed');
+
+  const showLastContentTutoringCta =
+    isLastContentOfBlock &&
+    !activeSession &&
+    !blockTutoringApprovedFlag &&
+    contentEligibleForTutoringPrompt;
+
+  const openTutoringModal = () => {
+    setTutoringObservation('');
+    setTutoringDate(toDatetimeLocalValue(new Date()));
+    setShowTutoringModal(true);
+  };
+
+  const tryOpenTutoringAfterBlockLastContent = (contentId: string, blockId: string | null | undefined) => {
+    if (!blockId) return;
+    if (!isLastContentInBlock(topicSlicesOrdered, blockId, contentId)) return;
+
+    const blockSess = tutoringSessions.filter(
+      (s) => (s.block_id ?? s.block?.id) === blockId
+    );
+    const pending = blockSess.some((s) =>
+      ['requested', 'confirmed', 'rescheduled'].includes(s.status)
+    );
+    if (pending) return;
+
+    const lastEx = blockSess
+      .filter((s) => s.status === 'executed')
+      .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
+    const approved = !!(lastEx && lastEx.grade !== null && lastEx.grade >= 7);
+    if (approved) return;
+
+    if (tutoringAutoOpenDoneRef.current.has(contentId)) return;
+    tutoringAutoOpenDoneRef.current.add(contentId);
+    openTutoringModal();
+  };
 
   // handleManualComplete — available for future use
   const getYouTubeId = (url: string): string | null => {
@@ -296,6 +358,7 @@ export default function CourseView() {
         const res = await api.updateProgress(selectedContent.id, currentPct);
         if (res.success && res.data.status === 'completed') {
           markContentCompleted(selectedContent.id);
+          tryOpenTutoringAfterBlockLastContent(selectedContent.id, selectedTopic?.blockId);
         }
       } catch (e) { console.error(e); }
     }
@@ -307,6 +370,7 @@ export default function CourseView() {
       const res = await api.updateProgress(contentId, pct);
       if (res.success && res.data.status === 'completed') {
         markContentCompleted(contentId);
+        tryOpenTutoringAfterBlockLastContent(contentId, selectedTopic?.blockId);
       }
     } catch (e) { console.error(e); }
   };
@@ -318,27 +382,26 @@ export default function CourseView() {
     if (!selectedContent || !selectedTopic) return;
     setSubmittingChallenge(true);
     try {
-      await api.submitChallenge(selectedContent.id, { gitUrl, comment });
-      
-      // Identificar si es el último reto del bloque
-      const challenges = selectedTopic.contents.filter(c => c.type === 'challenge').sort((a, b) => a.order - b.order);
-      const isLastChallenge = challenges.length > 0 && challenges[challenges.length - 1].id === selectedContent.id;
-
-      if (isLastChallenge) {
-        // Forzar solicitud de tutoría para el último reto
-        openTutoringModal();
-      } else {
-        navigate('/meetings', { state: { preselectedBlockId: selectedTopic?.blockId } });
-      }
+      const blockId = selectedTopic.blockId;
+      await api.submitChallenge(selectedContent.id, { gitUrl, comment: comment || undefined });
+      setGitUrl('');
+      setComment('');
+      setIsResubmitting(false);
+      if (courseSlug) await reloadCourse(courseSlug);
+      // Tutoría al cerrar el último contenido del bloque (reto, video o documento)
+      tryOpenTutoringAfterBlockLastContent(selectedContent.id, blockId);
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSubmittingChallenge(false); }
   };
 
   const handleDocumentClick = async (contentId: string) => {
+    const docBlockId =
+      course.topics.find((t) => t.contents.some((c) => c.id === contentId))?.blockId ?? null;
     try {
       const res = await api.updateProgress(contentId, 100);
       if (res.success) {
         markContentCompleted(contentId);
+        tryOpenTutoringAfterBlockLastContent(contentId, docBlockId);
       }
     } catch (e) { console.error('Error marking document as completed:', e); }
   };
@@ -366,7 +429,7 @@ export default function CourseView() {
     if (!selectedTopic?.blockId) return;
     setRequestingTutoring(true);
     try {
-      const isoDate = new Date(tutoringDate).toISOString();
+      const isoDate = datetimeLocalToIsoUtc(tutoringDate);
       await (api as any).requestTutoring(selectedTopic.blockId, tutoringObservation || undefined, isoDate);
       setShowTutoringModal(false);
       setTutoringObservation('');
@@ -378,19 +441,17 @@ export default function CourseView() {
     }
   };
 
-  const openTutoringModal = () => {
-    setTutoringObservation('');
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    setTutoringDate(now.toISOString().slice(0, 16));
-    setShowTutoringModal(true);
-  };
-
-  const getContentStatus = (c: Content) => {
-    if (c.progress.status === 'completed' || c.submission) {
-      return 'completed';
+  /** Reto: completado solo con calificación aprobatoria; entregado sin nota = espera. */
+  const getContentStatus = (c: Content): 'pending' | 'submitted' | 'completed' | 'failed' => {
+    if (c.type === 'challenge') {
+      const sub = c.submission;
+      if (!sub) return 'pending';
+      const reviewed = sub.status === 'reviewed' && sub.grade !== null && sub.grade !== undefined;
+      if (reviewed && sub.grade! >= 7) return 'completed';
+      if (reviewed && sub.grade! < 7) return 'failed';
+      return 'submitted';
     }
-    if (c.submission) return 'submitted';
+    if (c.progress.status === 'completed') return 'completed';
     return 'pending';
   };
 
@@ -475,7 +536,13 @@ export default function CourseView() {
               </button>
 
               {course.topics.map(topic => {
-                const completed = topic.contents.filter(c => c.progress.status === 'completed').length;
+                const completed = topic.contents.filter(c => {
+                  if (c.type === 'challenge') {
+                    const sub = c.submission;
+                    return !!sub && sub.status === 'reviewed' && sub.grade !== null && sub.grade >= 7;
+                  }
+                  return c.progress.status === 'completed';
+                }).length;
                 const isTopicActive = selectedTopicId === topic.id;
 
                 return (
@@ -528,6 +595,14 @@ export default function CourseView() {
                               ) : status === 'completed' ? (
                                 <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              ) : status === 'submitted' ? (
+                                <svg className="w-3 h-3 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              ) : status === 'failed' ? (
+                                <svg className="w-3 h-3 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                 </svg>
                               ) : (
                                 <div className={`w-3 h-3 rounded-full border-2 ${isContentActive ? 'border-red-500' : 'border-slate-700'}`} />
@@ -589,11 +664,38 @@ export default function CourseView() {
                       <span className="px-2 py-0.5 bg-red-600/10 text-red-500 text-[10px] font-bold uppercase tracking-widest rounded border border-red-500/20">
                         {selectedContent.type === 'video' ? 'Video' : selectedContent.type === 'document' ? 'Documento' : 'Reto'}
                       </span>
-                      {selectedContent.progress.status === 'completed' && (
-                        <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                          Completado
-                        </span>
+                      {selectedContent.type === 'challenge' ? (
+                        <>
+                          {getContentStatus(selectedContent) === 'completed' && (
+                            <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                              Completado
+                            </span>
+                          )}
+                          {getContentStatus(selectedContent) === 'submitted' && (
+                            <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1">
+                              <svg className="w-3 h-3 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              En calificación
+                            </span>
+                          )}
+                          {getContentStatus(selectedContent) === 'failed' && (
+                            <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest flex items-center gap-1">
+                              <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              No aprobado
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        selectedContent.progress.status === 'completed' && (
+                          <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                            Completado
+                          </span>
+                        )
                       )}
                     </div>
                     <h1 className="text-3xl font-extrabold text-white leading-tight">{selectedContent.title}</h1>
@@ -649,6 +751,29 @@ export default function CourseView() {
 
                   return null;
                 })()}
+
+                {showLastContentTutoringCta && (
+                  <div className="mb-6 p-5 bg-gradient-to-r from-red-600/20 to-amber-600/10 border border-red-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-red-600/30 border border-red-500/40 flex items-center justify-center shrink-0">
+                        <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zm12-10h.01M12 12h4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-red-400 uppercase tracking-widest mb-1">Último contenido del módulo</p>
+                        <p className="text-sm text-slate-200 font-medium">Completaste este bloque. Solicita tu tutoría de validación para cerrar el módulo con tu tutor.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={openTutoringModal}
+                      className="shrink-0 px-6 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-red-900/20"
+                    >
+                      Solicitar tutoría
+                    </button>
+                  </div>
+                )}
 
                 {/* VIEWERS */}
                 {selectedContent.type === 'video' && (
@@ -786,8 +911,20 @@ export default function CourseView() {
                     </div>
 
                     {selectedContent.submission && !isResubmitting ? (
-                      <div className="bg-slate-800 p-8 rounded-2xl border border-green-500/20 relative overflow-hidden space-y-4">
-                        <div className="absolute top-0 right-0 p-4 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest border-l border-b border-green-500/20 rounded-bl-xl">Entregado</div>
+                      <div className={`bg-slate-800 p-8 rounded-2xl border relative overflow-hidden space-y-4 ${
+                        getContentStatus(selectedContent) === 'completed' ? 'border-green-500/20' :
+                        getContentStatus(selectedContent) === 'submitted' ? 'border-amber-500/30' :
+                        getContentStatus(selectedContent) === 'failed' ? 'border-orange-500/30' : 'border-slate-700'
+                      }`}>
+                        {getContentStatus(selectedContent) === 'completed' && (
+                          <div className="absolute top-0 right-0 p-4 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest border-l border-b border-green-500/20 rounded-bl-xl">Aprobado</div>
+                        )}
+                        {getContentStatus(selectedContent) === 'submitted' && (
+                          <div className="absolute top-0 right-0 p-4 bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-widest border-l border-b border-amber-500/25 rounded-bl-xl">En calificación</div>
+                        )}
+                        {getContentStatus(selectedContent) === 'failed' && (
+                          <div className="absolute top-0 right-0 p-4 bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase tracking-widest border-l border-b border-orange-500/25 rounded-bl-xl">No aprobado</div>
+                        )}
                         <h3 className="text-lg font-bold text-white">Tu Entrega</h3>
 
                         {/* Repo & comment */}
@@ -1105,7 +1242,8 @@ export default function CourseView() {
                 <input
                   type="datetime-local"
                   value={tutoringDate}
-                  min={new Date().toISOString().slice(0, 16)}
+                  min={toDatetimeLocalValue(new Date())}
+                  step={60}
                   onChange={e => setTutoringDate(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                 />

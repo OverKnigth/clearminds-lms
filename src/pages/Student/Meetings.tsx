@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
+import { toDatetimeLocalValue, datetimeLocalToIsoUtc } from '../../utils/datetimeLocal';
 import Footer from '../../components/Footer';
 import Modal from '../../components/Modal';
 
@@ -360,11 +361,7 @@ function CalendarView({
 function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: { courses: Course[]; initialBlockId?: string; onClose: () => void; onSuccess: () => void; onError: (msg: string) => void }) {
   const [blockId, setBlockId] = useState(initialBlockId || '');
   const [observations, setObservations] = useState('');
-  const [requestDate, setRequestDate] = useState(() => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
-  });
+  const [requestDate, setRequestDate] = useState(() => toDatetimeLocalValue(new Date()));
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -385,7 +382,7 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: 
     if (!blockId) return;
     setSubmitting(true);
     try {
-      const isoDate = new Date(requestDate).toISOString();
+      const isoDate = datetimeLocalToIsoUtc(requestDate);
       await (api as any).requestTutoring(blockId, observations || undefined, isoDate);
       onSuccess();
       onClose();
@@ -432,7 +429,8 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: 
             <input
               type="datetime-local"
               value={requestDate}
-              min={new Date().toISOString().slice(0, 16)}
+              min={toDatetimeLocalValue(new Date())}
+              step={60}
               onChange={e => setRequestDate(e.target.value)}
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             />

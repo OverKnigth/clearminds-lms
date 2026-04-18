@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ReactPlayerImport from 'react-player';
 const ReactPlayer = ReactPlayerImport as any;
 import { api } from '../../services/api';
+import { isLastContentInBlock, type TopicForBlockOrder } from '../../utils/blockContentOrder';
 import Footer from '../../components/Footer';
 import Modal from '../../components/Modal';
 
@@ -44,6 +45,7 @@ export default function ContentView() {
   const [submitting, setSubmitting] = useState(false);
   const [lastSavedProgress, setLastSavedProgress] = useState(0);
   const [blockId, setBlockId] = useState<string | null>(null);
+  const [topicsForBlockOrder, setTopicsForBlockOrder] = useState<TopicForBlockOrder[]>([]);
   const [showRateModal, setShowRateModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const progressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,8 +61,8 @@ export default function ContentView() {
     }
   }, [content]);
 
-  const loadContent = async (cSlug: string, ctSlug: string) => {
-    setIsLoading(true);
+  const loadContent = async (cSlug: string, ctSlug: string, opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setIsLoading(true);
     try {
       const res = await api.getStudentCourseDetail(cSlug);
       if (res.success) {
@@ -89,13 +91,26 @@ export default function ContentView() {
             navigate(`/course/${courseData.slug}/content/${foundContent.slug}`, { replace: true });
             return;
           }
-          setContent(foundContent); 
+          setContent(foundContent);
+          setGitUrl('');
+          setComment('');
           setLastSavedProgress(foundContent.progress.pctWatched || 0);
           setBlockId(foundBlockId);
+          setTopicsForBlockOrder(
+            (courseData.topics || []).map((t: any) => ({
+              blockId: t.blockId ?? null,
+              order: t.order,
+              contents: (t.contents || []).map((c: any) => ({ id: c.id, order: c.order })),
+            }))
+          );
+        } else {
+          setTopicsForBlockOrder([]);
+          setGitUrl('');
+          setComment('');
         }
       }
     } catch (e) { console.error(e); }
-    finally { setIsLoading(false); }
+    finally { if (!opts?.silent) setIsLoading(false); }
   };
 
   const handleVideoProgress = async (state: any) => {
@@ -160,10 +175,18 @@ export default function ContentView() {
     const contentId = content.id;
     setSubmitting(true);
     try {
+      const shouldGoMeetings =
+        !!blockId &&
+        topicsForBlockOrder.length > 0 &&
+        isLastContentInBlock(topicsForBlockOrder, blockId, contentId);
       await api.submitChallenge(contentId, { gitUrl, comment: comment || undefined });
-      // Redirect to meetings/tutoring page after successful submission
-      // Include blockId in state to preselect it in the meetings page
-      navigate('/meetings', { state: { preselectedBlockId: blockId } });
+      setGitUrl('');
+      setComment('');
+      if (courseSlug && contentSlug) await loadContent(courseSlug, contentSlug, { silent: true });
+      // Solo al final del bloque (último contenido de todos los temas del módulo) se deriva a tutorías
+      if (shouldGoMeetings && blockId) {
+        navigate('/meetings', { state: { preselectedBlockId: blockId } });
+      }
     } catch (e: any) { setError(e.response?.data?.message || e.message); }
     finally { setSubmitting(false); }
   };
@@ -180,7 +203,19 @@ export default function ContentView() {
     </div>
   );
 
-  const isCompleted = content.progress.status === 'completed';
+  const isCompleted =
+    content.type === 'challenge'
+      ? !!(content.submission?.status === 'reviewed' && content.submission.grade !== null && content.submission.grade >= 7)
+      : content.progress.status === 'completed';
+  const challengeAwaitingGrade =
+    content.type === 'challenge' &&
+    !!content.submission &&
+    !(content.submission.status === 'reviewed' && content.submission.grade !== null);
+  const challengeFailed =
+    content.type === 'challenge' &&
+    content.submission?.status === 'reviewed' &&
+    content.submission.grade !== null &&
+    content.submission.grade < 7;
   const INPUT = 'w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500';
 
   return (
@@ -205,6 +240,22 @@ export default function ContentView() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                 </svg>
                 Completado
+              </span>
+            )}
+            {challengeAwaitingGrade && (
+              <span className="flex items-center gap-1 text-[10px] font-bold text-amber-400 uppercase tracking-widest">
+                <svg className="w-3 h-3 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                En calificación
+              </span>
+            )}
+            {challengeFailed && (
+              <span className="flex items-center gap-1 text-[10px] font-bold text-orange-400 uppercase tracking-widest">
+                <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                No aprobado
               </span>
             )}
           </div>
