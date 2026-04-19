@@ -1,13 +1,48 @@
+import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LandingNavbar from '../components/LandingNavbar';
 import Footer from '../components/Footer';
 import krakedevLogo from '../assets/krakedev_logo.png';
+import kdImg from '../assets/kd.jpg';
+
+interface Story {
+  name: string;
+  role: string;
+  company: string;
+  testimonial: string;
+}
+
+function TestimonialCard({ 
+  story
+}: { 
+  story: Story
+}) {
+  return (
+    <div 
+      className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden transition-all hover:-translate-y-2 hover:border-red-500/50 shadow-lg hover:shadow-red-500/20 flex flex-col group/card"
+    >
+      {/* Content */}
+      <div className="p-6 md:p-8 flex flex-col justify-center flex-grow bg-slate-800/80 backdrop-blur-sm">
+        <div className="flex items-start mb-4">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-red-500/30 shrink-0">
+            {story.name.charAt(0)}
+          </div>
+          <div className="ml-3">
+            <div className="font-semibold text-white leading-tight">{story.name}</div>
+            <div className="text-sm text-slate-400 mt-1">{story.role} en <span className="text-red-400">{story.company}</span></div>
+          </div>
+        </div>
+        <p className="text-white/80 leading-relaxed italic mt-2">"{story.testimonial}"</p>
+      </div>
+    </div>
+  );
+}
 
 export default function Landing() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="h-screen overflow-y-auto scroll-smooth bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 custom-scrollbar">
       <LandingNavbar />
 
       {/* Hero Section */}
@@ -210,30 +245,29 @@ export default function Landing() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { name: 'María González', role: 'Full Stack Developer', company: 'Tech Corp', testimonial: 'Pasé de no saber programar a conseguir mi primer trabajo en 6 meses. La metodología de Krakedev es increíble.' },
-              { name: 'Carlos Ramírez', role: 'Cloud Engineer', company: 'AWS Partner', testimonial: 'Obtuve mi certificación AWS y ahora trabajo en una de las mejores empresas de cloud computing del país.' },
-              { name: 'Ana Martínez', role: 'Data Scientist', company: 'Analytics Inc', testimonial: 'El programa de Data Science me abrió las puertas a un mundo de oportunidades. Totalmente recomendado.' },
-            ].map((story, idx) => (
-              <div key={idx} className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
-                <div className="flex items-center mb-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-red-500/30">
-                    {story.name.charAt(0)}
-                  </div>
-                  <div className="ml-3">
-                    <div className="font-semibold text-white">{story.name}</div>
-                    <div className="text-sm text-slate-400">{story.role} en {story.company}</div>
-                  </div>
-                </div>
-                <p className="text-slate-300 italic">"{story.testimonial}"</p>
-              </div>
+              { name: 'Martín Simbaña', role: 'Full Stack Developer', company: 'ClearMinds', testimonial: 'Krakedev se convirtió en una experiencia que cambió mi vida, ahora trabajo en lo que me gusta y disfruto de lo que hago.' },
+              { name: 'Brandon Pesantez', role: 'Full Stack Developer', company: 'ClearMinds', testimonial: 'A quienes desean ingresar en Krakedev, les aconsejo dar siempre lo mejor de sí y nunca dejar de aprender.'},
+              { name: 'Josue Tipán', role: 'Full Stack Developer', company: 'ClearMinds', testimonial: 'Krakedev da la oportunidad a jóvenes, con 19 años me ayudo a cumplir mis sueños, ahora soy programador profesional.' },
+            ].map((story, idx) => ( 
+              <TestimonialCard 
+                key={idx} 
+                story={story} 
+              />
             ))}
           </div>
         </div>
       </div>
 
       {/* CTA Section */}
-      <div className="py-20 px-6 bg-gradient-to-r from-red-500/10 to-red-600/10 border-y border-slate-700">
-        <div className="max-w-4xl mx-auto text-center">
+      <div className="relative py-20 px-6 bg-slate-900/50 border-y border-slate-700 overflow-hidden">
+        {/* Background Image Overlay */}
+        <div 
+          className="absolute inset-0 z-0 opacity-20 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${kdImg})` }}
+        />
+        {/* Subtle Gradient Overlay */}
+        <div className="absolute inset-0 z-0 bg-gradient-to-r from-red-500/10 to-red-600/10" />
+        <div className="max-w-4xl mx-auto text-center relative z-10">
           <h2 className="text-4xl font-bold text-white mb-6">
             Comienza tu carrera en tecnología hoy
           </h2>
