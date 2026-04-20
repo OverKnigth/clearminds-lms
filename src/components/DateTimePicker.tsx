@@ -92,28 +92,54 @@ export default function DateTimePicker({ value, onChange, minDate, label, disabl
   };
 
   const isOccupiedAt = (hour: number, minute: number) => {
-    if (!disabledSlots || isNaN(internalDate.getTime())) return false;
+    if (!disabledSlots || disabledSlots.length === 0 || isNaN(internalDate.getTime())) return false;
     
     return disabledSlots.some(slot => {
       try {
-        const d = new Date(slot);
+        // The API returns local times with a trailing 'Z' which is incorrect.
+        // Strip the timezone marker so JS parses as LOCAL time instead of UTC.
+        const localSlot = slot.endsWith('Z') ? slot.slice(0, -1) : slot;
+        const d = new Date(localSlot);
         if (isNaN(d.getTime())) return false;
         
-        if (
-          d.getFullYear() !== internalDate.getFullYear() ||
-          d.getMonth() !== internalDate.getMonth() ||
-          d.getDate() !== internalDate.getDate()
-        ) return false;
-
+        let slotYear = d.getFullYear();
+        let slotMonth = d.getMonth();
+        let slotDay = d.getDate();
         let slotHour = d.getHours();
-        let slotMinutes = d.getMinutes();
-        let normalizedMinute = 0;
+        const slotMinutes = d.getMinutes();
 
-        if (slotMinutes <= 15) normalizedMinute = 0;
-        else if (slotMinutes <= 45) normalizedMinute = 30;
-        else { normalizedMinute = 0; slotHour += 1; }
+        // 15-minute threshold normalization:
+        // 00-15 min  → block the :00 slot of that hour
+        // 16-45 min  → block the :30 slot of that hour
+        // 46-59 min  → block the :00 slot of the NEXT hour
+        let normalizedSlotMinute: number;
+        if (slotMinutes <= 15) {
+          normalizedSlotMinute = 0;
+        } else if (slotMinutes <= 45) {
+          normalizedSlotMinute = 30;
+        } else {
+          normalizedSlotMinute = 0;
+          slotHour += 1;
+          // Handle hour overflow (23 → 0 next day)
+          if (slotHour >= 24) {
+            slotHour = 0;
+            const next = new Date(d);
+            next.setDate(next.getDate() + 1);
+            slotYear = next.getFullYear();
+            slotMonth = next.getMonth();
+            slotDay = next.getDate();
+          }
+        }
 
-        return slotHour === hour && normalizedMinute === minute;
+        const sameDay = (
+          slotYear === internalDate.getFullYear() &&
+          slotMonth === internalDate.getMonth() &&
+          slotDay === internalDate.getDate()
+        );
+
+        if (!sameDay) return false;
+
+        return slotHour === hour && normalizedSlotMinute === minute;
       } catch { return false; }
     });
   };
@@ -199,8 +225,13 @@ export default function DateTimePicker({ value, onChange, minDate, label, disabl
                 const displayHour = h % 12 || 12;
                 const isSelected = internalDate.getHours() === h;
                 const isToday = internalDate.toDateString() === new Date().toDateString();
+                // Only disable hours STRICTLY in the past (not the current hour)
+                // Current hour may still have :30 available
+                const isDisabled = isToday && h < new Date().getHours();
+                // Hour is "full" if BOTH :00 and :30 are taken → disable entirely
                 const hourIsFull = [0, 30].every(m => isOccupiedAt(h, m));
-                const isDisabled = isToday && h < new Date().getHours() + 1; // 1h advance
+                // Hour is "partial" if AT LEAST ONE slot is taken → warn but allow
+                const hourHasAny = !hourIsFull && [0, 30].some(m => isOccupiedAt(h, m));
 
                 return (
                   <button
@@ -211,11 +242,14 @@ export default function DateTimePicker({ value, onChange, minDate, label, disabl
                     className={`h-9 rounded-lg text-[10px] font-black transition-all relative
                       ${isSelected ? 'bg-red-600 text-white shadow-lg shadow-red-900/40' : 
                         (isDisabled || hourIsFull) ? 'text-slate-600 cursor-not-allowed opacity-30 bg-slate-900/10' : 
+                        hourHasAny ? 'bg-orange-500/10 text-orange-300 border border-orange-500/30 hover:bg-orange-500/20' :
                         'bg-slate-700/50 text-white hover:bg-slate-700 hover:text-red-400 border border-transparent hover:border-red-500/30'}
                     `}
                   >
                     {displayHour} <span className="text-[7px] opacity-60">{ampm}</span>
-                    {hourIsFull && !isDisabled && <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-slate-500 rounded-full" />}
+                    {(hourIsFull || hourHasAny) && !isDisabled && (
+                      <div className={`absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full ${hourIsFull ? 'bg-slate-500' : 'bg-orange-400'}`} />
+                    )}
                   </button>
                 );
               })}
@@ -237,7 +271,10 @@ export default function DateTimePicker({ value, onChange, minDate, label, disabl
                 const isSelected = internalDate.getMinutes() === m;
                 const isToday = internalDate.toDateString() === new Date().toDateString();
                 const now = new Date();
-                const isDisabled = isToday && internalDate.getHours() === now.getHours() && m < now.getMinutes();
+                // Disable if in the past (current hour only, check specific minute)
+                const isDisabled = internalDate.toDateString() === now.toDateString() &&
+                  internalDate.getHours() === now.getHours() &&
+                  m <= now.getMinutes();
                 const slotIsOccupied = isOccupiedAt(internalDate.getHours(), m);
 
                 return (
