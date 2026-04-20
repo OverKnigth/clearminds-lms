@@ -269,7 +269,6 @@ export default function DateTimePicker({ value, onChange, minDate, label, disabl
             <div className="flex-1 flex flex-col gap-2 justify-center">
               {minutes.map(m => {
                 const isSelected = internalDate.getMinutes() === m;
-                const isToday = internalDate.toDateString() === new Date().toDateString();
                 const now = new Date();
                 // Disable if in the past (current hour only, check specific minute)
                 const isDisabled = internalDate.toDateString() === now.toDateString() &&
