@@ -119,7 +119,7 @@ export function SessionCard({ session, onRefresh, onUpdate }: SessionCardProps) 
       </div>
 
       {/* Modals */}
-      {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} disabledSlots={disabledSlots} />}
+      {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
       {modal === 'reschedule' && <RescheduleModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} disabledSlots={disabledSlots} />}
       {modal === 'cancel' && <CancelModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
       {modal === 'execute' && <ExecuteModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
@@ -128,17 +128,22 @@ export function SessionCard({ session, onRefresh, onUpdate }: SessionCardProps) 
 }
 
 // ── Confirm Modal ────────────────────────────────────────────────────────────
-function ConfirmModal({ session, onClose, onSuccess, disabledSlots }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void; disabledSlots: string[] }) {
-  const [scheduledAt, setScheduledAt] = useState('');
+function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void }) {
   const [meetingLink, setMeetingLink] = useState('');
   const [saving, setSaving] = useState(false);
   const { dialog, showAlert, close: closeDialog } = useDialog();
+
+  // Use the student's requested date — tutor cannot change it
+  const requestedDate = session.scheduledAt || session.requestedAt;
+  const formattedDate = requestedDate
+    ? new Date(requestedDate).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' })
+    : 'Sin fecha especificada';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { scheduledAt: `${scheduledAt}:00.000Z`, meetingLink: meetingLink || undefined };
+      const payload = { scheduledAt: requestedDate, meetingLink: meetingLink || undefined };
       const res = await api.confirmTutoringSession(session.id, payload);
       onSuccess(res.data);
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
@@ -148,14 +153,20 @@ function ConfirmModal({ session, onClose, onSuccess, disabledSlots }: { session:
   return (
     <ModalWrapper title="Confirmar Tutoría" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Fecha propuesta por el estudiante — solo lectura */}
         <div>
-          <DateTimePicker 
-            label="Fecha y hora programada"
-            value={scheduledAt}
-            onChange={setScheduledAt}
-            disabledSlots={disabledSlots}
-          />
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+            Fecha solicitada por el estudiante
+          </label>
+          <div className="w-full flex items-center gap-3 px-4 py-3 bg-slate-700/40 border border-slate-600/50 rounded-xl">
+            <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm font-bold text-white capitalize">{formattedDate}</span>
+          </div>
+          <p className="mt-1.5 text-[10px] text-slate-500">Esta fecha fue seleccionada por el estudiante y no puede modificarse al confirmar.</p>
         </div>
+
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1.5">Link de reunión (Zoom/Teams)</label>
           <input type="url" className={INPUT} value={meetingLink} onChange={e => setMeetingLink(e.target.value)} placeholder="https://zoom.us/j/..." />
@@ -356,7 +367,7 @@ export function SessionActions({ session, onRefresh, compact = false }: { sessio
           </>
         )}
       </div>
-      {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} disabledSlots={disabledSlots} />}
+      {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
       {modal === 'reschedule' && <RescheduleModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} disabledSlots={disabledSlots} />}
       {modal === 'cancel' && <CancelModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
       {modal === 'execute' && <ExecuteModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
