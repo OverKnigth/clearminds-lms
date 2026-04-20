@@ -3,7 +3,8 @@ import { useLocation } from 'react-router-dom';
 import Footer from '../../components/Footer';
 import { api } from '../../services/api';
 import { useTutorData } from './hooks/useTutorData';
-import { TutoringSessionsTable, ChallengesTab, TutorModuleFilters } from './components';
+import { StudentsTab, ChallengesTab, TutoringSessionsTable, TutorModuleFilters } from './components';
+import TutoringCalendar from '../../components/TutoringCalendar';
 import type { TutorTab } from './types';
 
 export default function Tutor() {
@@ -15,7 +16,8 @@ export default function Tutor() {
     rawTab === 'upcoming' ? 'confirmed' :
     rawTab === 'challenges' ? 'challenge-pending' :
     ((rawTab as TutorTab) || 'dashboard');
-  const { pending, upcoming, completed, challenges, stats, isLoading, fetchSessions, fetchAll } = useTutorData();
+
+  const { sessions, pending, upcoming, completed, students, challenges, stats, isLoading, fetchSessions, fetchAll } = useTutorData();
   const [globalMessage, setGlobalMessage] = useState('');
   const [reportType, setReportType] = useState<'tutorias' | 'retos'>('tutorias');
   const [moduleFilters, setModuleFilters] = useState({ name: '', email: '', course: '' });
@@ -81,33 +83,23 @@ export default function Tutor() {
   );
 
   useEffect(() => {
-    if (pendingPage > pendingTotalPages) {
-      setPendingPage(1);
-    }
+    if (pendingPage > pendingTotalPages) setPendingPage(1);
   }, [pendingPage, pendingTotalPages]);
 
   useEffect(() => {
-    if (confirmedPage > confirmedTotalPages) {
-      setConfirmedPage(1);
-    }
+    if (confirmedPage > confirmedTotalPages) setConfirmedPage(1);
   }, [confirmedPage, confirmedTotalPages]);
 
   useEffect(() => {
-    if (completedPage > completedTotalPages) {
-      setCompletedPage(1);
-    }
+    if (completedPage > completedTotalPages) setCompletedPage(1);
   }, [completedPage, completedTotalPages]);
 
   useEffect(() => {
-    if (pendingChallengesPage > pendingChallengesTotalPages) {
-      setPendingChallengesPage(1);
-    }
+    if (pendingChallengesPage > pendingChallengesTotalPages) setPendingChallengesPage(1);
   }, [pendingChallengesPage, pendingChallengesTotalPages]);
 
   useEffect(() => {
-    if (gradedChallengesPage > gradedChallengesTotalPages) {
-      setGradedChallengesPage(1);
-    }
+    if (gradedChallengesPage > gradedChallengesTotalPages) setGradedChallengesPage(1);
   }, [gradedChallengesPage, gradedChallengesTotalPages]);
 
   const PaginationControls = ({
@@ -246,7 +238,7 @@ export default function Tutor() {
               </div>
             </div>
 
-            {/* 6 stat cards — spec 20 */}
+            {/* Stat cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
               {[
                 { label: 'Pendientes de confirmar', value: pending.length, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', tab: 'pending' },
@@ -360,23 +352,34 @@ export default function Tutor() {
         )}
 
         {/* ── TABS ── */}
-        {activeTab !== 'dashboard' && (
+        {activeTab !== 'dashboard' && activeTab !== 'calendar' && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-3xl font-black text-white">
-                  {activeTab === 'pending' ? 'Pendientes' :
-                   activeTab === 'confirmed' ? 'Confirmadas' :
-                   activeTab === 'completed' ? 'Completadas' :
-                   activeTab === 'challenge-pending' ? 'Retos Pendientes' : 'Retos Calificados'}
+                <h1 className="text-3xl font-black text-white uppercase tracking-tighter">
+                  {activeTab === 'pending' && 'Tutorías Pendientes'}
+                  {activeTab === 'confirmed' && 'Tutorías Confirmadas'}
+                  {activeTab === 'completed' && 'Tutorías Realizadas'}
+                  {activeTab === 'students' && 'Mis Estudiantes'}
+                  {activeTab === 'challenge-pending' && 'Retos por Revisar'}
+                  {activeTab === 'challenge-graded' && 'Retos Calificados'}
                 </h1>
-                <p className="text-slate-400">Gestiona a tus estudiantes y valida su aprendizaje</p>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
+                  {activeTab === 'pending' && 'Confirma o rechaza las nuevas solicitudes de tutoría'}
+                  {activeTab === 'confirmed' && 'Sesiones programadas para los próximos días'}
+                  {activeTab === 'completed' && 'Historial de sesiones ejecutadas y calificaciones'}
+                  {activeTab === 'students' && 'Listado oficial de estudiantes bajo tu tutoría'}
+                  {activeTab === 'challenge-pending' && 'Valida los retos entregados por tus estudiantes'}
+                  {activeTab === 'challenge-graded' && 'Retos ya calificados y revisados'}
+                </p>
               </div>
             </div>
 
-            <div className="bg-slate-800 border border-slate-700/50 rounded-lg p-4">
-              <TutorModuleFilters filters={moduleFilters} courseOptions={courseOptions} onChange={setModuleFilters} />
-            </div>
+            {activeTab !== 'students' && (
+              <div className="bg-slate-800 border border-slate-700/50 rounded-lg p-4">
+                <TutorModuleFilters filters={moduleFilters} courseOptions={courseOptions} onChange={setModuleFilters} />
+              </div>
+            )}
           </div>
         )}
 
@@ -422,6 +425,8 @@ export default function Tutor() {
           ) : <EmptyState message="No hay tutorías completadas" />
         )}
 
+        {activeTab === 'students' && <StudentsTab students={students} />}
+
         {activeTab === 'challenge-pending' && (
           filteredPendingChallenges.length > 0
             ? (
@@ -438,6 +443,7 @@ export default function Tutor() {
             )
             : <EmptyState message="No hay retos pendientes" />
         )}
+
         {activeTab === 'challenge-graded' && (
           filteredGradedChallenges.length > 0
             ? (
@@ -454,6 +460,14 @@ export default function Tutor() {
             )
             : <EmptyState message="No hay retos calificados" />
         )}
+
+        {activeTab === 'calendar' && (
+          <TutoringCalendar
+            sessions={sessions}
+            isLoading={isLoading}
+          />
+        )}
+
       </div>
       <Footer />
     </div>

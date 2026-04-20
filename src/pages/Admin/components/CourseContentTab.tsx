@@ -4,6 +4,7 @@ import type { CourseData } from '../types';
 import Modal from '../../../components/Modal';
 import { useDialog } from '../../../hooks/useDialog';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import DateTimePicker from '../../../components/DateTimePicker';
 
 interface Topic {
   id: string;
@@ -907,11 +908,11 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
               </div>
             )}
             {contentForm.type === 'challenge' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">Fecha límite</label>
-                <input type="datetime-local" className={INPUT_CLS} value={contentForm.deadline}
-                  onChange={e => setContentForm(f => ({ ...f, deadline: e.target.value }))} />
-              </div>
+              <DateTimePicker 
+                label="Fecha límite"
+                value={contentForm.deadline}
+                onChange={(val) => setContentForm(f => ({ ...f, deadline: val }))}
+              />
             )}
           </div>
 

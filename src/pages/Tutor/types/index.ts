@@ -42,7 +42,11 @@ export interface ChallengeSubmission {
 export type TutorTab =
   | 'dashboard'
   | 'pending'
+  | 'upcoming'
   | 'confirmed'
   | 'completed'
+  | 'students'
+  | 'challenges'
   | 'challenge-pending'
-  | 'challenge-graded';
+  | 'challenge-graded'
+  | 'calendar';

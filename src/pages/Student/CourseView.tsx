@@ -3,13 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ReactPlayerImport from 'react-player';
 const ReactPlayer = ReactPlayerImport as any;
 import { api } from '../../services/api';
-import { isLastContentInBlock } from '../../utils/blockContentOrder';
-import { toDatetimeLocalValue, datetimeLocalToIsoUtc } from '../../utils/datetimeLocal';
 import Footer from '../../components/Footer';
 import { StudentBadges } from './components';
 import { useDialog } from '../../hooks/useDialog';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import MuxPlayer from '@mux/mux-player-react';
+import DateTimePicker from '../../components/DateTimePicker';
 
 interface Content {
   id: string;
@@ -17,7 +16,6 @@ interface Content {
   title: string;
   description: string | null;
   url: string | null;
-  supportUrl?: string | null;
   slug: string | null;
   order: number;
   durationMinutes: number | null;
@@ -113,13 +111,23 @@ export default function CourseView() {
   const [pendingRatingSubmission, setPendingRatingSubmission] = useState<{ id: string; tutorName: string } | null>(null);
   const [showTutoringModal, setShowTutoringModal] = useState(false);
   const [tutoringObservation, setTutoringObservation] = useState('');
-  const [tutoringDate, setTutoringDate] = useState(() => toDatetimeLocalValue(new Date()));
+  const [tutoringDate, setTutoringDate] = useState(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  });
   const [requestingTutoring, setRequestingTutoring] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [newBadge, setNewBadge] = useState<any | null>(null);
+  const [disabledSlots, setDisabledSlots] = useState<string[]>([]);
+  const [requestingBlockId, setRequestingBlockId] = useState<string | null>(null);
+  const [seenGrades, setSeenGrades] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('seenGrades');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const seenBadgeIds = useRef<Set<string> | null>(null);
-  /** Evita abrir el modal de tutoría varias veces por múltiples callbacks de progreso */
-  const tutoringAutoOpenDoneRef = useRef<Set<string>>(new Set());
   const { dialog, showAlert, close: closeDialog } = useDialog();
 
   useEffect(() => {
@@ -129,13 +137,21 @@ export default function CourseView() {
     }
   }, [courseSlug]);
 
-  // Cada reto tiene su propia entrega: no reutilizar URL/comentario del contenido anterior
   useEffect(() => {
-    setGitUrl('');
-    setComment('');
-    setIsResubmitting(false);
-    tutoringAutoOpenDoneRef.current.clear();
-  }, [selectedContentId]);
+    if (showTutoringModal) {
+      const fetchAvailability = async () => {
+        try {
+          const response = await (api as any).getTutoringAvailability();
+          if (response.success && response.data?.fullSlots) {
+            setDisabledSlots(response.data.fullSlots);
+          }
+        } catch (err) {
+          console.error('Error fetching availability:', err);
+        }
+      };
+      fetchAvailability();
+    }
+  }, [showTutoringModal]);
 
   // Auto-show rating modal 5 seconds after viewing a graded challenge
   useEffect(() => {
@@ -248,64 +264,10 @@ export default function CourseView() {
     ? tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === selectedTopic.blockId)
     : [];
   const activeSession = blockSessions.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
-  const lastExecutedBlockSession = blockSessions
-    .filter(s => s.status === 'executed')
-    .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
-  const blockTutoringApprovedFlag =
-    !!(lastExecutedBlockSession && lastExecutedBlockSession.grade !== null && lastExecutedBlockSession.grade >= 7);
-  const currentBlock = course.blocks?.find(b => b.id === selectedTopic?.blockId);
+  const requestingBlock = course.blocks?.find(b => b.id === requestingBlockId);
 
-  const topicSlicesOrdered = course.topics.map((t) => ({
-    blockId: t.blockId,
-    order: t.order,
-    contents: (t.contents ?? []).map((c) => ({ id: c.id, order: c.order })),
-  }));
-
-  const isLastContentOfBlock =
-    !!selectedContent &&
-    !!selectedTopic?.blockId &&
-    isLastContentInBlock(topicSlicesOrdered, selectedTopic.blockId, selectedContent.id);
-
-  const contentEligibleForTutoringPrompt =
-    !!selectedContent &&
-    (selectedContent.type === 'challenge'
-      ? !!selectedContent.submission
-      : selectedContent.progress.status === 'completed');
-
-  const showLastContentTutoringCta =
-    isLastContentOfBlock &&
-    !activeSession &&
-    !blockTutoringApprovedFlag &&
-    contentEligibleForTutoringPrompt;
-
-  const openTutoringModal = () => {
-    setTutoringObservation('');
-    setTutoringDate(toDatetimeLocalValue(new Date()));
-    setShowTutoringModal(true);
-  };
-
-  const tryOpenTutoringAfterBlockLastContent = (contentId: string, blockId: string | null | undefined) => {
-    if (!blockId) return;
-    if (!isLastContentInBlock(topicSlicesOrdered, blockId, contentId)) return;
-
-    const blockSess = tutoringSessions.filter(
-      (s) => (s.block_id ?? s.block?.id) === blockId
-    );
-    const pending = blockSess.some((s) =>
-      ['requested', 'confirmed', 'rescheduled'].includes(s.status)
-    );
-    if (pending) return;
-
-    const lastEx = blockSess
-      .filter((s) => s.status === 'executed')
-      .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
-    const approved = !!(lastEx && lastEx.grade !== null && lastEx.grade >= 7);
-    if (approved) return;
-
-    if (tutoringAutoOpenDoneRef.current.has(contentId)) return;
-    tutoringAutoOpenDoneRef.current.add(contentId);
-    openTutoringModal();
-  };
+  // Lógica de habilitación de tutoría (13.2)
+  // canRequestTutoring — available for future use
 
   // handleManualComplete — available for future use
   const getYouTubeId = (url: string): string | null => {
@@ -358,7 +320,6 @@ export default function CourseView() {
         const res = await api.updateProgress(selectedContent.id, currentPct);
         if (res.success && res.data.status === 'completed') {
           markContentCompleted(selectedContent.id);
-          tryOpenTutoringAfterBlockLastContent(selectedContent.id, selectedTopic?.blockId);
         }
       } catch (e) { console.error(e); }
     }
@@ -370,7 +331,6 @@ export default function CourseView() {
       const res = await api.updateProgress(contentId, pct);
       if (res.success && res.data.status === 'completed') {
         markContentCompleted(contentId);
-        tryOpenTutoringAfterBlockLastContent(contentId, selectedTopic?.blockId);
       }
     } catch (e) { console.error(e); }
   };
@@ -379,29 +339,24 @@ export default function CourseView() {
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedContent || !selectedTopic) return;
+    if (submittingChallenge || !selectedContent || !selectedTopic) return;
     setSubmittingChallenge(true);
     try {
-      const blockId = selectedTopic.blockId;
-      await api.submitChallenge(selectedContent.id, { gitUrl, comment: comment || undefined });
-      setGitUrl('');
-      setComment('');
-      setIsResubmitting(false);
-      if (courseSlug) await reloadCourse(courseSlug);
-      // Tutoría al cerrar el último contenido del bloque (reto, video o documento)
-      tryOpenTutoringAfterBlockLastContent(selectedContent.id, blockId);
+      await api.submitChallenge(selectedContent.id, { gitUrl, comment });
+      
+      if (courseSlug) {
+        await reloadCourse(courseSlug);
+      }
+      showAlert("Reto entregado con éxito.");
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSubmittingChallenge(false); }
   };
 
   const handleDocumentClick = async (contentId: string) => {
-    const docBlockId =
-      course.topics.find((t) => t.contents.some((c) => c.id === contentId))?.blockId ?? null;
     try {
       const res = await api.updateProgress(contentId, 100);
       if (res.success) {
         markContentCompleted(contentId);
-        tryOpenTutoringAfterBlockLastContent(contentId, docBlockId);
       }
     } catch (e) { console.error('Error marking document as completed:', e); }
   };
@@ -426,11 +381,11 @@ export default function CourseView() {
   };
 
   const handleRequestTutoring = async () => {
-    if (!selectedTopic?.blockId) return;
+    if (!requestingBlockId) return;
     setRequestingTutoring(true);
     try {
-      const isoDate = datetimeLocalToIsoUtc(tutoringDate);
-      await (api as any).requestTutoring(selectedTopic.blockId, tutoringObservation || undefined, isoDate);
+      const isoDate = `${tutoringDate}:00.000Z`;
+      await (api as any).requestTutoring(requestingBlockId, tutoringObservation || undefined, isoDate);
       setShowTutoringModal(false);
       setTutoringObservation('');
       loadTutoring();
@@ -441,18 +396,31 @@ export default function CourseView() {
     }
   };
 
-  /** Reto: completado solo con calificación aprobatoria; entregado sin nota = espera. */
-  const getContentStatus = (c: Content): 'pending' | 'submitted' | 'completed' | 'failed' => {
+  const openTutoringModal = (blockId?: string) => {
+    setTutoringObservation('');
+    const idToRequest = blockId || selectedTopic?.blockId || null;
+    setRequestingBlockId(idToRequest);
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    setTutoringDate(now.toISOString().slice(0, 16));
+    setShowTutoringModal(true);
+  };
+
+  const getContentStatus = (c: Content) => {
     if (c.type === 'challenge') {
-      const sub = c.submission;
-      if (!sub) return 'pending';
-      const reviewed = sub.status === 'reviewed' && sub.grade !== null && sub.grade !== undefined;
-      if (reviewed && sub.grade! >= 7) return 'completed';
-      if (reviewed && sub.grade! < 7) return 'failed';
-      return 'submitted';
+      if (c.submission) {
+        // Un reto está 'completed' solo si tiene nota >= 7.
+        // Si tiene nota < 7 está 'failed'.
+        // Si no tiene nota está 'submitted'.
+        const grade = c.submission.grade;
+        if (grade !== null && grade !== undefined) {
+          return grade >= 7 ? 'completed' : 'failed';
+        }
+        return 'submitted';
+      }
+      return 'pending';
     }
-    if (c.progress.status === 'completed') return 'completed';
-    return 'pending';
+    return c.progress.status === 'completed' ? 'completed' : 'pending';
   };
 
   // Per spec 13.10 (revised): a failed challenge ONLY unlocks subsequent content
@@ -463,6 +431,20 @@ export default function CourseView() {
   const isContentUnlockedForProgress = (c: Content): boolean => {
     const status = getContentStatus(c);
     if (status === 'completed' || status === 'submitted') return true;
+    
+    // If it failed, it only unlocks if there's an active tutoring session (requested/confirmed/rescheduled)
+    if (status === 'failed' && course) {
+      // Find the block this content belongs to
+      const topic = course.topics.find(t => t.contents.some(content => content.id === c.id));
+      if (topic?.blockId) {
+        const hasActive = tutoringSessions.some(s => 
+          (s.block_id ?? s.block?.id) === topic.blockId && 
+          ['requested', 'confirmed', 'rescheduled'].includes(s.status)
+        );
+        return hasActive;
+      }
+      return true; // fallback
+    }
     return false;
   };
 
@@ -536,13 +518,7 @@ export default function CourseView() {
               </button>
 
               {course.topics.map(topic => {
-                const completed = topic.contents.filter(c => {
-                  if (c.type === 'challenge') {
-                    const sub = c.submission;
-                    return !!sub && sub.status === 'reviewed' && sub.grade !== null && sub.grade >= 7;
-                  }
-                  return c.progress.status === 'completed';
-                }).length;
+                const completed = topic.contents.filter(c => c.progress.status === 'completed').length;
                 const isTopicActive = selectedTopicId === topic.id;
 
                 return (
@@ -579,6 +555,16 @@ export default function CourseView() {
                                 setShowBadges(false);
                                 setSelectedTopicId(topic.id);
                                 setSelectedContentId(content.id);
+                                
+                                // Mark as seen (spec 13.11)
+                                if (content.submission && content.submission.grade !== null) {
+                                  setSeenGrades(prev => {
+                                    const next = { ...prev, [content.id]: content.submission!.grade! };
+                                    localStorage.setItem('seenGrades', JSON.stringify(next));
+                                    return next;
+                                  });
+                                }
+
                                 const initPct = content.progress.pctWatched || 0;
                                 setLastSavedProgress(initPct);
                                 lastReportedPctRef.current = initPct;
@@ -597,17 +583,24 @@ export default function CourseView() {
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                               ) : status === 'submitted' ? (
-                                <svg className="w-3 h-3 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <svg className="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20" aria-label="Entregado, pendiente de calificación">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                               ) : status === 'failed' ? (
-                                <svg className="w-3 h-3 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20" aria-label="No aprobado">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                               ) : (
                                 <div className={`w-3 h-3 rounded-full border-2 ${isContentActive ? 'border-red-500' : 'border-slate-700'}`} />
                               )}
-                              <span className="truncate">{content.title}</span>
+                              <span className="truncate flex-1">{content.title}</span>
+                              
+                              {/* Blue Dot for unread grades (spec 13.11) */}
+                              {content.type === 'challenge' && 
+                               content.submission && content.submission.grade !== null && 
+                               seenGrades[content.id] !== content.submission.grade && (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.6)] animate-pulse shrink-0" />
+                              )}
                             </button>
                           );
                         })}
@@ -664,116 +657,108 @@ export default function CourseView() {
                       <span className="px-2 py-0.5 bg-red-600/10 text-red-500 text-[10px] font-bold uppercase tracking-widest rounded border border-red-500/20">
                         {selectedContent.type === 'video' ? 'Video' : selectedContent.type === 'document' ? 'Documento' : 'Reto'}
                       </span>
-                      {selectedContent.type === 'challenge' ? (
-                        <>
-                          {getContentStatus(selectedContent) === 'completed' && (
-                            <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                              Completado
-                            </span>
-                          )}
-                          {getContentStatus(selectedContent) === 'submitted' && (
-                            <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1">
-                              <svg className="w-3 h-3 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              En calificación
-                            </span>
-                          )}
-                          {getContentStatus(selectedContent) === 'failed' && (
-                            <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest flex items-center gap-1">
-                              <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                              </svg>
-                              No aprobado
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        selectedContent.progress.status === 'completed' && (
+                      {(() => {
+                        const status = getContentStatus(selectedContent);
+                        if (status === 'completed') return (
                           <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1">
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                             Completado
                           </span>
-                        )
-                      )}
+                        );
+                        if (status === 'submitted') return (
+                          <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            Entregado (Pendiente de Calificación)
+                          </span>
+                        );
+                        if (status === 'failed') return (
+                          <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            No Aprobado (Requiere 7/10)
+                          </span>
+                        );
+                        return null;
+                      })()}
                     </div>
                     <h1 className="text-3xl font-extrabold text-white leading-tight">{selectedContent.title}</h1>
-                  </div>
-
-
+                    </div>
                 </div>
 
-                {/* Block tutoring status banner — spec 13.10 */}
-                {selectedTopic?.blockId && (() => {
-                  const blockSess = tutoringSessions.filter(
-                    s => (s.block_id ?? s.block?.id) === selectedTopic.blockId
-                  );
-                  const pending = blockSess.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
-                  const lastExecuted = blockSess
-                    .filter(s => s.status === 'executed')
-                    .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
-                  const isApproved = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade >= 7;
-                  const isFailed = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade < 7 && !pending;
+                {/* Global & Contextual Tutoring Banner */}
+                {(() => {
+                  // Find ALL failed blocks in the course that don't have a pending tutoring
+                  const failedBlocks = (course?.blocks || []).map(b => {
+                    const blockSess = tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === b.id);
+                    const pending = blockSess.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
+                    const lastExecuted = blockSess
+                      .filter(s => s.status === 'executed')
+                      .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
+                    const isFailed = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade < 7 && !pending;
+                    const isApproved = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade >= 7;
+                    return { ...b, isFailed, isApproved, pending };
+                  }).filter(fb => fb.isFailed || fb.pending || fb.isApproved);
 
-                  if (isApproved) return (
-                    <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
-                      <svg className="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <p className="text-xs text-green-400 font-bold uppercase tracking-widest">Bloque aprobado — insignia desbloqueada</p>
+                  // Current block state
+                  const currentBlockState = failedBlocks.find(fb => fb.id === selectedTopic?.blockId);
+                  
+                  // Other blocks with failures
+                  const otherFailures = failedBlocks.filter(fb => fb.isFailed && fb.id !== selectedTopic?.blockId);
+
+                  return (
+                    <div className="space-y-3 mb-8">
+                      {/* Current Block Status */}
+                      {currentBlockState?.isApproved && (
+                        <div className="flex items-center gap-3 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
+                          <svg className="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p className="text-xs text-green-400 font-bold uppercase tracking-widest">Bloque "{currentBlockState.name}" aprobado</p>
+                        </div>
+                      )}
+
+                      {currentBlockState?.pending && (
+                        <div className="flex items-center gap-3 px-4 py-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                          <svg className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-xs text-blue-400 font-bold uppercase tracking-widest">Tutoría pendiente en "{currentBlockState.name}"</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Pendiente de confirmación para el {new Date(currentBlockState.pending.scheduledAt || currentBlockState.pending.requestedAt).toLocaleString('es-ES')}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {currentBlockState?.isFailed && (
+                        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                          <div className="flex items-center gap-3">
+                            <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                              <p className="text-xs text-red-400 font-bold uppercase tracking-widest leading-none">"{currentBlockState.name}" no aprobado</p>
+                              <p className="text-[10px] text-slate-500 mt-1 uppercase font-black">Debes reagendar para obtener la insignia</p>
+                            </div>
+                          </div>
+                          <button onClick={() => openTutoringModal(currentBlockState.id)} className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all shadow-lg shadow-red-900/20">Reagendar Ahora</button>
+                        </div>
+                      )}
+
+                      {/* Warnings for OTHER failed blocks */}
+                      {otherFailures.map(fb => (
+                        <div key={fb.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-red-900/20 border border-red-700/30 rounded-xl border-dashed">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shrink-0" />
+                            <div>
+                              <p className="text-[10px] text-red-300 font-bold uppercase tracking-widest leading-none">Atención: Tienes una falla previa</p>
+                              <p className="text-[9px] text-slate-500 mt-1 uppercase font-bold">Bloque: {fb.name}</p>
+                            </div>
+                          </div>
+                          <button onClick={() => openTutoringModal(fb.id)} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg transition-all border border-slate-600">Reagendar Bloque {fb.name}</button>
+                        </div>
+                      ))}
                     </div>
                   );
-
-                  if (pending) return (
-                    <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                      <svg className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div>
-                        <p className="text-xs text-blue-400 font-bold uppercase tracking-widest">Tutoría en espera de confirmación</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Puedes seguir avanzando. La insignia se entregará cuando el tutor apruebe este bloque.</p>
-                      </div>
-                    </div>
-                  );
-
-                  if (isFailed) return (
-                    <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                      <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      <div>
-                        <p className="text-xs text-amber-400 font-bold uppercase tracking-widest">Bloque no aprobado — reagenda tu tutoría</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Puedes seguir avanzando, pero la insignia estará bloqueada hasta aprobar.</p>
-                      </div>
-                    </div>
-                  );
-
-                  return null;
                 })()}
-
-                {showLastContentTutoringCta && (
-                  <div className="mb-6 p-5 bg-gradient-to-r from-red-600/20 to-amber-600/10 border border-red-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-red-600/30 border border-red-500/40 flex items-center justify-center shrink-0">
-                        <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zm12-10h.01M12 12h4" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs font-black text-red-400 uppercase tracking-widest mb-1">Último contenido del módulo</p>
-                        <p className="text-sm text-slate-200 font-medium">Completaste este bloque. Solicita tu tutoría de validación para cerrar el módulo con tu tutor.</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={openTutoringModal}
-                      className="shrink-0 px-6 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-red-900/20"
-                    >
-                      Solicitar tutoría
-                    </button>
-                  </div>
-                )}
 
                 {/* VIEWERS */}
                 {selectedContent.type === 'video' && (
@@ -841,25 +826,6 @@ export default function CourseView() {
                         <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Video completado</span>
                       </div>
                     )}
-
-                    {selectedContent.supportUrl && (
-                      <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-                          Recurso del contenido
-                        </p>
-                        <a
-                          href={selectedContent.supportUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wide rounded-lg transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                          Ver documento de recurso
-                        </a>
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -911,20 +877,8 @@ export default function CourseView() {
                     </div>
 
                     {selectedContent.submission && !isResubmitting ? (
-                      <div className={`bg-slate-800 p-8 rounded-2xl border relative overflow-hidden space-y-4 ${
-                        getContentStatus(selectedContent) === 'completed' ? 'border-green-500/20' :
-                        getContentStatus(selectedContent) === 'submitted' ? 'border-amber-500/30' :
-                        getContentStatus(selectedContent) === 'failed' ? 'border-orange-500/30' : 'border-slate-700'
-                      }`}>
-                        {getContentStatus(selectedContent) === 'completed' && (
-                          <div className="absolute top-0 right-0 p-4 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest border-l border-b border-green-500/20 rounded-bl-xl">Aprobado</div>
-                        )}
-                        {getContentStatus(selectedContent) === 'submitted' && (
-                          <div className="absolute top-0 right-0 p-4 bg-amber-500/10 text-amber-400 text-[10px] font-black uppercase tracking-widest border-l border-b border-amber-500/25 rounded-bl-xl">En calificación</div>
-                        )}
-                        {getContentStatus(selectedContent) === 'failed' && (
-                          <div className="absolute top-0 right-0 p-4 bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase tracking-widest border-l border-b border-orange-500/25 rounded-bl-xl">No aprobado</div>
-                        )}
+                      <div className="bg-slate-800 p-8 rounded-2xl border border-green-500/20 relative overflow-hidden space-y-4">
+                        <div className="absolute top-0 right-0 p-4 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest border-l border-b border-green-500/20 rounded-bl-xl">Entregado</div>
                         <h3 className="text-lg font-bold text-white">Tu Entrega</h3>
 
                         {/* Repo & comment */}
@@ -979,7 +933,7 @@ export default function CourseView() {
                                 </div>
                               </div>
                               <button
-                                onClick={openTutoringModal}
+                                onClick={() => openTutoringModal(selectedTopic?.blockId ?? undefined)}
                                 className="w-full py-2.5 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1232,22 +1186,18 @@ export default function CourseView() {
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bloque</label>
                 <div className="px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm font-bold">
-                  {currentBlock?.name ?? selectedTopic.blockName ?? 'Bloque actual'}
+                  {requestingBlock?.name ?? selectedTopic?.blockName ?? 'Bloque actual'}
                 </div>
               </div>
 
               {/* Fecha de solicitud */}
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
-                <input
-                  type="datetime-local"
-                  value={tutoringDate}
-                  min={toDatetimeLocalValue(new Date())}
-                  step={60}
-                  onChange={e => setTutoringDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-              </div>
+              <DateTimePicker 
+                label="Fecha de Solicitud"
+                value={tutoringDate}
+                onChange={setTutoringDate}
+                minDate={new Date().toISOString().slice(0, 16)}
+                disabledSlots={disabledSlots}
+              />
 
               {/* Observación */}
               <div>

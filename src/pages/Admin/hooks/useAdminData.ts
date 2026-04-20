@@ -2,6 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../services/api';
 import type { Student, CourseData } from '../types';
 
+/** El API puede enviar `role` como string (dominio User) o como `{ name }` (Prisma). */
+function mapApiRole(u: any): string {
+  const r = u?.role;
+  if (typeof r === 'string' && r) return r;
+  if (r && typeof r === 'object' && typeof r.name === 'string') return r.name;
+  return 'student';
+}
+
 const mapUser = (u: any): any => ({
   id: u.id,
   fullName: `${u.names} ${u.lastNames}`,
@@ -15,7 +23,7 @@ const mapUser = (u: any): any => ({
   courseParallelMap: u.courseParallelMap || {},
   progress: u.progress || 0,
   status: u.status,
-  role: u.role?.name || 'student',
+  role: mapApiRole(u),
   rating: u.rating || 0,
   reviewsCount: u.reviewsCount || 0,
 });

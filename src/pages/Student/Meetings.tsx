@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
-import { toDatetimeLocalValue, datetimeLocalToIsoUtc } from '../../utils/datetimeLocal';
 import Footer from '../../components/Footer';
 import Modal from '../../components/Modal';
+import DateTimePicker from '../../components/DateTimePicker';
 
 interface Tutoring {
   id: string;
@@ -361,8 +361,27 @@ function CalendarView({
 function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: { courses: Course[]; initialBlockId?: string; onClose: () => void; onSuccess: () => void; onError: (msg: string) => void }) {
   const [blockId, setBlockId] = useState(initialBlockId || '');
   const [observations, setObservations] = useState('');
-  const [requestDate, setRequestDate] = useState(() => toDatetimeLocalValue(new Date()));
+  const [requestDate, setRequestDate] = useState(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  });
   const [submitting, setSubmitting] = useState(false);
+  const [disabledSlots, setDisabledSlots] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      try {
+        const response = await (api as any).getTutoringAvailability();
+        if (response.success && response.data?.fullSlots) {
+          setDisabledSlots(response.data.fullSlots);
+        }
+      } catch (err) {
+        console.error('Error fetching availability:', err);
+      }
+    };
+    fetchAvailability();
+  }, []);
 
   useEffect(() => {
     if (initialBlockId) setBlockId(initialBlockId);
@@ -382,7 +401,8 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: 
     if (!blockId) return;
     setSubmitting(true);
     try {
-      const isoDate = datetimeLocalToIsoUtc(requestDate);
+      // Send the date as a nominal UTC string (no timezone shift) to match user expectations
+      const isoDate = `${requestDate}:00.000Z`;
       await (api as any).requestTutoring(blockId, observations || undefined, isoDate);
       onSuccess();
       onClose();
@@ -424,17 +444,13 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: 
           </div>
 
           {/* Fecha de solicitud */}
-          <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
-            <input
-              type="datetime-local"
-              value={requestDate}
-              min={toDatetimeLocalValue(new Date())}
-              step={60}
-              onChange={e => setRequestDate(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
-          </div>
+          <DateTimePicker 
+            label="Fecha de Solicitud"
+            value={requestDate}
+            onChange={setRequestDate}
+            minDate={new Date().toISOString().slice(0, 16)}
+            disabledSlots={disabledSlots}
+          />
 
           {/* Observación */}
           <div>

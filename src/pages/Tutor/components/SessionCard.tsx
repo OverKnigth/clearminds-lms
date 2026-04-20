@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { TutoringSession } from '../types';
 import { api } from '../../../services/api';
 import { useDialog } from '../../../hooks/useDialog';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import DateTimePicker from '../../../components/DateTimePicker';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   requested:   { label: 'Pendiente',   color: 'yellow' },
@@ -14,29 +15,41 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 const INPUT = 'w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500';
 
-const toDateTimeLocalValue = (value?: string) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const tzOffset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
-};
-
 interface SessionCardProps {
   session: TutoringSession;
   onRefresh: () => void;
   onUpdate?: (updated: TutoringSession) => void;
 }
 
-interface SessionActionsProps {
-  session: TutoringSession;
-  onRefresh: () => void;
-  onUpdate?: (updated: TutoringSession) => void;
-  compact?: boolean;
-}
-
 export function SessionCard({ session, onRefresh, onUpdate }: SessionCardProps) {
+  const [modal, setModal] = useState<'confirm' | 'reschedule' | 'cancel' | 'execute' | null>(null);
+  const [disabledSlots, setDisabledSlots] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (modal === 'confirm' || modal === 'reschedule') {
+      const fetchAvailability = async () => {
+        try {
+          const response = await (api as any).getTutoringAvailability();
+          if (response.success && response.data?.fullSlots) {
+            setDisabledSlots(response.data.fullSlots);
+          }
+        } catch (err) {
+          console.error('Error fetching availability:', err);
+        }
+      };
+      fetchAvailability();
+    }
+  }, [modal]);
   const cfg = STATUS_LABELS[session.status] || STATUS_LABELS.requested;
+
+  const handleSuccess = (updated?: TutoringSession) => {
+    setModal(null);
+    if (updated && onUpdate) {
+      onUpdate(updated);
+    } else {
+      onRefresh();
+    }
+  };
 
   return (
     <div className="bg-slate-800 rounded-xl p-5 border border-slate-700">
@@ -88,92 +101,50 @@ export function SessionCard({ session, onRefresh, onUpdate }: SessionCardProps) 
       )}
 
       {/* Actions */}
-      <SessionActions session={session} onRefresh={onRefresh} onUpdate={onUpdate} />
-    </div>
-  );
-}
-
-export function SessionActions({ session, onRefresh, onUpdate, compact = false }: SessionActionsProps) {
-  const [modal, setModal] = useState<'confirm' | 'reschedule' | 'cancel' | 'execute' | null>(null);
-
-  const handleSuccess = (updated?: TutoringSession) => {
-    setModal(null);
-    if (updated && onUpdate) {
-      onUpdate(updated);
-    } else {
-      onRefresh();
-    }
-  };
-
-  return (
-    <>
-      <div className={`${compact ? 'grid grid-cols-2 gap-1.5 justify-items-stretch max-w-[220px] ml-auto' : 'flex gap-2'}`}>
+      <div className="flex gap-2">
         {session.status === 'requested' && (
           <>
-            <button
-              onClick={() => setModal('confirm')}
-              className={`${compact ? 'py-1.5 px-2 text-[11px] font-semibold' : 'flex-1 py-2 text-sm'} bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors`}
-            >
-              Confirmar
-            </button>
-            <button
-              onClick={() => setModal('reschedule')}
-              className={`${compact ? 'py-1.5 px-2 text-[11px] font-semibold' : 'flex-1 py-2 text-sm'} bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors`}
-            >
-              Reagendar
-            </button>
-            <button
-              onClick={() => setModal('cancel')}
-              className={`${compact ? 'col-span-2 py-1.5 px-2 text-[11px] font-semibold' : 'py-2 px-3 text-sm'} bg-slate-700 hover:bg-slate-600 text-red-400 rounded-lg transition-colors`}
-            >
-              Cancelar
-            </button>
+            <button onClick={() => setModal('confirm')} className="flex-1 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors">Confirmar</button>
+            <button onClick={() => setModal('reschedule')} className="flex-1 py-2 text-sm bg-orange-600 hover:bg-orange-500 text-white rounded-lg font-medium transition-colors">Reagendar</button>
+            <button onClick={() => setModal('cancel')} className="py-2 px-3 text-sm bg-slate-700 hover:bg-slate-600 text-red-400 rounded-lg transition-colors">Cancelar</button>
           </>
         )}
         {(session.status === 'confirmed' || session.status === 'rescheduled') && (
           <>
-            <button
-              onClick={() => setModal('execute')}
-              className={`${compact ? 'col-span-2 py-1.5 px-2 text-[11px] font-semibold' : 'flex-1 py-2 text-sm'} bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors`}
-            >
-              Registrar resultados
-            </button>
-            <button
-              onClick={() => setModal('reschedule')}
-              className={`${compact ? 'py-1.5 px-2 text-[11px] font-semibold' : 'py-2 px-3 text-sm'} bg-slate-700 hover:bg-slate-600 text-orange-400 rounded-lg transition-colors`}
-            >
-              Reagendar
-            </button>
-            <button
-              onClick={() => setModal('cancel')}
-              className={`${compact ? 'py-1.5 px-2 text-[11px] font-semibold' : 'py-2 px-3 text-sm'} bg-slate-700 hover:bg-slate-600 text-red-400 rounded-lg transition-colors`}
-            >
-              Cancelar
-            </button>
+            <button onClick={() => setModal('execute')} className="flex-1 py-2 text-sm bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors">Registrar resultados</button>
+            <button onClick={() => setModal('reschedule')} className="py-2 px-3 text-sm bg-slate-700 hover:bg-slate-600 text-orange-400 rounded-lg transition-colors">Reagendar</button>
+            <button onClick={() => setModal('cancel')} className="py-2 px-3 text-sm bg-slate-700 hover:bg-slate-600 text-red-400 rounded-lg transition-colors">Cancelar</button>
           </>
         )}
       </div>
 
+      {/* Modals */}
       {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
-      {modal === 'reschedule' && <RescheduleModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
+      {modal === 'reschedule' && <RescheduleModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} disabledSlots={disabledSlots} />}
       {modal === 'cancel' && <CancelModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
       {modal === 'execute' && <ExecuteModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
-    </>
+    </div>
   );
 }
 
 // ── Confirm Modal ────────────────────────────────────────────────────────────
 function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void }) {
-  const scheduledAt = toDateTimeLocalValue(session.scheduledAt);
   const [meetingLink, setMeetingLink] = useState('');
   const [saving, setSaving] = useState(false);
   const { dialog, showAlert, close: closeDialog } = useDialog();
+
+  // Use the student's requested date — tutor cannot change it
+  const requestedDate = session.scheduledAt || session.requestedAt;
+  const formattedDate = requestedDate
+    ? new Date(requestedDate).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' })
+    : 'Sin fecha especificada';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api.confirmTutoringSession(session.id, { scheduledAt, meetingLink: meetingLink || undefined });
+      const payload = { scheduledAt: requestedDate, meetingLink: meetingLink || undefined };
+      const res = await api.confirmTutoringSession(session.id, payload);
       onSuccess(res.data);
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
@@ -182,13 +153,23 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
   return (
     <ModalWrapper title="Confirmar Tutoría" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Fecha propuesta por el estudiante — solo lectura */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Fecha y hora programada</label>
-          <input type="datetime-local" required className={`${INPUT} disabled:opacity-80 disabled:cursor-not-allowed`} value={scheduledAt} disabled />
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+            Fecha solicitada por el estudiante
+          </label>
+          <div className="w-full flex items-center gap-3 px-4 py-3 bg-slate-700/40 border border-slate-600/50 rounded-xl">
+            <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm font-bold text-white capitalize">{formattedDate}</span>
+          </div>
+          <p className="mt-1.5 text-[10px] text-slate-500">Esta fecha fue seleccionada por el estudiante y no puede modificarse al confirmar.</p>
         </div>
+
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1.5">Link de reunión (Zoom/Teams)</label>
-          <input type="url" required className={INPUT} value={meetingLink} onChange={e => setMeetingLink(e.target.value)} placeholder="https://zoom.us/j/..." />
+          <input type="url" className={INPUT} value={meetingLink} onChange={e => setMeetingLink(e.target.value)} placeholder="https://zoom.us/j/..." />
         </div>
         <ModalActions saving={saving} label="Confirmar" onClose={onClose} />
       </form>
@@ -198,7 +179,7 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
 }
 
 // ── Reschedule Modal ─────────────────────────────────────────────────────────
-function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void }) {
+function RescheduleModal({ session, onClose, onSuccess, disabledSlots }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void; disabledSlots: string[] }) {
   const [scheduledAt, setScheduledAt] = useState('');
   const [meetingLink, setMeetingLink] = useState(session.meetingLink || '');
   const [saving, setSaving] = useState(false);
@@ -208,7 +189,8 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api.rescheduleTutoringSession(session.id, { scheduledAt, meetingLink: meetingLink || undefined });
+      const payload = { scheduledAt: `${scheduledAt}:00.000Z`, meetingLink: meetingLink || undefined };
+      const res = await api.rescheduleTutoringSession(session.id, payload);
       onSuccess(res.data);
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
@@ -218,12 +200,16 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
     <ModalWrapper title="Reagendar Tutoría" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Nueva fecha y hora</label>
-          <input type="datetime-local" required className={INPUT} value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
+          <DateTimePicker 
+            label="Nueva fecha y hora"
+            value={scheduledAt}
+            onChange={setScheduledAt}
+            disabledSlots={disabledSlots}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1.5">Link de reunión</label>
-          <input type="url" required className={INPUT} value={meetingLink} onChange={e => setMeetingLink(e.target.value)} placeholder="https://zoom.us/j/..." />
+          <input type="url" className={INPUT} value={meetingLink} onChange={e => setMeetingLink(e.target.value)} placeholder="https://zoom.us/j/..." />
         </div>
         <ModalActions saving={saving} label="Reagendar" onClose={onClose} />
       </form>
@@ -341,5 +327,50 @@ function ModalActions({ saving, label, onClose, danger }: { saving: boolean; lab
         Cancelar
       </button>
     </div>
+  );
+}
+
+// ── SessionActions (compact for table rows) ──────────────────────────────────
+export function SessionActions({ session, onRefresh, compact = false }: { session: TutoringSession; onRefresh: () => void; compact?: boolean }) {
+  const [modal, setModal] = useState<'confirm' | 'reschedule' | 'cancel' | 'execute' | null>(null);
+  const [disabledSlots, setDisabledSlots] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (modal === 'confirm' || modal === 'reschedule') {
+      (api as any).getTutoringAvailability()
+        .then((res: any) => { if (res.success && res.data?.fullSlots) setDisabledSlots(res.data.fullSlots); })
+        .catch(() => {});
+    }
+  }, [modal]);
+
+  const handleSuccess = () => { setModal(null); onRefresh(); };
+
+  const btnBase = compact
+    ? 'px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all'
+    : 'px-3 py-1.5 text-xs font-black uppercase tracking-widest rounded-lg transition-all';
+
+  return (
+    <>
+      <div className="flex items-center gap-1 flex-wrap justify-end">
+        {session.status === 'requested' && (
+          <>
+            <button onClick={() => setModal('confirm')} className={`${btnBase} bg-blue-600 hover:bg-blue-500 text-white`}>Confirmar</button>
+            <button onClick={() => setModal('reschedule')} className={`${btnBase} bg-orange-600 hover:bg-orange-500 text-white`}>Reagendar</button>
+            <button onClick={() => setModal('cancel')} className={`${btnBase} bg-slate-700 hover:bg-slate-600 text-red-400`}>Cancelar</button>
+          </>
+        )}
+        {(session.status === 'confirmed' || session.status === 'rescheduled') && (
+          <>
+            <button onClick={() => setModal('execute')} className={`${btnBase} bg-green-600 hover:bg-green-500 text-white`}>Ejecutar</button>
+            <button onClick={() => setModal('reschedule')} className={`${btnBase} bg-slate-700 hover:bg-slate-600 text-orange-400`}>Reagendar</button>
+            <button onClick={() => setModal('cancel')} className={`${btnBase} bg-slate-700 hover:bg-slate-600 text-red-400`}>Cancelar</button>
+          </>
+        )}
+      </div>
+      {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
+      {modal === 'reschedule' && <RescheduleModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} disabledSlots={disabledSlots} />}
+      {modal === 'cancel' && <CancelModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
+      {modal === 'execute' && <ExecuteModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
+    </>
   );
 }

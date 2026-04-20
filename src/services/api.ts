@@ -155,6 +155,7 @@ export const API_ENDPOINTS = {
   CREATE_PARALLEL: (groupId: string) => `/admin/groups/${groupId}/parallels`,
   GET_PARALLEL_STUDENTS: (parallelId: string) => `/admin/parallels/${parallelId}/students`,
   ENROLL_STUDENTS_IN_PARALLEL: (parallelId: string) => `/admin/parallels/${parallelId}/enroll`,
+  GET_TUTORING_AVAILABILITY: '/student/tutoring/availability',
 };
 
 // API Service
@@ -634,6 +635,11 @@ export const api = {
     return response.data;
   },
 
+  getTutoringAvailability: async () => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_TUTORING_AVAILABILITY);
+    return response.data;
+  },
+
   getTutorNotifications: async () => {
     const response = await apiClient.get('/tutor/notifications');
     return response.data;
@@ -712,7 +718,10 @@ export const api = {
   getGroups: async (): Promise<any> => {
     try {
       const response = await apiClient.get(API_ENDPOINTS.GET_GROUPS);
-      return response.data;
+      const body = response.data;
+      if (Array.isArray(body)) return body;
+      if (body && Array.isArray(body.data)) return body.data;
+      return [];
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
@@ -879,6 +888,12 @@ export const api = {
 
   updateTutoringConfig: async (globalMessage: string) => {
     const response = await apiClient.patch('/admin/tutoring/config', { globalMessage });
+    return response.data;
+  },
+
+  /** Todas las sesiones de tutoría (admin): tutores, estudiantes, enlaces y fechas */
+  getAdminTutoringSessions: async () => {
+    const response = await apiClient.get('/admin/tutoring');
     return response.data;
   },
 };
