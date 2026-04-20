@@ -372,11 +372,12 @@ export const api = {
 
   // ─── Admin - Users ───────────────────────────────────────────────────────────
   // role?: 'student' | 'tutor' | 'admin'
-  getAllUsers: async (role?: string, page: number = 1, limit: number = 10) => {
+  getAllUsers: async (role?: string, page: number = 1, limit: number = 10, search?: string) => {
     const params = new URLSearchParams();
     if (role) params.append('role', role);
     params.append('page', page.toString());
     params.append('limit', limit.toString());
+    if (search && search.trim()) params.append('search', search.trim());
     const response = await apiClient.get(`${API_ENDPOINTS.GET_ALL_USERS}?${params.toString()}`);
     return response.data;
   },
@@ -406,8 +407,8 @@ export const api = {
     return response.data;
   },
 
-  assignCoursesToUser: async (userId: string, courseIds: string[]) => {
-    const response = await apiClient.post(`/users/${userId}/assign-courses`, { courseIds });
+  assignCoursesToUser: async (userId: string, courseIds: string[], groupId?: string) => {
+    const response = await apiClient.post(`/users/${userId}/assign-courses`, { courseIds, groupId });
     return response.data;
   },
 
@@ -694,6 +695,23 @@ export const api = {
   getTutorChallenges: async () => {
     const response = await apiClient.get('/tutor/challenges');
     return response.data;
+  },
+
+  createMuxUploadUrl: async (title?: string) => {
+    const response = await apiClient.post('/admin/mux/upload-url', { title });
+    return response.data;
+  },
+
+  getMuxUploadStatus: async (uploadId: string) => {
+    const response = await apiClient.get(`/admin/mux/upload/${uploadId}`);
+    return response.data;
+  },
+
+  downloadTutorTutoringReport: async (type: 'tutorias' | 'retos' = 'tutorias') => {
+    const response = await apiClient.get(`/tutor/reports/tutoring/download?type=${type}`, {
+      responseType: 'blob'
+    });
+    return response;
   },
 
   // ─── Admin - Groups ─────────────────────────────────────────────────────

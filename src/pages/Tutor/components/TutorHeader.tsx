@@ -3,16 +3,16 @@ import type { TutorTab } from '../types';
 interface TutorHeaderProps {
   activeTab: TutorTab;
   setActiveTab: (tab: TutorTab) => void;
-  counts: { pending: number; upcoming: number; completed: number; students: number; challenges: number };
+  counts: { pending: number; confirmed: number; completed: number; challengePending: number; challengeGraded: number };
 }
 
 export function TutorHeader({ activeTab, setActiveTab, counts }: TutorHeaderProps) {
   const tabs: { id: TutorTab; label: string; count?: number }[] = [
     { id: 'pending',    label: 'Pendientes',   count: counts.pending },
-    { id: 'upcoming',   label: 'Próximas',     count: counts.upcoming },
+    { id: 'confirmed',   label: 'Confirmadas',     count: counts.confirmed },
     { id: 'completed',  label: 'Completadas' },
-    { id: 'students',   label: 'Estudiantes',  count: counts.students },
-    { id: 'challenges', label: 'Retos',        count: counts.challenges },
+    { id: 'challenge-pending', label: 'Retos Pendientes', count: counts.challengePending },
+    { id: 'challenge-graded', label: 'Retos Calificados', count: counts.challengeGraded },
   ];
 
   return (
