@@ -10,15 +10,15 @@ interface SidebarProps {
 }
 
 const TYPE_ICON: Record<string, string> = {
-  tutoring_requested: '🚀',
-  tutoring_confirmed: '✅',
-  tutoring_rescheduled: '🔄',
-  tutoring_cancelled: '❌',
-  tutoring_graded: '📋',
-  grade: '📋',
-  badge_earned: '🏅',
-  deadline: '⏰',
-  block_approved: '🎯',
+  tutoring_requested: 'TR',
+  tutoring_confirmed: 'TC',
+  tutoring_rescheduled: 'RS',
+  tutoring_cancelled: 'CX',
+  tutoring_graded: 'TG',
+  grade: 'NT',
+  badge_earned: 'IN',
+  deadline: 'DL',
+  block_approved: 'OK',
 };
 
 // Colores por tipo — mismos que el dashboard
@@ -51,6 +51,10 @@ export default function Sidebar({ user }: SidebarProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(80);
+  const [openTutorGroups, setOpenTutorGroups] = useState<{ tutorias: boolean; retos: boolean }>({
+    tutorias: true,
+    retos: true,
+  });
 
   const userRole = localStorage.getItem('userRole') || 'student';
   const isAdmin = userRole === 'admin';
@@ -97,12 +101,34 @@ export default function Sidebar({ user }: SidebarProps) {
     { title: 'Gestión de Grupos', path: '/admin?tab=courses', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.247 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', show: isAdmin },
     { title: 'Insignias', path: '/admin?tab=badges', icon: 'M5 13l4 4L19 7', show: isAdmin },
     { title: 'Progreso', path: '/admin?tab=progress', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', show: isAdmin },
-    { title: 'Dashboard', path: '/tutor?tab=dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', show: userRole === 'tutor' },
-    { title: 'Pendientes', path: '/tutor?tab=pending', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', show: userRole === 'tutor' },
-    { title: 'Próximas', path: '/tutor?tab=upcoming', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', show: userRole === 'tutor' },
-    { title: 'Completadas', path: '/tutor?tab=completed', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', show: userRole === 'tutor' },
-    { title: 'Estudiantes', path: '/tutor?tab=students', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', show: userRole === 'tutor' },
-    { title: 'Retos', path: '/tutor?tab=challenges', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4', show: userRole === 'tutor' },
+  ];
+
+  const tutorDashboardItem = {
+    title: 'Dashboard',
+    path: '/tutor?tab=dashboard',
+    icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
+  };
+
+  const tutorGroups = [
+    {
+      id: 'tutorias' as const,
+      title: 'Tutorías',
+      icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+      children: [
+        { title: 'Pendientes', path: '/tutor?tab=pending', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+        { title: 'Confirmadas', path: '/tutor?tab=confirmed', icon: 'M5 13l4 4L19 7' },
+        { title: 'Completadas', path: '/tutor?tab=completed', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+      ],
+    },
+    {
+      id: 'retos' as const,
+      title: 'Retos',
+      icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
+      children: [
+        { title: 'Pendientes', path: '/tutor?tab=challenge-pending', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+        { title: 'Calificados', path: '/tutor?tab=challenge-graded', icon: 'M5 13l4 4L19 7' },
+      ],
+    },
   ];
 
   const handleLogout = async () => {
@@ -166,7 +192,7 @@ export default function Sidebar({ user }: SidebarProps) {
             >
               {/* Colored icon pill */}
               <span className={`flex-shrink-0 mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center text-sm ${(TYPE_COLOR[n.type ?? ''] ?? TYPE_COLOR['block_approved']).bg}`}>
-                {TYPE_ICON[n.type ?? ''] ?? '🔔'}
+                {TYPE_ICON[n.type ?? ''] ?? 'NT'}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-2 mb-0.5">
@@ -208,25 +234,103 @@ export default function Sidebar({ user }: SidebarProps) {
           <div className={`text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-2 transition-opacity duration-300 whitespace-nowrap ${expanded ? 'opacity-100' : 'opacity-0'}`}>
             Menú Principal
           </div>
-          {menuItems.filter(i => i.show).map(item => {
-            const itemPath = item.path.split('?')[0];
-            const itemQuery = item.path.includes('?') ? item.path.split('?')[1] : null;
-            const isActive = itemQuery
-              ? location.pathname === itemPath && location.search.includes(itemQuery)
-              : location.pathname === itemPath && !location.search;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-4 px-3 py-3 rounded-xl transition-all group ${isActive ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-slate-400 hover:bg-slate-700/50 hover:text-white'}`}
-              >
-                <svg className={`w-6 h-6 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-red-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                </svg>
-                <span className={`text-sm font-bold transition-opacity duration-300 whitespace-nowrap ${expanded ? 'opacity-100' : 'opacity-0'}`}>{item.title}</span>
-              </Link>
-            );
-          })}
+          {userRole === 'tutor'
+            ? (
+              <>
+                {(() => {
+                  const dashboardPath = tutorDashboardItem.path.split('?')[0];
+                  const dashboardQuery = tutorDashboardItem.path.split('?')[1];
+                  const dashboardActive = location.pathname === dashboardPath && location.search.includes(dashboardQuery);
+                  return (
+                    <Link
+                      to={tutorDashboardItem.path}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group border ${dashboardActive ? 'bg-slate-700/70 text-white border-slate-600' : 'text-slate-400 border-transparent hover:bg-slate-700/40 hover:text-slate-200'}`}
+                    >
+                      <svg className={`w-5 h-5 flex-shrink-0 ${dashboardActive ? 'text-slate-100' : 'text-slate-500 group-hover:text-slate-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tutorDashboardItem.icon} />
+                      </svg>
+                      <span className={`text-sm font-semibold transition-opacity duration-300 whitespace-nowrap ${expanded ? 'opacity-100' : 'opacity-0'}`}>{tutorDashboardItem.title}</span>
+                    </Link>
+                  );
+                })()}
+
+                {tutorGroups.map((group) => {
+                  const hasActiveChild = group.children.some((child) => {
+                    const childPath = child.path.split('?')[0];
+                    const childQuery = child.path.split('?')[1];
+                    return location.pathname === childPath && location.search.includes(childQuery);
+                  });
+
+                  return (
+                    <div key={group.id} className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setOpenTutorGroups((prev) => ({ ...prev, [group.id]: !prev[group.id] }))}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group border ${hasActiveChild ? 'bg-slate-700/60 text-slate-100 border-slate-600' : 'text-slate-300 border-transparent hover:bg-slate-700/40 hover:text-slate-100'}`}
+                      >
+                        <svg className={`w-5 h-5 flex-shrink-0 ${hasActiveChild ? 'text-slate-100' : 'text-slate-500 group-hover:text-slate-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={group.icon} />
+                        </svg>
+                        <span className={`text-sm font-semibold transition-opacity duration-300 whitespace-nowrap ${expanded ? 'opacity-100' : 'opacity-0'}`}>
+                          {group.title}
+                        </span>
+                        <svg
+                          className={`w-4 h-4 ml-auto transition-all duration-200 ${openTutorGroups[group.id] ? 'rotate-180' : ''} ${expanded ? 'opacity-100' : 'opacity-0'}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {expanded && openTutorGroups[group.id] && (
+                        <div className={`${expanded ? 'ml-6' : ''} space-y-1`}>
+                          {group.children.map((child) => {
+                            const childPath = child.path.split('?')[0];
+                            const childQuery = child.path.split('?')[1];
+                            const childActive = location.pathname === childPath && location.search.includes(childQuery);
+                            return (
+                              <Link
+                                key={child.path}
+                                to={child.path}
+                                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group border ${childActive ? 'bg-slate-700/60 text-slate-100 border-slate-600' : 'text-slate-400 border-transparent hover:bg-slate-700/30 hover:text-slate-200'}`}
+                              >
+                                <svg className={`w-4 h-4 flex-shrink-0 ${childActive ? 'text-slate-200' : 'text-slate-600 group-hover:text-slate-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={child.icon} />
+                                </svg>
+                                <span className={`text-xs font-medium transition-opacity duration-300 whitespace-nowrap ${expanded ? 'opacity-100' : 'opacity-0'}`}>
+                                  {child.title}
+                                </span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            )
+            : menuItems.filter(i => i.show).map(item => {
+                const itemPath = item.path.split('?')[0];
+                const itemQuery = item.path.includes('?') ? item.path.split('?')[1] : null;
+                const isActive = itemQuery
+                  ? location.pathname === itemPath && location.search.includes(itemQuery)
+                  : location.pathname === itemPath && !location.search;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-4 px-3 py-3 rounded-xl transition-all group ${isActive ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-slate-400 hover:bg-slate-700/50 hover:text-white'}`}
+                  >
+                    <svg className={`w-6 h-6 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-red-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                    </svg>
+                    <span className={`text-sm font-bold transition-opacity duration-300 whitespace-nowrap ${expanded ? 'opacity-100' : 'opacity-0'}`}>{item.title}</span>
+                  </Link>
+                );
+              })}
         </nav>
 
         {/* Bottom */}

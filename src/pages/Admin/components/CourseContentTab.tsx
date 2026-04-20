@@ -403,8 +403,6 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
           payload.url = muxUrl;
         } else if (contentForm.url.trim()) {
           payload.url = contentForm.url.trim();
-        } else {
-          throw new Error('Debes seleccionar un archivo de video para crear el contenido.');
         }
       } else if (contentForm.url.trim()) {
         payload.url = contentForm.url;
@@ -787,7 +785,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1.5">
-              {contentForm.type === 'document' ? 'URL del documento / enlace externo' : contentForm.type === 'challenge' ? 'Documento de apoyo (URL, opcional)' : 'Video (archivo)'}
+              {contentForm.type === 'document' ? 'URL del documento / enlace externo' : contentForm.type === 'challenge' ? 'Documento de apoyo (URL, opcional)' : 'Video (archivo, opcional)'}
             </label>
             {contentForm.type === 'video' ? (
               <div className="space-y-3">
@@ -931,7 +929,7 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
           <div className="flex gap-3 pt-2">
             <button
               type="submit"
-              disabled={savingContent || uploadingVideo || (contentForm.type === 'video' && !videoFile && !contentForm.url.startsWith('mux:'))}
+              disabled={savingContent || uploadingVideo}
               className={`flex-1 py-2.5 ${BTN_PRIMARY} disabled:opacity-50`}
             >
               {savingContent ? 'Guardando...' : contentModal.editing ? 'Guardar cambios' : 'Crear contenido'}
