@@ -31,6 +31,7 @@ export default function Admin() {
     studentsPage, setStudentsPage, tutorsPage, setTutorsPage, adminsPage, setAdminsPage,
     studentsTotal, tutorsTotal, adminsTotal,
     isLoading, fetchByRole, limit,
+    studentsSearch, setStudentsSearch,
     setStudents, setCourses,
   } = useAdminData();
 
@@ -374,6 +375,8 @@ export default function Admin() {
                 itemsPerPage={limit} 
                 onPageChange={setStudentsPage} 
                 onToggleStatus={handleToggleStatus}
+                searchTerm={studentsSearch}
+                onSearchChange={setStudentsSearch}
                 onDelete={(student) => showConfirm(`¿Eliminar a "${student.fullName}"? Esta acción no se puede deshacer.`, async () => {
                   try { await api.deleteUser(student.id); await fetchByRole('student'); } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
                 }, { title: 'Eliminar Estudiante', confirmLabel: 'Eliminar', danger: true })}

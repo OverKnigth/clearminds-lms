@@ -1,4 +1,3 @@
-import { useMemo, useState } from 'react';
 import type { RefObject } from 'react';
 import type { Student } from '../types';
 
@@ -16,6 +15,8 @@ interface StudentsTabProps {
   itemsPerPage: number;
   onPageChange: (page: number) => void;
   onToggleStatus: (student: Student) => void;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
   onDelete?: (student: Student) => void;
 }
 
@@ -33,20 +34,11 @@ export function StudentsTab({
   itemsPerPage,
   onPageChange,
   onToggleStatus,
+  searchTerm,
+  onSearchChange,
   onDelete
 }: StudentsTabProps) {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const filteredStudents = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) return students;
-
-    return students.filter((student) =>
-      student.fullName.toLowerCase().includes(query) ||
-      student.email.toLowerCase().includes(query)
-    );
-  }, [students, searchTerm]);
 
   // getParallelNames — available for future use
   const getGroupName = (student: Student): string => {
@@ -157,7 +149,7 @@ export function StudentsTab({
           </svg>
           <input
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Buscar por nombre o correo"
             className="w-full pl-9 pr-3 py-2.5 bg-slate-900 border border-slate-700 hover:border-slate-600 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/40"
           />
@@ -178,7 +170,7 @@ export function StudentsTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/30">
-            {filteredStudents.map((student) => (
+            {students.map((student) => (
               <tr key={student.id} className="hover:bg-slate-700/20 transition-colors group">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
@@ -255,7 +247,7 @@ export function StudentsTab({
                 </td>
               </tr>
             ))}
-            {filteredStudents.length === 0 && (
+            {students.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-6 py-16 text-center">
                   <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">
@@ -270,7 +262,7 @@ export function StudentsTab({
         {totalPages > 1 && (
           <div className="px-6 py-4 bg-slate-900/40 border-t border-slate-700/50 flex items-center justify-between">
             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-              Mostrando {filteredStudents.length} de {totalItems} estudiantes
+              Mostrando {students.length} de {totalItems} estudiantes
             </div>
             <div className="flex items-center gap-2">
               <button

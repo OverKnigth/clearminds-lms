@@ -31,6 +31,7 @@ export const useAdminData = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [studentsPage, setStudentsPage] = useState(1);
+  const [studentsSearch, setStudentsSearch] = useState('');
   const [tutorsPage, setTutorsPage] = useState(1);
   const [adminsPage, setAdminsPage] = useState(1);
   const [studentsTotal, setStudentsTotal] = useState(0);
@@ -43,7 +44,7 @@ export const useAdminData = () => {
     setIsLoading(true);
     try {
       const results = await Promise.allSettled([
-        api.getAllUsers('student', studentsPage, limit),
+        api.getAllUsers('student', studentsPage, limit, studentsSearch),
         api.getAllUsers('tutor', tutorsPage, limit),
         api.getAllUsers('admin', adminsPage, limit),
         api.getAdminCourses(),
@@ -83,12 +84,12 @@ export const useAdminData = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [studentsPage, tutorsPage, adminsPage]);
+  }, [studentsPage, tutorsPage, adminsPage, studentsSearch]);
 
   // Partial reload — only refreshes the specific role list after create/delete
-  const fetchByRole = useCallback(async (role: 'student' | 'tutor' | 'admin') => {
+  const fetchByRole = useCallback(async (role: 'student' | 'tutor' | 'admin', search?: string) => {
     try {
-      const res = await api.getAllUsers(role, 1, limit);
+      const res = await api.getAllUsers(role, 1, limit, role === 'student' ? (search ?? studentsSearch) : undefined);
       if (!res?.success) return;
       const rows = res.rows || res.data || [];
       const mapped = Array.isArray(rows) ? rows.map(mapUser) : [];
@@ -96,7 +97,11 @@ export const useAdminData = () => {
       if (role === 'tutor')   { setTutors(mapped);   setTutorsTotal(res.total || 0); }
       if (role === 'admin')   { setAdmins(mapped);   setAdminsTotal(res.total || 0); }
     } catch (e) { console.error(e); }
-  }, [limit]);
+  }, [limit, studentsSearch]);
+
+  useEffect(() => {
+    setStudentsPage(1);
+  }, [studentsSearch]);
 
   const fetchCourses = useCallback(async () => {
     try {
@@ -122,6 +127,7 @@ export const useAdminData = () => {
     fetchByRole,
     fetchCourses,
     studentsPage, setStudentsPage,
+    studentsSearch, setStudentsSearch,
     tutorsPage, setTutorsPage,
     adminsPage, setAdminsPage,
     studentsTotal, tutorsTotal, adminsTotal,
