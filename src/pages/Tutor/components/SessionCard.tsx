@@ -318,3 +318,48 @@ function ModalActions({ saving, label, onClose, danger }: { saving: boolean; lab
     </div>
   );
 }
+
+// ── SessionActions (compact for table rows) ──────────────────────────────────
+export function SessionActions({ session, onRefresh, compact = false }: { session: TutoringSession; onRefresh: () => void; compact?: boolean }) {
+  const [modal, setModal] = useState<'confirm' | 'reschedule' | 'cancel' | 'execute' | null>(null);
+  const [disabledSlots, setDisabledSlots] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (modal === 'confirm' || modal === 'reschedule') {
+      (api as any).getTutoringAvailability()
+        .then((res: any) => { if (res.success && res.data?.fullSlots) setDisabledSlots(res.data.fullSlots); })
+        .catch(() => {});
+    }
+  }, [modal]);
+
+  const handleSuccess = () => { setModal(null); onRefresh(); };
+
+  const btnBase = compact
+    ? 'px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-md transition-all'
+    : 'px-3 py-1.5 text-xs font-black uppercase tracking-widest rounded-lg transition-all';
+
+  return (
+    <>
+      <div className="flex items-center gap-1 flex-wrap justify-end">
+        {session.status === 'requested' && (
+          <>
+            <button onClick={() => setModal('confirm')} className={`${btnBase} bg-blue-600 hover:bg-blue-500 text-white`}>Confirmar</button>
+            <button onClick={() => setModal('reschedule')} className={`${btnBase} bg-orange-600 hover:bg-orange-500 text-white`}>Reagendar</button>
+            <button onClick={() => setModal('cancel')} className={`${btnBase} bg-slate-700 hover:bg-slate-600 text-red-400`}>Cancelar</button>
+          </>
+        )}
+        {(session.status === 'confirmed' || session.status === 'rescheduled') && (
+          <>
+            <button onClick={() => setModal('execute')} className={`${btnBase} bg-green-600 hover:bg-green-500 text-white`}>Ejecutar</button>
+            <button onClick={() => setModal('reschedule')} className={`${btnBase} bg-slate-700 hover:bg-slate-600 text-orange-400`}>Reagendar</button>
+            <button onClick={() => setModal('cancel')} className={`${btnBase} bg-slate-700 hover:bg-slate-600 text-red-400`}>Cancelar</button>
+          </>
+        )}
+      </div>
+      {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} disabledSlots={disabledSlots} />}
+      {modal === 'reschedule' && <RescheduleModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} disabledSlots={disabledSlots} />}
+      {modal === 'cancel' && <CancelModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
+      {modal === 'execute' && <ExecuteModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
+    </>
+  );
+}
