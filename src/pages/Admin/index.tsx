@@ -87,6 +87,8 @@ export default function Admin() {
           email: formData.email,
           status: formData.status,
         };
+        if (formData.groupId) payload.groupId = formData.groupId;
+        if (formData.courseId) payload.courseId = formData.courseId;
         await api.updateUser(selectedStudent.id, payload);
         await fetchByRole((selectedStudent as any).role || 'student');
         setIsModalOpen(false);
@@ -169,28 +171,26 @@ export default function Admin() {
     if (!selectedStudent) return;
     setSaving(true);
     try {
-      const selectedOfferings = Object.values(formData.courseParallelMap || {}).filter(id => id);
-      
-      if (selectedOfferings.length === 0) {
-        showAlert('Selecciona al menos un curso con su paralelo para asignar.');
+      const selectedCourses = [...new Set(formData.selectedCourses || [])];
+
+      if (selectedCourses.length === 0) {
+        showAlert('Selecciona al menos un curso para asignar.');
         return;
       }
 
-      for (const offeringId of selectedOfferings) {
-        await (api as any).enrollStudents(offeringId, { userIds: [selectedStudent.id] });
-      }
+      await (api as any).assignCoursesToUser(
+        selectedStudent.id,
+        selectedCourses,
+        selectedStudent.groupId
+      );
 
-      // Actualización local del estudiante con los nuevos cursos
-      const newCourseIds = [...new Set([
-        ...(selectedStudent.assignedCourses || []),
-        ...formData.selectedCourses
-      ])];
+      // Actualización local del estudiante reemplazando la selección actual
       setStudents((prev: any[]) => prev.map((s: any) =>
-        s.id === selectedStudent.id ? { ...s, assignedCourses: newCourseIds } : s
+        s.id === selectedStudent.id ? { ...s, assignedCourses: selectedCourses } : s
       ));
 
       setIsModalOpen(false);
-      showAlert('Cursos e Instancias asignados correctamente.', 'Éxito');
+      showAlert('Cursos asignados correctamente.', 'Éxito');
     } catch (e: any) { 
       showAlert(e.response?.data?.message || 'Error al asignar cursos');
     } finally { setSaving(false); }

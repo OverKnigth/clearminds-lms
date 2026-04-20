@@ -405,8 +405,8 @@ export const api = {
     return response.data;
   },
 
-  assignCoursesToUser: async (userId: string, courseIds: string[]) => {
-    const response = await apiClient.post(`/users/${userId}/assign-courses`, { courseIds });
+  assignCoursesToUser: async (userId: string, courseIds: string[], groupId?: string) => {
+    const response = await apiClient.post(`/users/${userId}/assign-courses`, { courseIds, groupId });
     return response.data;
   },
 

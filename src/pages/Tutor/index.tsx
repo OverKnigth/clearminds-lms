@@ -16,17 +16,17 @@ export default function Tutor() {
   const [studentSearch, setStudentSearch] = useState('');
 
   const normalize = (value?: string | null) => (value ?? '').toLowerCase().trim();
-  const matchesStudent = (names?: string | null, lastNames?: string | null) => {
+  const matchesStudent = (names?: string | null, lastNames?: string | null, email?: string | null) => {
     const query = normalize(studentSearch);
     if (!query) return true;
-    return `${normalize(names)} ${normalize(lastNames)}`.includes(query);
+    return `${normalize(names)} ${normalize(lastNames)} ${normalize(email)}`.includes(query);
   };
 
-  const filteredPending = pending.filter(s => matchesStudent(s.student?.names, s.student?.lastNames));
-  const filteredUpcoming = upcoming.filter(s => matchesStudent(s.student?.names, s.student?.lastNames));
-  const filteredCompleted = completed.filter(s => matchesStudent(s.student?.names, s.student?.lastNames));
-  const filteredStudents = students.filter(s => matchesStudent(s.names, s.lastNames));
-  const filteredChallenges = challenges.filter(c => matchesStudent(c.student?.names, c.student?.lastNames));
+  const filteredPending = pending.filter(s => matchesStudent(s.student?.names, s.student?.lastNames, s.student?.email));
+  const filteredUpcoming = upcoming.filter(s => matchesStudent(s.student?.names, s.student?.lastNames, s.student?.email));
+  const filteredCompleted = completed.filter(s => matchesStudent(s.student?.names, s.student?.lastNames, s.student?.email));
+  const filteredStudents = students.filter(s => matchesStudent(s.names, s.lastNames, s.email));
+  const filteredChallenges = challenges.filter(c => matchesStudent(c.student?.names, c.student?.lastNames, c.student?.email));
 
   const handleDownloadReport = async () => {
     try {
@@ -279,7 +279,7 @@ export default function Tutor() {
                 <input
                   value={studentSearch}
                   onChange={(e) => setStudentSearch(e.target.value)}
-                  placeholder="Buscar estudiante por nombre"
+                  placeholder="Buscar estudiante por nombre o correo electrónico"
                   className="w-full pl-9 pr-9 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
                 />
                 {studentSearch && (
