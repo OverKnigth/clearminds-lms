@@ -376,7 +376,10 @@ export default function Admin() {
                 onPageChange={setStudentsPage} 
                 onToggleStatus={handleToggleStatus}
                 searchTerm={studentsSearch}
-                onSearchChange={setStudentsSearch}
+                onSearchChange={(value) => {
+                  setStudentsPage(1);
+                  setStudentsSearch(value);
+                }}
                 onDelete={(student) => showConfirm(`¿Eliminar a "${student.fullName}"? Esta acción no se puede deshacer.`, async () => {
                   try { await api.deleteUser(student.id); await fetchByRole('student'); } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
                 }, { title: 'Eliminar Estudiante', confirmLabel: 'Eliminar', danger: true })}

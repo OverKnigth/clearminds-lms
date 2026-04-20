@@ -103,6 +103,13 @@ export const useAdminData = () => {
     setStudentsPage(1);
   }, [studentsSearch]);
 
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(studentsTotal / limit));
+    if (studentsPage > totalPages) {
+      setStudentsPage(totalPages);
+    }
+  }, [studentsPage, studentsTotal, limit]);
+
   const fetchCourses = useCallback(async () => {
     try {
       const response = await api.getAdminCourses();
