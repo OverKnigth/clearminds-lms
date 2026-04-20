@@ -3,6 +3,7 @@ import { api } from '../../../services/api';
 import Modal from '../../../components/Modal';
 import { useDialog } from '../../../hooks/useDialog';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import DateTimePicker from '../../../components/DateTimePicker';
 
 interface TutoringSession {
   id: string;
@@ -42,10 +43,23 @@ export function TutoringSessionsTab() {
   const [executeForm, setExecuteForm] = useState({ grade: 0, observations: '', recordingLink: '' });
   const [cancelForm, setCancelForm] = useState({ reason: '' });
   const [isSaving, setIsSaving] = useState(false);
+  const [disabledSlots, setDisabledSlots] = useState<string[]>([]);
 
   useEffect(() => {
     loadSessions();
+    fetchAvailability();
   }, []);
+
+  const fetchAvailability = async () => {
+    try {
+      const response = await (api as any).getTutoringAvailability();
+      if (response.success && response.data?.fullSlots) {
+        setDisabledSlots(response.data.fullSlots);
+      }
+    } catch (err) {
+      console.error('Error fetching availability:', err);
+    }
+  };
 
   const loadSessions = async () => {
     setIsLoading(true);
@@ -64,7 +78,11 @@ export function TutoringSessionsTab() {
     if (!confirmModal.session) return;
     setIsSaving(true);
     try {
-      const res = await api.confirmTutoringSession(confirmModal.session.id, confirmForm);
+      const payload = {
+        ...confirmForm,
+        scheduledAt: `${confirmForm.scheduledAt}:00.000Z`
+      };
+      const res = await api.confirmTutoringSession(confirmModal.session.id, payload);
       if (res.success) {
         setConfirmModal({ open: false, session: null });
         loadSessions();
@@ -260,13 +278,11 @@ export function TutoringSessionsTab() {
       >
         <form onSubmit={handleConfirm} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Fecha y Hora *</label>
-            <input
-              required
-              type="datetime-local"
-              className={INPUT_CLS}
+            <DateTimePicker 
+              label="Fecha y Hora *"
               value={confirmForm.scheduledAt}
-              onChange={e => setConfirmForm(f => ({ ...f, scheduledAt: e.target.value }))}
+              onChange={(val) => setConfirmForm(f => ({ ...f, scheduledAt: val }))}
+              disabledSlots={disabledSlots}
             />
           </div>
           <div>

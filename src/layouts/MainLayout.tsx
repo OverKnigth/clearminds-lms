@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import PageScrollArea from '../components/PageScrollArea';
+import GlobalNotifications from '../components/GlobalNotifications';
 
 export default function MainLayout() {
   const [user, setUser] = useState<{ name: string; role: string } | null>(null);
@@ -20,8 +21,9 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-screen bg-slate-900 overflow-hidden">
+      <GlobalNotifications />
       <Sidebar user={user || undefined} />
-           <PageScrollArea as="main" className="flex-1 bg-slate-900/50">
+      <PageScrollArea as="main" className="flex-1 bg-slate-900/50">
         <Outlet />
       </PageScrollArea>
     </div>

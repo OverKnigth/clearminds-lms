@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { TutoringSession } from '../types';
 import { api } from '../../../services/api';
 import { useDialog } from '../../../hooks/useDialog';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import DateTimePicker from '../../../components/DateTimePicker';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   requested:   { label: 'Pendiente',   color: 'yellow' },
@@ -22,6 +23,23 @@ interface SessionCardProps {
 
 export function SessionCard({ session, onRefresh, onUpdate }: SessionCardProps) {
   const [modal, setModal] = useState<'confirm' | 'reschedule' | 'cancel' | 'execute' | null>(null);
+  const [disabledSlots, setDisabledSlots] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (modal === 'confirm' || modal === 'reschedule') {
+      const fetchAvailability = async () => {
+        try {
+          const response = await (api as any).getTutoringAvailability();
+          if (response.success && response.data?.fullSlots) {
+            setDisabledSlots(response.data.fullSlots);
+          }
+        } catch (err) {
+          console.error('Error fetching availability:', err);
+        }
+      };
+      fetchAvailability();
+    }
+  }, [modal]);
   const cfg = STATUS_LABELS[session.status] || STATUS_LABELS.requested;
 
   const handleSuccess = (updated?: TutoringSession) => {
@@ -101,8 +119,8 @@ export function SessionCard({ session, onRefresh, onUpdate }: SessionCardProps) 
       </div>
 
       {/* Modals */}
-      {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
-      {modal === 'reschedule' && <RescheduleModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
+      {modal === 'confirm' && <ConfirmModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} disabledSlots={disabledSlots} />}
+      {modal === 'reschedule' && <RescheduleModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} disabledSlots={disabledSlots} />}
       {modal === 'cancel' && <CancelModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
       {modal === 'execute' && <ExecuteModal session={session} onClose={() => setModal(null)} onSuccess={handleSuccess} />}
     </div>
@@ -110,7 +128,7 @@ export function SessionCard({ session, onRefresh, onUpdate }: SessionCardProps) 
 }
 
 // ── Confirm Modal ────────────────────────────────────────────────────────────
-function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void }) {
+function ConfirmModal({ session, onClose, onSuccess, disabledSlots }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void; disabledSlots: string[] }) {
   const [scheduledAt, setScheduledAt] = useState('');
   const [meetingLink, setMeetingLink] = useState('');
   const [saving, setSaving] = useState(false);
@@ -120,7 +138,8 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api.confirmTutoringSession(session.id, { scheduledAt, meetingLink: meetingLink || undefined });
+      const payload = { scheduledAt: `${scheduledAt}:00.000Z`, meetingLink: meetingLink || undefined };
+      const res = await api.confirmTutoringSession(session.id, payload);
       onSuccess(res.data);
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
@@ -130,8 +149,12 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
     <ModalWrapper title="Confirmar Tutoría" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Fecha y hora programada</label>
-          <input type="datetime-local" required className={INPUT} value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
+          <DateTimePicker 
+            label="Fecha y hora programada"
+            value={scheduledAt}
+            onChange={setScheduledAt}
+            disabledSlots={disabledSlots}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1.5">Link de reunión (Zoom/Teams)</label>
@@ -145,7 +168,7 @@ function ConfirmModal({ session, onClose, onSuccess }: { session: TutoringSessio
 }
 
 // ── Reschedule Modal ─────────────────────────────────────────────────────────
-function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void }) {
+function RescheduleModal({ session, onClose, onSuccess, disabledSlots }: { session: TutoringSession; onClose: () => void; onSuccess: (u?: TutoringSession) => void; disabledSlots: string[] }) {
   const [scheduledAt, setScheduledAt] = useState('');
   const [meetingLink, setMeetingLink] = useState(session.meetingLink || '');
   const [saving, setSaving] = useState(false);
@@ -155,7 +178,8 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api.rescheduleTutoringSession(session.id, { scheduledAt, meetingLink: meetingLink || undefined });
+      const payload = { scheduledAt: `${scheduledAt}:00.000Z`, meetingLink: meetingLink || undefined };
+      const res = await api.rescheduleTutoringSession(session.id, payload);
       onSuccess(res.data);
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
     finally { setSaving(false); }
@@ -165,8 +189,12 @@ function RescheduleModal({ session, onClose, onSuccess }: { session: TutoringSes
     <ModalWrapper title="Reagendar Tutoría" onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Nueva fecha y hora</label>
-          <input type="datetime-local" required className={INPUT} value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
+          <DateTimePicker 
+            label="Nueva fecha y hora"
+            value={scheduledAt}
+            onChange={setScheduledAt}
+            disabledSlots={disabledSlots}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1.5">Link de reunión</label>

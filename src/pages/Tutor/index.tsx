@@ -4,13 +4,14 @@ import Footer from '../../components/Footer';
 import { api } from '../../services/api';
 import { useTutorData } from './hooks/useTutorData';
 import { SessionCard, StudentsTab, ChallengesTab } from './components';
+import TutoringCalendar from '../../components/TutoringCalendar';
 import type { TutorTab } from './types';
 
 export default function Tutor() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const activeTab = (queryParams.get('tab') as TutorTab) || 'dashboard';
-  const { pending, upcoming, completed, students, challenges, stats, isLoading, fetchSessions, fetchAll } = useTutorData();
+  const { sessions, pending, upcoming, completed, students, challenges, stats, isLoading, fetchSessions, fetchAll } = useTutorData();
   const [globalMessage, setGlobalMessage] = useState('');
 
   useEffect(() => {
@@ -205,13 +206,22 @@ export default function Tutor() {
         {activeTab !== 'dashboard' && (
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-black text-white">
-                {activeTab === 'pending' ? 'Pendientes' :
-                 activeTab === 'upcoming' ? 'Próximas' :
-                 activeTab === 'completed' ? 'Completadas' :
-                 activeTab === 'students' ? 'Estudiantes' : 'Retos'}
+              <h1 className="text-3xl font-black text-white uppercase tracking-tighter">
+                {activeTab === 'pending' && 'Tutorías Pendientes'}
+                {activeTab === 'upcoming' && 'Próximas Tutorías'}
+                {activeTab === 'completed' && 'Tutorías Realizadas'}
+                {activeTab === 'students' && 'Mis Estudiantes'}
+                {activeTab === 'calendar' && 'Calendario de Tutorías'}
+                {activeTab === 'challenges' && 'Retos por Revisar'}
               </h1>
-              <p className="text-slate-400">Gestiona a tus estudiantes y valida su aprendizaje</p>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
+                {activeTab === 'pending' && 'Confirma o rechaza las nuevas solicitudes de tutoría'}
+                {activeTab === 'upcoming' && 'Sesiones programadas para los próximos días'}
+                {activeTab === 'completed' && 'Historial de sesiones ejecutadas y calificaciones'}
+                {activeTab === 'students' && 'Listado oficial de estudiantes bajo tu tutoría'}
+                {activeTab === 'calendar' && 'Vista mensual de todas tus sesiones programadas'} 
+                {activeTab === 'challenges' && 'Valida los retos entregados por tus estudiantes'}
+              </p>
             </div>
           </div>
         )}
@@ -243,6 +253,13 @@ export default function Tutor() {
         {activeTab === 'students' && <StudentsTab students={students} />}
 
         {activeTab === 'challenges' && <ChallengesTab challenges={challenges} onRefresh={fetchAll} />}
+
+        {activeTab === 'calendar' && (
+          <TutoringCalendar 
+            sessions={sessions} 
+            isLoading={isLoading} 
+          />
+        )}
       </div>
       <Footer />
     </div>

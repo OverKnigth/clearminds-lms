@@ -39,4 +39,4 @@ export interface ChallengeSubmission {
   group?: { id: string; name: string; cohort?: string } | null;
 }
 
-export type TutorTab = 'dashboard' | 'pending' | 'upcoming' | 'completed' | 'students' | 'challenges';
+export type TutorTab = 'dashboard' | 'pending' | 'upcoming' | 'completed' | 'students' | 'challenges' | 'calendar';

@@ -155,6 +155,7 @@ export const API_ENDPOINTS = {
   CREATE_PARALLEL: (groupId: string) => `/admin/groups/${groupId}/parallels`,
   GET_PARALLEL_STUDENTS: (parallelId: string) => `/admin/parallels/${parallelId}/students`,
   ENROLL_STUDENTS_IN_PARALLEL: (parallelId: string) => `/admin/parallels/${parallelId}/enroll`,
+  GET_TUTORING_AVAILABILITY: '/student/tutoring/availability',
 };
 
 // API Service
@@ -630,6 +631,11 @@ export const api = {
 
   markAllStudentNotificationsRead: async () => {
     const response = await apiClient.patch('/student/notifications/read_all');
+    return response.data;
+  },
+
+  getTutoringAvailability: async () => {
+    const response = await apiClient.get(API_ENDPOINTS.GET_TUTORING_AVAILABILITY);
     return response.data;
   },
 

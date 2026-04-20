@@ -8,6 +8,7 @@ import { StudentBadges } from './components';
 import { useDialog } from '../../hooks/useDialog';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import MuxPlayer from '@mux/mux-player-react';
+import DateTimePicker from '../../components/DateTimePicker';
 
 interface Content {
   id: string;
@@ -118,6 +119,14 @@ export default function CourseView() {
   const [requestingTutoring, setRequestingTutoring] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [newBadge, setNewBadge] = useState<any | null>(null);
+  const [disabledSlots, setDisabledSlots] = useState<string[]>([]);
+  const [requestingBlockId, setRequestingBlockId] = useState<string | null>(null);
+  const [seenGrades, setSeenGrades] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('seenGrades');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const seenBadgeIds = useRef<Set<string> | null>(null);
   const { dialog, showAlert, close: closeDialog } = useDialog();
 
@@ -127,6 +136,22 @@ export default function CourseView() {
       loadTutoring();
     }
   }, [courseSlug]);
+
+  useEffect(() => {
+    if (showTutoringModal) {
+      const fetchAvailability = async () => {
+        try {
+          const response = await (api as any).getTutoringAvailability();
+          if (response.success && response.data?.fullSlots) {
+            setDisabledSlots(response.data.fullSlots);
+          }
+        } catch (err) {
+          console.error('Error fetching availability:', err);
+        }
+      };
+      fetchAvailability();
+    }
+  }, [showTutoringModal]);
 
   // Auto-show rating modal 5 seconds after viewing a graded challenge
   useEffect(() => {
@@ -239,7 +264,7 @@ export default function CourseView() {
     ? tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === selectedTopic.blockId)
     : [];
   const activeSession = blockSessions.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
-  const currentBlock = course.blocks?.find(b => b.id === selectedTopic?.blockId);
+  const requestingBlock = course.blocks?.find(b => b.id === requestingBlockId);
 
   // Lógica de habilitación de tutoría (13.2)
   // canRequestTutoring — available for future use
@@ -356,11 +381,11 @@ export default function CourseView() {
   };
 
   const handleRequestTutoring = async () => {
-    if (!selectedTopic?.blockId) return;
+    if (!requestingBlockId) return;
     setRequestingTutoring(true);
     try {
-      const isoDate = new Date(tutoringDate).toISOString();
-      await (api as any).requestTutoring(selectedTopic.blockId, tutoringObservation || undefined, isoDate);
+      const isoDate = `${tutoringDate}:00.000Z`;
+      await (api as any).requestTutoring(requestingBlockId, tutoringObservation || undefined, isoDate);
       setShowTutoringModal(false);
       setTutoringObservation('');
       loadTutoring();
@@ -371,8 +396,10 @@ export default function CourseView() {
     }
   };
 
-  const openTutoringModal = () => {
+  const openTutoringModal = (blockId?: string) => {
     setTutoringObservation('');
+    const idToRequest = blockId || selectedTopic?.blockId || null;
+    setRequestingBlockId(idToRequest);
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     setTutoringDate(now.toISOString().slice(0, 16));
@@ -403,7 +430,21 @@ export default function CourseView() {
   // explicitly request a new tutoring first.
   const isContentUnlockedForProgress = (c: Content): boolean => {
     const status = getContentStatus(c);
-    if (status === 'completed' || status === 'submitted' || status === 'failed') return true;
+    if (status === 'completed' || status === 'submitted') return true;
+    
+    // If it failed, it only unlocks if there's an active tutoring session (requested/confirmed/rescheduled)
+    if (status === 'failed' && course) {
+      // Find the block this content belongs to
+      const topic = course.topics.find(t => t.contents.some(content => content.id === c.id));
+      if (topic?.blockId) {
+        const hasActive = tutoringSessions.some(s => 
+          (s.block_id ?? s.block?.id) === topic.blockId && 
+          ['requested', 'confirmed', 'rescheduled'].includes(s.status)
+        );
+        return hasActive;
+      }
+      return true; // fallback
+    }
     return false;
   };
 
@@ -514,6 +555,16 @@ export default function CourseView() {
                                 setShowBadges(false);
                                 setSelectedTopicId(topic.id);
                                 setSelectedContentId(content.id);
+                                
+                                // Mark as seen (spec 13.11)
+                                if (content.submission && content.submission.grade !== null) {
+                                  setSeenGrades(prev => {
+                                    const next = { ...prev, [content.id]: content.submission!.grade! };
+                                    localStorage.setItem('seenGrades', JSON.stringify(next));
+                                    return next;
+                                  });
+                                }
+
                                 const initPct = content.progress.pctWatched || 0;
                                 setLastSavedProgress(initPct);
                                 lastReportedPctRef.current = initPct;
@@ -532,17 +583,24 @@ export default function CourseView() {
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                               ) : status === 'submitted' ? (
-                                <svg className="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20" title="Entregado, pendiente de calificación">
+                                <svg className="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20" aria-label="Entregado, pendiente de calificación">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                               ) : status === 'failed' ? (
-                                <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20" title="No aprobado">
+                                <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20" aria-label="No aprobado">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                               ) : (
                                 <div className={`w-3 h-3 rounded-full border-2 ${isContentActive ? 'border-red-500' : 'border-slate-700'}`} />
                               )}
-                              <span className="truncate">{content.title}</span>
+                              <span className="truncate flex-1">{content.title}</span>
+                              
+                              {/* Blue Dot for unread grades (spec 13.11) */}
+                              {content.type === 'challenge' && 
+                               content.submission && content.submission.grade !== null && 
+                               seenGrades[content.id] !== content.submission.grade && (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.6)] animate-pulse shrink-0" />
+                              )}
                             </button>
                           );
                         })}
@@ -623,57 +681,83 @@ export default function CourseView() {
                       })()}
                     </div>
                     <h1 className="text-3xl font-extrabold text-white leading-tight">{selectedContent.title}</h1>
-                  </div>
-
-
+                    </div>
                 </div>
 
-                {/* Block tutoring status banner — spec 13.10 */}
-                {selectedTopic?.blockId && (() => {
-                  const blockSess = tutoringSessions.filter(
-                    s => (s.block_id ?? s.block?.id) === selectedTopic.blockId
-                  );
-                  const pending = blockSess.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
-                  const lastExecuted = blockSess
-                    .filter(s => s.status === 'executed')
-                    .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
-                  const isApproved = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade >= 7;
-                  const isFailed = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade < 7 && !pending;
+                {/* Global & Contextual Tutoring Banner */}
+                {(() => {
+                  // Find ALL failed blocks in the course that don't have a pending tutoring
+                  const failedBlocks = (course?.blocks || []).map(b => {
+                    const blockSess = tutoringSessions.filter(s => (s.block_id ?? s.block?.id) === b.id);
+                    const pending = blockSess.find(s => ['requested', 'confirmed', 'rescheduled'].includes(s.status));
+                    const lastExecuted = blockSess
+                      .filter(s => s.status === 'executed')
+                      .sort((a, b) => (b.attempt_number ?? 0) - (a.attempt_number ?? 0))[0];
+                    const isFailed = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade < 7 && !pending;
+                    const isApproved = lastExecuted && lastExecuted.grade !== null && lastExecuted.grade >= 7;
+                    return { ...b, isFailed, isApproved, pending };
+                  }).filter(fb => fb.isFailed || fb.pending || fb.isApproved);
 
-                  if (isApproved) return (
-                    <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
-                      <svg className="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <p className="text-xs text-green-400 font-bold uppercase tracking-widest">Bloque aprobado — insignia desbloqueada</p>
+                  // Current block state
+                  const currentBlockState = failedBlocks.find(fb => fb.id === selectedTopic?.blockId);
+                  
+                  // Other blocks with failures
+                  const otherFailures = failedBlocks.filter(fb => fb.isFailed && fb.id !== selectedTopic?.blockId);
+
+                  return (
+                    <div className="space-y-3 mb-8">
+                      {/* Current Block Status */}
+                      {currentBlockState?.isApproved && (
+                        <div className="flex items-center gap-3 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
+                          <svg className="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p className="text-xs text-green-400 font-bold uppercase tracking-widest">Bloque "{currentBlockState.name}" aprobado</p>
+                        </div>
+                      )}
+
+                      {currentBlockState?.pending && (
+                        <div className="flex items-center gap-3 px-4 py-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                          <svg className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-xs text-blue-400 font-bold uppercase tracking-widest">Tutoría pendiente en "{currentBlockState.name}"</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Pendiente de confirmación para el {new Date(currentBlockState.pending.scheduledAt || currentBlockState.pending.requestedAt).toLocaleString('es-ES')}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {currentBlockState?.isFailed && (
+                        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                          <div className="flex items-center gap-3">
+                            <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div>
+                              <p className="text-xs text-red-400 font-bold uppercase tracking-widest leading-none">"{currentBlockState.name}" no aprobado</p>
+                              <p className="text-[10px] text-slate-500 mt-1 uppercase font-black">Debes reagendar para obtener la insignia</p>
+                            </div>
+                          </div>
+                          <button onClick={() => openTutoringModal(currentBlockState.id)} className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all shadow-lg shadow-red-900/20">Reagendar Ahora</button>
+                        </div>
+                      )}
+
+                      {/* Warnings for OTHER failed blocks */}
+                      {otherFailures.map(fb => (
+                        <div key={fb.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-red-900/20 border border-red-700/30 rounded-xl border-dashed">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shrink-0" />
+                            <div>
+                              <p className="text-[10px] text-red-300 font-bold uppercase tracking-widest leading-none">Atención: Tienes una falla previa</p>
+                              <p className="text-[9px] text-slate-500 mt-1 uppercase font-bold">Bloque: {fb.name}</p>
+                            </div>
+                          </div>
+                          <button onClick={() => openTutoringModal(fb.id)} className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white text-[9px] font-black uppercase tracking-widest rounded-lg transition-all border border-slate-600">Reagendar Bloque {fb.name}</button>
+                        </div>
+                      ))}
                     </div>
                   );
-
-                  if (pending) return (
-                    <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                      <svg className="w-4 h-4 text-blue-400 shrink-0 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div>
-                        <p className="text-xs text-blue-400 font-bold uppercase tracking-widest">Tutoría en espera de confirmación</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Puedes seguir avanzando. La insignia se entregará cuando el tutor apruebe este bloque.</p>
-                      </div>
-                    </div>
-                  );
-
-                  if (isFailed) return (
-                    <div className="mb-6 flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                      <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      <div>
-                        <p className="text-xs text-amber-400 font-bold uppercase tracking-widest">Bloque no aprobado — reagenda tu tutoría</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Puedes seguir avanzando, pero la insignia estará bloqueada hasta aprobar.</p>
-                      </div>
-                    </div>
-                  );
-
-                  return null;
                 })()}
 
                 {/* VIEWERS */}
@@ -849,7 +933,7 @@ export default function CourseView() {
                                 </div>
                               </div>
                               <button
-                                onClick={openTutoringModal}
+                                onClick={() => openTutoringModal(selectedTopic?.blockId ?? undefined)}
                                 className="w-full py-2.5 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1102,25 +1186,18 @@ export default function CourseView() {
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bloque</label>
                 <div className="px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm font-bold">
-                  {currentBlock?.name ?? selectedTopic.blockName ?? 'Bloque actual'}
+                  {requestingBlock?.name ?? selectedTopic?.blockName ?? 'Bloque actual'}
                 </div>
               </div>
 
               {/* Fecha de solicitud */}
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Fecha de Solicitud</label>
-                <input
-                  type="datetime-local"
-                  value={tutoringDate}
-                  min={(() => {
-                    const now = new Date();
-                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                    return now.toISOString().slice(0, 16);
-                  })()}
-                  onChange={e => setTutoringDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-              </div>
+              <DateTimePicker 
+                label="Fecha de Solicitud"
+                value={tutoringDate}
+                onChange={setTutoringDate}
+                minDate={new Date().toISOString().slice(0, 16)}
+                disabledSlots={disabledSlots}
+              />
 
               {/* Observación */}
               <div>
