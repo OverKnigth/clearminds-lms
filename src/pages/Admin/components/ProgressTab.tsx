@@ -51,12 +51,22 @@ export function ProgressTab() {
   const loadGroups = async () => {
     try {
       const res = await api.getGroups();
-      if (res.success) {
-        const list = res.data.rows || res.data || [];
-        setGroups(list.filter((g: any) => g.status === 'active' && g.name !== '__template__'));
-      }
+      const list = Array.isArray(res)
+        ? res
+        : (res?.data?.rows || res?.data || []);
+
+      const normalizedGroups = list.filter((g: any) => {
+        const status = (g?.status || '').toLowerCase();
+        const name = g?.name || g?.groupName || '';
+        // Si no viene status, no descartamos el grupo para evitar lista vacia.
+        const isActive = !status || status === 'active';
+        return isActive && name !== '__template__';
+      });
+
+      setGroups(normalizedGroups);
     } catch (e) {
       console.error('Error loading groups', e);
+      setGroups([]);
     }
   };
 
@@ -228,7 +238,12 @@ export function ProgressTab() {
                     onChange={(e) => loadGroupReport(e.target.value)}
                   >
                     <option value="">-- Elige un grupo --</option>
-                    {groups.map(g => <option key={g.id} value={g.id}>{g.name} - {g.cohort}</option>)}
+                    {groups.map(g => (
+                      <option key={g.id} value={g.id}>
+                        {(g.name || g.groupName || 'Grupo sin nombre')}
+                        {g.cohort ? ` - ${g.cohort}` : ''}
+                      </option>
+                    ))}
                   </select>
                   {groupData.length > 0 && (
                     <button 
@@ -634,7 +649,12 @@ export function ProgressTab() {
                     onChange={(e) => loadHistorical(e.target.value)}
                   >
                     <option value="">-- Elige un grupo --</option>
-                    {groups.map(g => <option key={g.id} value={g.id}>{g.name} - {g.cohort}</option>)}
+                    {groups.map(g => (
+                      <option key={g.id} value={g.id}>
+                        {(g.name || g.groupName || 'Grupo sin nombre')}
+                        {g.cohort ? ` - ${g.cohort}` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
