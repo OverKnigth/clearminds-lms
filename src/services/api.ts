@@ -734,7 +734,8 @@ export const api = {
   createGroup: async (data: CreateGroupPayload): Promise<any> => {
     try {
       const response = await apiClient.post(API_ENDPOINTS.CREATE_GROUP, data);
-      return response.data;
+      const body = response.data;
+      return body?.data ?? body;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
@@ -747,7 +748,8 @@ export const api = {
   updateGroup: async (id: string, data: UpdateGroupPayload): Promise<any> => {
     try {
       const response = await apiClient.patch(API_ENDPOINTS.UPDATE_GROUP(id), data);
-      return response.data;
+      const body = response.data;
+      return body?.data ?? body;
     } catch (error) {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
