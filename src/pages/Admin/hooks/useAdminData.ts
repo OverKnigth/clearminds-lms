@@ -40,6 +40,7 @@ export const useAdminData = () => {
 
   const [studentsPage, setStudentsPage] = useState(1);
   const [studentsSearch, setStudentsSearch] = useState('');
+  const [studentsGroupId, setStudentsGroupId] = useState('all');
   const [tutorsPage, setTutorsPage] = useState(1);
   const [adminsPage, setAdminsPage] = useState(1);
   const [studentsTotal, setStudentsTotal] = useState(0);
@@ -47,12 +48,11 @@ export const useAdminData = () => {
   const [adminsTotal, setAdminsTotal] = useState(0);
   const limit = 10;
 
-  // Full reload — used on initial load and page changes
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchData = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     try {
       const results = await Promise.allSettled([
-        api.getAllUsers('student', studentsPage, limit, studentsSearch),
+        api.getAllUsers('student', studentsPage, limit, studentsSearch, studentsGroupId),
         api.getAllUsers('tutor', tutorsPage, limit),
         api.getAllUsers('admin', adminsPage, limit),
         api.getAdminCourses(),
@@ -90,14 +90,22 @@ export const useAdminData = () => {
     } catch (error) {
       console.error('Error fetching admin data:', error);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
-  }, [studentsPage, tutorsPage, adminsPage, studentsSearch]);
+  }, [studentsPage, tutorsPage, adminsPage, studentsSearch, studentsGroupId]);
 
   // Partial reload — only refreshes the specific role list after create/delete
   const fetchByRole = useCallback(async (role: 'student' | 'tutor' | 'admin', search?: string) => {
     try {
-      const res = await api.getAllUsers(role, 1, limit, role === 'student' ? (search ?? studentsSearch) : undefined);
+      const page = role === 'student' ? studentsPage : role === 'tutor' ? tutorsPage : adminsPage;
+      const res = await api.getAllUsers(
+        role, 
+        page, 
+        limit, 
+        role === 'student' ? (search ?? studentsSearch) : undefined,
+        role === 'student' ? studentsGroupId : undefined
+      );
+      
       if (!res?.success) return;
       const rows = res.rows || res.data || [];
       const mapped = Array.isArray(rows) ? rows.map(mapUser) : [];
@@ -105,11 +113,11 @@ export const useAdminData = () => {
       if (role === 'tutor')   { setTutors(mapped);   setTutorsTotal(res.total || 0); }
       if (role === 'admin')   { setAdmins(mapped);   setAdminsTotal(res.total || 0); }
     } catch (e) { console.error(e); }
-  }, [limit, studentsSearch]);
+  }, [limit, studentsSearch, studentsPage, tutorsPage, adminsPage, studentsGroupId]);
 
   useEffect(() => {
     setStudentsPage(1);
-  }, [studentsSearch]);
+  }, [studentsSearch, studentsGroupId]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(studentsTotal / limit));
@@ -126,8 +134,25 @@ export const useAdminData = () => {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    // Initial fetch only once
+    fetchData(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch only students when search, page or group changes
+  useEffect(() => {
+    fetchByRole('student');
+  }, [studentsSearch, studentsGroupId, studentsPage, fetchByRole]);
+
+  // Fetch only tutors when page changes
+  useEffect(() => {
+    fetchByRole('tutor');
+  }, [tutorsPage, fetchByRole]);
+
+  // Fetch only admins when page changes
+  useEffect(() => {
+    fetchByRole('admin');
+  }, [adminsPage, fetchByRole]);
 
   return {
     students, setStudents,
@@ -143,6 +168,7 @@ export const useAdminData = () => {
     fetchCourses,
     studentsPage, setStudentsPage,
     studentsSearch, setStudentsSearch,
+    studentsGroupId, setStudentsGroupId,
     tutorsPage, setTutorsPage,
     adminsPage, setAdminsPage,
     studentsTotal, tutorsTotal, adminsTotal,

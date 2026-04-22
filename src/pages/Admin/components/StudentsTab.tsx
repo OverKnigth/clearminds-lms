@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useState, useEffect, type RefObject } from 'react';
 import type { Student } from '../types';
 
 interface StudentsTabProps {
@@ -18,8 +18,9 @@ interface StudentsTabProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
   onDelete?: (student: Student) => void;
+  selectedGroupId: string;
+  onGroupChange: (groupId: string) => void;
 }
-
 export function StudentsTab({
   students,
   groups,
@@ -36,8 +37,27 @@ export function StudentsTab({
   onToggleStatus,
   searchTerm,
   onSearchChange,
-  onDelete
+  onDelete,
+  selectedGroupId,
+  onGroupChange
 }: StudentsTabProps) {
+  const [localSearch, setLocalSearch] = useState(searchTerm);
+
+  // Sync local search with prop
+  useEffect(() => {
+    setLocalSearch(searchTerm);
+  }, [searchTerm]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localSearch !== searchTerm) {
+        onSearchChange(localSearch);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [localSearch, onSearchChange, searchTerm]);
+
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   // getParallelNames — available for future use
@@ -57,37 +77,48 @@ export function StudentsTab({
   };
 
   return (
-    <div>
-      <div className="mb-4 bg-slate-800 border border-slate-700/50 rounded-lg px-6 py-4">
-        <div className="flex justify-between items-center">
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-3xl p-6 shadow-2xl overflow-hidden relative group">
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-red-600/5 rounded-full blur-3xl group-hover:bg-red-600/10 transition-colors" />
+        <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl group-hover:bg-blue-600/10 transition-colors" />
+        
+        <div className="relative flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
-            <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Gestión de Estudiantes</h2>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Administra usuarios, credenciales y asignaciones</p>
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Estudiantes</h2>
+              <div className="px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded text-[10px] font-black text-red-500 uppercase tracking-widest animate-pulse">Admin Mode</div>
+            </div>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Gestión global de usuarios, accesos y métricas de progreso</p>
           </div>
-          <div className="flex items-center gap-3 relative">
-            <div className="relative">
+
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            <div className="relative group/import">
               <button
                 onClick={() => setIsImportMenuOpen(!isImportMenuOpen)}
                 disabled={isUploading}
-                className={`px-6 py-2.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`flex-1 lg:flex-none px-6 py-3 bg-slate-900 border border-slate-700 hover:border-slate-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg ${isUploading ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-slate-900/50'}`}
               >
                 {isUploading ? (
                   <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-slate-400 group-hover/import:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                   </svg>
                 )}
-                {isUploading ? 'Importando...' : 'Importar'}
+                {isUploading ? 'Importando Datos...' : 'Importar Usuarios'}
                 {!isUploading && (
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-3 h-3 transition-transform duration-300 ${isImportMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 )}
               </button>
 
               {isImportMenuOpen && !isUploading && (
-                <div className="absolute top-full right-0 mt-2 w-52 bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-20">
+                <div className="absolute top-full right-0 mt-3 w-60 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-30 animate-in fade-in slide-in-from-top-2">
+                  <div className="p-3 border-b border-slate-800 bg-slate-800/30">
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Seleccionar Origen</p>
+                  </div>
                   <button
                     onClick={() => {
                       setIsImportMenuOpen(false);
@@ -96,12 +127,14 @@ export function StudentsTab({
                         fileInputRef.current.click();
                       }
                     }}
-                    className="w-full px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-3"
+                    className="w-full px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-300 hover:bg-slate-800 hover:text-white transition-all flex items-center gap-3 group/item"
                   >
-                    <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Desde Excel / CSV
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center group-hover/item:scale-110 transition-transform">
+                      <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    Excel / CSV
                   </button>
                   <button
                     onClick={() => {
@@ -111,12 +144,14 @@ export function StudentsTab({
                         fileInputRef.current.click();
                       }
                     }}
-                    className="w-full px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-3"
+                    className="w-full px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-300 hover:bg-slate-800 hover:text-white transition-all flex items-center gap-3 group/item"
                   >
-                    <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    Desde PDF
+                    <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center group-hover/item:scale-110 transition-transform">
+                      <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    Documento PDF
                   </button>
                 </div>
               )}
@@ -129,30 +164,75 @@ export function StudentsTab({
               onChange={handleFileUpload}
               disabled={isUploading}
             />
+            
             <button
               onClick={() => openModal('addStudent')}
-              className="px-6 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-red-900/20"
+              className="flex-1 lg:flex-none px-6 py-3 bg-gradient-to-r from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg shadow-red-900/20 hover:shadow-red-900/40 hover:-translate-y-0.5 active:translate-y-0"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
               </svg>
-              Agregar Estudiante
+              Nuevo Estudiante
             </button>
           </div>
         </div>
       </div>
 
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <svg className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m1.6-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+      {/* Advanced Search & Filters Section */}
+      <div className="flex flex-col xl:flex-row items-center gap-4">
+        <div className="relative flex-1 group w-full">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <svg className="w-5 h-5 text-slate-500 group-focus-within:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m1.6-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           <input
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Buscar por nombre o correo"
-            className="w-full pl-9 pr-3 py-2.5 bg-slate-900 border border-slate-700 hover:border-slate-600 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
+            placeholder="Buscar por nombre, correo electrónico o identificación..."
+            className="w-full pl-12 pr-12 py-4 bg-slate-800/50 border border-slate-700/50 hover:border-slate-600 focus:border-red-500/50 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-4 focus:ring-red-500/10 transition-all backdrop-blur-sm"
           />
+          {localSearch && (
+            <button 
+              onClick={() => setLocalSearch('')}
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors"
+              title="Limpiar búsqueda"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+          <div className="relative w-full sm:w-64 group">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+              <svg className="w-4 h-4 text-slate-500 group-focus-within:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <select
+              value={selectedGroupId}
+              onChange={(e) => onGroupChange(e.target.value)}
+              className="w-full pl-10 pr-10 py-4 bg-slate-800/50 border border-slate-700/50 hover:border-slate-600 focus:border-red-500/50 rounded-2xl text-xs text-white appearance-none focus:outline-none focus:ring-4 focus:ring-red-500/10 transition-all backdrop-blur-sm cursor-pointer font-black uppercase tracking-widest"
+            >
+              <option value="all">Filtrar por Grupo / Generación</option>
+              {groups.map(g => (
+                <option key={g.id} value={g.id}>{g.name || g.cohortName || g.cohort}</option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
+              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 px-6 py-4 bg-slate-800/30 rounded-2xl border border-slate-700/50 w-full sm:w-auto justify-center">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total:</span>
+            <span className="text-sm font-black text-white">{totalItems}</span>
+          </div>
         </div>
       </div>
 

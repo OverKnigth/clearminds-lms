@@ -373,12 +373,13 @@ export const api = {
 
   // ─── Admin - Users ───────────────────────────────────────────────────────────
   // role?: 'student' | 'tutor' | 'admin'
-  getAllUsers: async (role?: string, page: number = 1, limit: number = 10, search?: string) => {
+  getAllUsers: async (role?: string, page: number = 1, limit: number = 10, search?: string, groupId?: string) => {
     const params = new URLSearchParams();
     if (role) params.append('role', role);
     params.append('page', page.toString());
     params.append('limit', limit.toString());
     if (search && search.trim()) params.append('search', search.trim());
+    if (groupId && groupId !== 'all') params.append('groupId', groupId);
     const response = await apiClient.get(`${API_ENDPOINTS.GET_ALL_USERS}?${params.toString()}`);
     return response.data;
   },

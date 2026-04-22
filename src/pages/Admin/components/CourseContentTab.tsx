@@ -851,17 +851,6 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
                 {contentForm.url.startsWith('mux:') && (
                   <p className="text-xs text-green-400">Video cargado en Mux correctamente.</p>
                 )}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                    Link de recursos (Drive) - opcional
-                  </label>
-                  <input
-                    className={INPUT_CLS}
-                    value={contentForm.supportUrl}
-                    onChange={e => setContentForm(f => ({ ...f, supportUrl: e.target.value }))}
-                    placeholder="https://drive.google.com/..."
-                  />
-                </div>
               </div>
             ) : (
               <div className="relative">
@@ -876,6 +865,18 @@ export function CourseContentTab({ course, onBack }: CourseContentTabProps) {
                 )}
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              Link de recursos adicionales (Drive/Dropbox) - opcional
+            </label>
+            <input
+              className={INPUT_CLS}
+              value={contentForm.supportUrl}
+              onChange={e => setContentForm(f => ({ ...f, supportUrl: e.target.value }))}
+              placeholder="https://drive.google.com/..."
+            />
           </div>
 
           {(contentForm.type === 'document' || contentForm.type === 'challenge') && (

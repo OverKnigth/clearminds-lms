@@ -21,6 +21,9 @@ interface Content {
   durationMinutes: number | null;
   deadline: string | null;
   allowDownload: boolean;
+  instructions: string | null;
+  evaluationCriteria: string | null;
+  supportUrl: string | null;
   progress: { status: string; pctWatched: number; completedAt: string | null };
   submission: {
     id: string;
@@ -817,6 +820,31 @@ export default function CourseView() {
                         <p className="text-slate-400">URL del video no disponible</p>
                       </div>
                     )}
+                    {/* Recursos adicionales para video */}
+                    {selectedContent.supportUrl && (
+                      <div className="animate-in fade-in slide-in-from-top-2 duration-500">
+                        <a 
+                          href={selectedContent.supportUrl} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="flex items-center gap-4 p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl hover:bg-blue-500/10 transition-all group"
+                        >
+                          <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.101-1.101m-1.414-1.414l4-4" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-blue-400 uppercase tracking-widest mb-0.5">Recursos del Video</p>
+                            <p className="text-sm text-slate-300 font-medium truncate">Material adicional y archivos de apoyo</p>
+                          </div>
+                          <svg className="w-5 h-5 text-slate-600 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    )}
+
                     {/* Indicador de completado automático */}
                     {selectedContent.progress.status === 'completed' && (
                       <div className="flex items-center gap-2 px-4 py-2.5 bg-green-500/10 border border-green-500/20 rounded-xl">
@@ -861,18 +889,59 @@ export default function CourseView() {
                 {selectedContent.type === 'challenge' && (
                   <div className="space-y-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
-                        <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Instrucciones</h3>
-                        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedContent.description || 'Sin instrucciones adicionales'}</p>
+                      <div className="space-y-6">
+                        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
+                          <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Instrucciones</h3>
+                          <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedContent.instructions || selectedContent.description || 'Sin instrucciones adicionales'}</p>
+                        </div>
+                        {selectedContent.evaluationCriteria && (
+                          <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
+                            <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest mb-4">Criterios de Evaluación</h3>
+                            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedContent.evaluationCriteria}</p>
+                          </div>
+                        )}
                       </div>
+                      
                       <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
                         <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Material de Apoyo</h3>
-                        {selectedContent.url ? (
-                          <a href={selectedContent.url} target="_blank" className="flex items-center gap-3 p-3 bg-slate-900/50 rounded-xl hover:bg-slate-900 transition-colors text-slate-300">
-                            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4" /></svg>
-                            <span className="text-xs font-bold uppercase">Ver Recursos</span>
-                          </a>
-                        ) : <p className="text-xs text-slate-500 italic">No hay archivos adjuntos</p>}
+                        <div className="space-y-3">
+                          {selectedContent.url && (
+                            <div className="flex items-center justify-between gap-3 p-3 bg-slate-900/50 rounded-xl hover:bg-slate-900 transition-colors group">
+                              <a href={selectedContent.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-slate-300 flex-1 min-w-0">
+                                <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4" /></svg>
+                                <span className="text-xs font-bold uppercase truncate">Ver Documento</span>
+                              </a>
+                              {selectedContent.allowDownload && (
+                                <a 
+                                  href={selectedContent.url} 
+                                  download 
+                                  className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-all border border-slate-700"
+                                  title="Descargar recurso"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                </a>
+                              )}
+                            </div>
+                          )}
+                          
+                          {selectedContent.supportUrl && (
+                            <div className="flex items-center justify-between gap-3 p-3 bg-slate-900/50 rounded-xl hover:bg-slate-900 transition-colors group">
+                              <a href={selectedContent.supportUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-slate-300 flex-1 min-w-0">
+                                <svg className="w-5 h-5 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.101-1.101" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l4-4" /></svg>
+                                <span className="text-xs font-bold uppercase truncate">Recursos Adicionales</span>
+                              </a>
+                            </div>
+                          )}
+
+                          {!selectedContent.url && !selectedContent.supportUrl && (
+                            <div className="flex flex-col items-center justify-center py-10 text-slate-600">
+                              <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-4 border border-slate-700/50">
+                                <svg className="w-8 h-8 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                              </div>
+                              <p className="text-[10px] font-black uppercase tracking-widest italic">No hay recursos adjuntos para este reto</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 

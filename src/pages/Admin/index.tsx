@@ -32,6 +32,7 @@ export default function Admin() {
     studentsTotal, tutorsTotal, adminsTotal,
     isLoading, fetchByRole, limit,
     studentsSearch, setStudentsSearch,
+    studentsGroupId, setStudentsGroupId,
     setStudents, setCourses,
   } = useAdminData();
 
@@ -377,9 +378,10 @@ export default function Admin() {
                 onToggleStatus={handleToggleStatus}
                 searchTerm={studentsSearch}
                 onSearchChange={(value) => {
-                  setStudentsPage(1);
                   setStudentsSearch(value);
                 }}
+                selectedGroupId={studentsGroupId}
+                onGroupChange={setStudentsGroupId}
                 onDelete={(student) => showConfirm(`¿Eliminar a "${student.fullName}"? Esta acción no se puede deshacer.`, async () => {
                   try { await api.deleteUser(student.id); await fetchByRole('student'); } catch (e: any) { showAlert(e.response?.data?.message || e.message); }
                 }, { title: 'Eliminar Estudiante', confirmLabel: 'Eliminar', danger: true })}
