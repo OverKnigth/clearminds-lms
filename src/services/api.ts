@@ -155,6 +155,7 @@ export const API_ENDPOINTS = {
   CREATE_PARALLEL: (groupId: string) => `/admin/groups/${groupId}/parallels`,
   GET_PARALLEL_STUDENTS: (parallelId: string) => `/admin/parallels/${parallelId}/students`,
   ENROLL_STUDENTS_IN_PARALLEL: (parallelId: string) => `/admin/parallels/${parallelId}/enroll`,
+  SYNC_GROUP_COURSES: (id: string) => `/admin/groups/${id}/sync-courses`,
   GET_TUTORING_AVAILABILITY: '/student/tutoring/availability',
 };
 
@@ -779,6 +780,18 @@ export const api = {
       const axiosError = error as AxiosError<{ message?: string }>;
       const status = axiosError.response?.status;
       const message = axiosError.response?.data?.message ?? 'Error al agregar cursos';
+      if (status === 400 || status === 404 || status === 409) throw Object.assign(new Error(message), { status });
+      throw error;
+    }
+  },
+
+  syncGroupCourses: async (id: string, data: AddCoursesPayload): Promise<void> => {
+    try {
+      await apiClient.put(API_ENDPOINTS.SYNC_GROUP_COURSES(id), data);
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message ?? 'Error al sincronizar cursos';
       if (status === 400 || status === 404 || status === 409) throw Object.assign(new Error(message), { status });
       throw error;
     }

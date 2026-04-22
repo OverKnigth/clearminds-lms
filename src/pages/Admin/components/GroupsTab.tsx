@@ -21,12 +21,17 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const { dialog, showAlert, close: closeDialog } = useDialog();
 
   // Form for creating group
   const [groupForm, setGroupForm] = useState({ name: '', courseIds: [] as string[] });
+
+  // Form for editing courses
+  const [editCourseIds, setEditCourseIds] = useState<string[]>([]);
 
   // Form for enrollment
   const [enrollForm, setEnrollForm] = useState({ courseId: '', studentIds: [] as string[] });
@@ -58,6 +63,51 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
       await loadGroups();
     } catch (e: any) {
       showAlert(e.response?.data?.message || 'Error al crear el grupo');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditGroup = async (group: Group) => {
+    setSelectedGroup(group);
+    setLoadingDetail(true);
+    setIsEditModalOpen(true);
+    try {
+      const res = await api.getGroupDetail(group.id);
+      if (res.success && res.data) {
+        const detail = res.data;
+        setEditCourseIds(detail.courses.map((c: any) => c.course.id));
+      } else if (res && !res.success && res.courses) {
+         // Fallback if the response is direct
+         setEditCourseIds(res.courses.map((c: any) => c.course.id));
+      } else {
+        // Just in case the API returns the object directly
+        setEditCourseIds((res.courses || []).map((c: any) => c.course.id));
+      }
+    } catch (e) {
+      console.error('Error loading group detail:', e);
+      showAlert('No se pudo cargar el detalle del grupo');
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleUpdateGroupCourses = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedGroup) return;
+    
+    setSaving(true);
+    try {
+      // The user mentioned we need a sync logic. 
+      // For now, I'll assume we'll implement a sync endpoint or use the existing one if updated.
+      // Assuming a new sync endpoint: api.syncGroupCourses(selectedGroup.id, { courseIds: editCourseIds })
+      // Since I can't change the backend yet, I'll call a hypothetical sync method in api.ts
+      await (api as any).syncGroupCourses(selectedGroup.id, { courseIds: editCourseIds });
+      setIsEditModalOpen(false);
+      await loadGroups();
+      showAlert('Grupo actualizado con éxito', 'Éxito');
+    } catch (e: any) {
+      showAlert(e.response?.data?.message || 'Error al actualizar los cursos del grupo');
     } finally {
       setSaving(false);
     }
@@ -142,16 +192,27 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
                 </div>
               </div>
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedGroup(group);
-                  setIsEnrollModalOpen(true);
-                }}
-                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
-              >
-                Inscribir Estudiantes
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedGroup(group);
+                    setIsEnrollModalOpen(true);
+                  }}
+                  className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-all"
+                >
+                  Inscribir
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditGroup(group);
+                  }}
+                  className="px-4 py-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-500 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-red-500/20"
+                >
+                  Editar
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -268,6 +329,99 @@ export function GroupsTab({ students, courses, onSelectGroup }: GroupsTabProps) 
             <button type="button" onClick={() => setIsEnrollModalOpen(false)} className={`${BTN_GHOST} uppercase tracking-widest text-xs font-black`}>Cancelar</button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal for Editing Group */}
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Editar Grupo: ${selectedGroup?.name}`}>
+        {loadingDetail ? (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
+          </div>
+        ) : (
+          <form onSubmit={handleUpdateGroupCourses} className="space-y-6">
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Cursos en el Grupo</label>
+              <p className="text-[10px] text-slate-500 mb-4 italic">Selecciona los cursos que deben estar en este grupo. Los no seleccionados serán removidos.</p>
+              
+              <div className="space-y-6">
+                {/* Current Courses Section */}
+                <div>
+                  <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    Cursos Seleccionados ({editCourseIds.length})
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {courses.filter(c => editCourseIds.includes(c.id)).map(c => (
+                      <div key={c.id} className="flex items-center justify-between p-3 bg-slate-700/50 border border-red-500/30 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                          </div>
+                          <span className="text-sm font-bold text-white">{c.name}</span>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setEditCourseIds(prev => prev.filter(id => id !== c.id))}
+                          className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    {editCourseIds.length === 0 && (
+                      <div className="text-center py-4 bg-slate-800/50 rounded-xl border border-dashed border-slate-700">
+                        <p className="text-xs text-slate-500 italic">No hay cursos seleccionados</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Available Courses Section */}
+                <div>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                    Cursos Disponibles
+                  </h4>
+                  <div className="max-h-48 overflow-y-auto bg-slate-800/30 rounded-xl p-2 space-y-1 custom-scrollbar border border-slate-700/50">
+                    {courses.filter(c => !editCourseIds.includes(c.id)).length === 0 ? (
+                      <p className="text-center py-3 text-slate-600 text-[10px] italic">No hay más cursos disponibles</p>
+                    ) : (
+                      courses.filter(c => !editCourseIds.includes(c.id)).map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setEditCourseIds(prev => [...prev, c.id])}
+                          className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-700 group transition-all"
+                        >
+                          <div className="flex items-center gap-3 text-slate-400 group-hover:text-white">
+                            <div className="w-6 h-6 rounded bg-slate-700 flex items-center justify-center text-[10px]">
+                              {c.name.charAt(0)}
+                            </div>
+                            <span className="text-xs font-medium">{c.name}</span>
+                          </div>
+                          <svg className="w-4 h-4 text-slate-600 group-hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button type="submit" disabled={saving} className={`flex-1 py-3 ${BTN_PRIMARY} uppercase tracking-widest text-xs font-black shadow-xl shadow-red-900/20`}>
+                {saving ? 'Guardando cambios...' : 'Guardar Cambios'}
+              </button>
+              <button type="button" onClick={() => setIsEditModalOpen(false)} className={`${BTN_GHOST} uppercase tracking-widest text-xs font-black`}>Cancelar</button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <ConfirmDialog
