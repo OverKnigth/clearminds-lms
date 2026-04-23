@@ -4,6 +4,7 @@ import Modal from '../../../components/Modal';
 import { useDialog } from '../../../hooks/useDialog';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import DateTimePicker from '../../../components/DateTimePicker';
+import { datetimeLocalToIsoUtc, toDatetimeLocalValue } from '../../../utils/datetimeLocal';
 
 interface TutoringSession {
   id: string;
@@ -80,7 +81,7 @@ export function TutoringSessionsTab() {
     try {
       const payload = {
         ...confirmForm,
-        scheduledAt: `${confirmForm.scheduledAt}:00.000Z`
+        scheduledAt: datetimeLocalToIsoUtc(confirmForm.scheduledAt)
       };
       const res = await api.confirmTutoringSession(confirmModal.session.id, payload);
       if (res.success) {
@@ -219,7 +220,10 @@ export function TutoringSessionsTab() {
                               <button
                                 onClick={() => {
                                   setConfirmModal({ open: true, session: s });
-                                  setConfirmForm({ scheduledAt: s.scheduledAt ? new Date(s.scheduledAt).toISOString().slice(0, 16) : '', meetingLink: s.meetingLink || '' });
+                                  setConfirmForm({
+                                    scheduledAt: s.scheduledAt ? toDatetimeLocalValue(new Date(s.scheduledAt)) : '',
+                                    meetingLink: s.meetingLink || ''
+                                  });
                                 }}
                                 className="text-blue-400 hover:text-blue-300 text-xs font-bold uppercase"
                               >

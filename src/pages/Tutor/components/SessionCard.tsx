@@ -4,6 +4,7 @@ import { api } from '../../../services/api';
 import { useDialog } from '../../../hooks/useDialog';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import DateTimePicker from '../../../components/DateTimePicker';
+import { datetimeLocalToIsoUtc } from '../../../utils/datetimeLocal';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   requested:   { label: 'Pendiente',   color: 'yellow' },
@@ -189,7 +190,7 @@ function RescheduleModal({ session, onClose, onSuccess, disabledSlots }: { sessi
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { scheduledAt: `${scheduledAt}:00.000Z`, meetingLink: meetingLink || undefined };
+      const payload = { scheduledAt: datetimeLocalToIsoUtc(scheduledAt), meetingLink: meetingLink || undefined };
       const res = await api.rescheduleTutoringSession(session.id, payload);
       onSuccess(res.data);
     } catch (e: any) { showAlert(e.response?.data?.message || e.message); }

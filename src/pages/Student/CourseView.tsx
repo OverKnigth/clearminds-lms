@@ -9,6 +9,7 @@ import { useDialog } from '../../hooks/useDialog';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import MuxPlayer from '@mux/mux-player-react';
 import DateTimePicker from '../../components/DateTimePicker';
+import { datetimeLocalToIsoUtc, toDatetimeLocalValue } from '../../utils/datetimeLocal';
 
 interface Content {
   id: string;
@@ -115,9 +116,7 @@ export default function CourseView() {
   const [showTutoringModal, setShowTutoringModal] = useState(false);
   const [tutoringObservation, setTutoringObservation] = useState('');
   const [tutoringDate, setTutoringDate] = useState(() => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
+    return toDatetimeLocalValue(new Date());
   });
   const [requestingTutoring, setRequestingTutoring] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
@@ -387,7 +386,7 @@ export default function CourseView() {
     if (!requestingBlockId) return;
     setRequestingTutoring(true);
     try {
-      const isoDate = `${tutoringDate}:00.000Z`;
+      const isoDate = datetimeLocalToIsoUtc(tutoringDate);
       await (api as any).requestTutoring(requestingBlockId, tutoringObservation || undefined, isoDate);
       setShowTutoringModal(false);
       setTutoringObservation('');
@@ -403,9 +402,7 @@ export default function CourseView() {
     setTutoringObservation('');
     const idToRequest = blockId || selectedTopic?.blockId || null;
     setRequestingBlockId(idToRequest);
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    setTutoringDate(now.toISOString().slice(0, 16));
+    setTutoringDate(toDatetimeLocalValue(new Date()));
     setShowTutoringModal(true);
   };
 
@@ -1264,7 +1261,7 @@ export default function CourseView() {
                 label="Fecha de Solicitud"
                 value={tutoringDate}
                 onChange={setTutoringDate}
-                minDate={new Date().toISOString().slice(0, 16)}
+                minDate={toDatetimeLocalValue(new Date())}
                 disabledSlots={disabledSlots}
               />
 

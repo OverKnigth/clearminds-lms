@@ -96,10 +96,7 @@ export default function DateTimePicker({ value, onChange, minDate, label, disabl
     
     return disabledSlots.some(slot => {
       try {
-        // The API returns local times with a trailing 'Z' which is incorrect.
-        // Strip the timezone marker so JS parses as LOCAL time instead of UTC.
-        const localSlot = slot.endsWith('Z') ? slot.slice(0, -1) : slot;
-        const d = new Date(localSlot);
+        const d = new Date(slot);
         if (isNaN(d.getTime())) return false;
         
         let slotYear = d.getFullYear();

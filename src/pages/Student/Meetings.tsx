@@ -4,6 +4,7 @@ import { api } from '../../services/api';
 import Footer from '../../components/Footer';
 import Modal from '../../components/Modal';
 import DateTimePicker from '../../components/DateTimePicker';
+import { datetimeLocalToIsoUtc, toDatetimeLocalValue } from '../../utils/datetimeLocal';
 
 interface Tutoring {
   id: string;
@@ -362,9 +363,7 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: 
   const [blockId, setBlockId] = useState(initialBlockId || '');
   const [observations, setObservations] = useState('');
   const [requestDate, setRequestDate] = useState(() => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
+    return toDatetimeLocalValue(new Date());
   });
   const [submitting, setSubmitting] = useState(false);
   const [disabledSlots, setDisabledSlots] = useState<string[]>([]);
@@ -401,8 +400,7 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: 
     if (!blockId) return;
     setSubmitting(true);
     try {
-      // Send the date as a nominal UTC string (no timezone shift) to match user expectations
-      const isoDate = `${requestDate}:00.000Z`;
+      const isoDate = datetimeLocalToIsoUtc(requestDate);
       await (api as any).requestTutoring(blockId, observations || undefined, isoDate);
       onSuccess();
       onClose();
@@ -448,7 +446,7 @@ function RequestModal({ courses, initialBlockId, onClose, onSuccess, onError }: 
             label="Fecha de Solicitud"
             value={requestDate}
             onChange={setRequestDate}
-            minDate={new Date().toISOString().slice(0, 16)}
+            minDate={toDatetimeLocalValue(new Date())}
             disabledSlots={disabledSlots}
           />
 
