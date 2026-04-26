@@ -1,11 +1,8 @@
-import { useNavigate } from 'react-router-dom';
 import LandingNavbar from '../components/LandingNavbar';
 import Footer from '../components/Footer';
 import krakedevLogo from '../assets/krakedev_logo.png';
 
 export default function Landing() {
-  const navigate = useNavigate();
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <LandingNavbar />
