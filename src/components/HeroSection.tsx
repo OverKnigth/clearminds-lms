@@ -15,7 +15,7 @@ export default function HeroSection({ userName, progress, nextMilestone }: HeroS
         <h1 className="text-4xl font-bold text-white mb-4">
           ¿Listo para transformar tu{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-700">
-            futuro?
+            NONONO?
           </span>
         </h1>
         <p className="text-slate-400 text-lg mb-6">
