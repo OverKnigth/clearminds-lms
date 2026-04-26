@@ -1,4 +1,4 @@
-import React from 'react';
+
 import logo from '../assets/krakedev_logo.png';
 
 export default function MigrationPage() {
