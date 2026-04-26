@@ -32,7 +32,7 @@ export default function LandingNavbar() {
               Contáctanos
             </button>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => window.location.href = 'https://plataforma-clearminds.vercel.app/'}
               className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-medium transition-colors"
             >
               Ingresar

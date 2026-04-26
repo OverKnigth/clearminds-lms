@@ -27,8 +27,7 @@ export default function MigrationPage() {
 
         {/* Button Section */}
         <a 
-          href="#" 
-          // onClick={(e) => { e.preventDefault(); /* AQUI VA EL LINK LUEGO */ }}
+          href="https://plataforma-clearminds.vercel.app/" 
           className="group relative inline-flex items-center justify-center px-10 py-5 font-bold text-black bg-white rounded-full overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_rgba(255,255,255,0.3)] active:scale-95"
         >
           <span className="absolute inset-0 w-full h-full -mt-1 rounded-lg opacity-10 bg-gradient-to-b from-transparent via-transparent to-black pointer-events-none"></span>

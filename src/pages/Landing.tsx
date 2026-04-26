@@ -28,7 +28,7 @@ export default function Landing() {
             </p>
             <div className="flex gap-4 mb-8">
               <button
-                onClick={() => navigate('/login')}
+                onClick={() => window.location.href = 'https://plataforma-clearminds.vercel.app/'}
                 className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-semibold rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-red-500/50"
               >
                 Comenzar Ahora
