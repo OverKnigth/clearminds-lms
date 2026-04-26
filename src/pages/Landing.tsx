@@ -20,7 +20,7 @@ export default function Landing() {
             <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
               ¿Listo para transformar tu{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-600">
-                futuro?
+                futurooooooooo?
               </span>
             </h1>
             <p className="text-xl text-slate-300 mb-8 leading-relaxed">
@@ -33,14 +33,14 @@ export default function Landing() {
               >
                 Comenzar Ahora
               </button>
-              <button 
+              <button
                 onClick={() => document.getElementById('cursos')?.scrollIntoView({ behavior: 'smooth' })}
                 className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl transition-colors border border-slate-700"
               >
                 Ver Cursos
               </button>
             </div>
-            
+
             {/* Stats */}
             <div className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-700">
               <div>
@@ -57,14 +57,14 @@ export default function Landing() {
               </div>
             </div>
           </div>
-          
+
           <div className="relative">
             <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 border border-slate-700/50 shadow-2xl">
               <div className="absolute -top-4 -right-4 w-24 h-24 bg-red-500/20 rounded-full blur-2xl"></div>
               <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-red-600/20 rounded-full blur-2xl"></div>
-              <img 
-                src={krakedevLogo} 
-                alt="KrakeDev" 
+              <img
+                src={krakedevLogo}
+                alt="KrakeDev"
                 className="w-full h-auto relative z-10"
               />
             </div>
@@ -79,7 +79,7 @@ export default function Landing() {
             <h2 className="text-4xl font-bold text-white mb-4">¿Por qué elegir Krakedev?</h2>
             <p className="text-xl text-slate-400">La mejor inversión en tu futuro profesional</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
             <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-8 border border-slate-700/50 hover:border-red-500/50 transition-all">
               <div className="w-14 h-14 bg-red-500/20 rounded-xl flex items-center justify-center mb-6">
@@ -121,33 +121,33 @@ export default function Landing() {
             <h2 className="text-4xl font-bold text-white mb-4">Nuestros Programas</h2>
             <p className="text-xl text-slate-400">Aprende las tecnologías más demandadas del mercado</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { 
-                title: 'Desarrollo Web Full Stack', 
-                icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4', 
+              {
+                title: 'Desarrollo Web Full Stack',
+                icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
                 color: 'red',
                 description: 'React, Node.js, TypeScript',
                 duration: '6 meses'
               },
-              { 
-                title: 'AWS Cloud Practitioner', 
-                icon: 'M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z', 
+              {
+                title: 'AWS Cloud Practitioner',
+                icon: 'M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z',
                 color: 'red',
                 description: 'Certificación oficial AWS',
                 duration: '3 meses'
               },
-              { 
-                title: 'Python & Data Science', 
-                icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', 
+              {
+                title: 'Python & Data Science',
+                icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
                 color: 'red',
                 description: 'Machine Learning, Pandas',
                 duration: '5 meses'
               },
-              { 
-                title: 'Bases de Datos', 
-                icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4', 
+              {
+                title: 'Bases de Datos',
+                icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4',
                 color: 'red',
                 description: 'SQL, PostgreSQL, MongoDB',
                 duration: '4 meses'
@@ -180,7 +180,7 @@ export default function Landing() {
             <h2 className="text-4xl font-bold text-white mb-4">Nuestra Metodología</h2>
             <p className="text-xl text-slate-400">Aprendizaje práctico y efectivo</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               { step: '01', title: 'Aprende', description: 'Videos y contenido estructurado' },
@@ -207,7 +207,7 @@ export default function Landing() {
             <h2 className="text-4xl font-bold text-white mb-4">Historias de Éxito</h2>
             <p className="text-xl text-slate-400">Nuestros estudiantes transformando sus vidas</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { name: 'María González', role: 'Full Stack Developer', company: 'Tech Corp', testimonial: 'Pasé de no saber programar a conseguir mi primer trabajo en 6 meses. La metodología de Krakedev es increíble.' },
@@ -264,7 +264,7 @@ export default function Landing() {
               className="w-14 h-14 bg-slate-800 hover:bg-slate-700 rounded-full flex items-center justify-center transition-all hover:scale-110 group border border-slate-700 hover:border-red-500"
             >
               <svg className="w-6 h-6 text-slate-400 group-hover:text-red-400 transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
+                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z" />
               </svg>
             </a>
             <a
@@ -274,7 +274,7 @@ export default function Landing() {
               className="w-14 h-14 bg-slate-800 hover:bg-slate-700 rounded-full flex items-center justify-center transition-all hover:scale-110 group border border-slate-700 hover:border-red-500"
             >
               <svg className="w-6 h-6 text-slate-400 group-hover:text-red-400 transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
               </svg>
             </a>
             <a
@@ -284,7 +284,7 @@ export default function Landing() {
               className="w-14 h-14 bg-slate-800 hover:bg-slate-700 rounded-full flex items-center justify-center transition-all hover:scale-110 group border border-slate-700 hover:border-red-500"
             >
               <svg className="w-6 h-6 text-slate-400 group-hover:text-red-400 transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
               </svg>
             </a>
           </div>
