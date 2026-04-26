@@ -2,8 +2,23 @@
 
 @layer base {
   html, body {
-    @apply h-full overflow-hidden antialiased;
+    @apply min-h-screen overflow-x-hidden overflow-y-auto antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(71 85 105 / 0.85) rgb(15 23 42 / 0.5);
+  }
+
+  html::-webkit-scrollbar, body::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  html::-webkit-scrollbar-track, body::-webkit-scrollbar-track {
+    background: rgb(15 23 42 / 0.45);
+    border-radius: 9999px;
+  }
+
+  html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-600/80 hover:bg-red-600/70 transition-colors;
   }
 }
 @layer utilities {

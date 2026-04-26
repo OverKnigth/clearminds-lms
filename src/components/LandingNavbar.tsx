@@ -20,20 +20,22 @@ export default function LandingNavbar() {
         <button onClick={handleLogoClick} className="flex items-center cursor-pointer">
           <img src={krakedevLogo} alt="KrakeDev" className="h-12" />
         </button>
-        <div className="flex items-center gap-6">
-          <a href="#cursos" className="text-slate-300 hover:text-white transition-colors">Cursos</a>
-          <a href="#metodologia" className="text-slate-300 hover:text-white transition-colors">Metodología</a>
-          <a href="#historias" className="text-slate-300 hover:text-white transition-colors">Historias de Éxito</a>
-          <div className="flex items-center gap-3 ml-2">
+        <div className="flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-6">
+            <a href="#cursos" className="text-slate-300 hover:text-white transition-colors">Cursos</a>
+            <a href="#metodologia" className="text-slate-300 hover:text-white transition-colors">Metodología</a>
+            <a href="#historias" className="text-slate-300 hover:text-white transition-colors">Historias de Éxito</a>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => window.location.href = 'mailto:contacto@krakedev.com'}
-              className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors"
+              className="hidden sm:block px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors text-sm"
             >
               Contáctanos
             </button>
             <button
               onClick={() => window.location.href = 'https://plataforma-clearminds.vercel.app/'}
-              className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-medium transition-colors"
+              className="px-4 py-2 sm:px-6 sm:py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg font-medium transition-colors text-sm sm:text-base"
             >
               Ingresar
             </button>

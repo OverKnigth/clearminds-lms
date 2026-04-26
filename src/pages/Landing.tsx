@@ -1,8 +1,10 @@
+
 import LandingNavbar from '../components/LandingNavbar';
 import Footer from '../components/Footer';
 import krakedevLogo from '../assets/krakedev_logo.png';
 
 export default function Landing() {
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <LandingNavbar />
@@ -14,7 +16,7 @@ export default function Landing() {
             <div className="inline-block px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-full mb-6">
               <span className="text-red-400 text-sm font-semibold">● ESCUELA DE PROGRAMACIÓN</span>
             </div>
-            <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
               ¿Listo para transformar tu{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-600">
                 futuro?
@@ -39,16 +41,16 @@ export default function Landing() {
             </div>
             
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-700">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-8 border-t border-slate-700">
+              <div className="text-center sm:text-left">
                 <div className="text-3xl font-bold text-red-500 mb-1">150+</div>
                 <div className="text-sm text-slate-400">Estudiantes Activos</div>
               </div>
-              <div>
+              <div className="text-center sm:text-left">
                 <div className="text-3xl font-bold text-red-500 mb-1">95%</div>
                 <div className="text-sm text-slate-400">Tasa de Éxito</div>
               </div>
-              <div>
+              <div className="text-center sm:text-left">
                 <div className="text-3xl font-bold text-red-500 mb-1">100+</div>
                 <div className="text-sm text-slate-400">Graduados con Nosotros</div>
               </div>
@@ -119,7 +121,7 @@ export default function Landing() {
             <p className="text-xl text-slate-400">Aprende las tecnologías más demandadas del mercado</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { 
                 title: 'Desarrollo Web Full Stack', 
